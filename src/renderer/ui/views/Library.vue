@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import TrackTable from '../components/TrackTable.vue'
 import UiModal from '../components/UiModal.vue'
 import UiIcon from '../components/UiIcon.vue'
@@ -96,7 +96,6 @@ const removing = ref(false)
 const playlists = computed(() => [
   { ...defaultList, name: '试听列表', platform: null, cover: '' },
   { ...loveList, name: '我的收藏', platform: null, cover: '' },
-  { id: LOCAL_LIBRARY_ID, name: '本地音乐', platform: null, cover: '' },
   ...platformPlaylists.value,
   ...userLists.filter(item => item.id !== LOCAL_LIBRARY_ID).map(item => ({ ...item, platform: null, cover: '' })),
 ])
@@ -113,7 +112,9 @@ const pageTracks = computed(() => filteredTracks.value.slice((page.value - 1) * 
 const selectedTracks = computed(() => tracks.value.filter(track => selected.value.has(track.id)))
 const pageAllSelected = computed(() => pageTracks.value.length > 0 && pageTracks.value.every(track => selected.value.has(track.id)))
 let requestId = 0
+let active = true
 async function loadTracks(background = false, refresh = false) {
+  if (!active) return
   const request = ++requestId
   const id = listId.value
   if (!background) loading.value = true
@@ -129,10 +130,17 @@ async function loadTracks(background = false, refresh = false) {
 }
 async function loadFavorites() { await refreshFavorites() }
 async function chooseList(id: string) {
+  if (!active) return
+  if (id === LOCAL_LIBRARY_ID) { await router.push('/local'); return }
   await router.replace({ path: '/list', query: { id } })
-  if (listId.value !== id) listId.value = id
+  if (active && route.path === '/list' && route.query.id === id && listId.value !== id) listId.value = id
 }
-watch(() => route.query.id, id => { if (typeof id === 'string' && id !== listId.value) listId.value = id })
+onBeforeRouteUpdate(to => to.query.id === LOCAL_LIBRARY_ID ? { path: '/local', replace: true } : undefined)
+watch(() => route.query.id, id => {
+  if (!active || route.path !== '/list') return
+  if (id === LOCAL_LIBRARY_ID) { void router.replace('/local'); return }
+  if (typeof id === 'string' && id !== listId.value) listId.value = id
+})
 watch(listId, () => { query.value = ''; sort.value = 'original'; originalOrder.value = []; page.value = 1; selected.value = new Set(); saveListPrevSelectId(listId.value); void loadTracks() })
 watch(query, () => { page.value = 1 })
 watch(() => playlists.value.map(item => item.id), () => {
@@ -147,15 +155,18 @@ onMounted(async() => {
   window.app_event.on('myListUpdate', handleListUpdate)
   try {
     const [, previousId] = await Promise.all([ensureLocalLibrary(), getListPrevSelectId(), initializePlatformAccounts()])
+    if (!active) return
     const requestedId = typeof route.query.id === 'string' ? route.query.id : previousId
     initialized.value = true
+    if (requestedId === LOCAL_LIBRARY_ID) { await router.replace('/local'); return }
     const id = playlists.value.some(item => item.id === requestedId) ? requestedId : defaultList.id
     if (listId.value !== id) await chooseList(id)
     else await loadTracks()
+    if (!active) return
     await loadFavorites()
-  } catch (err) { loading.value = false; error.value = err instanceof Error ? err.message : '音乐库加载失败。' }
+  } catch (err) { if (active) { loading.value = false; error.value = err instanceof Error ? err.message : '音乐库加载失败。' } }
 })
-onBeforeUnmount(() => { requestId++; importCancelled.value = true; window.app_event.off('myListUpdate', handleListUpdate) })
+onBeforeUnmount(() => { active = false; requestId++; importCancelled.value = true; window.app_event.off('myListUpdate', handleListUpdate) })
 function handleSuccess(value: string) { message.value = value; selected.value = new Set() }
 async function perform(task: () => Promise<void>, success?: string) {
   actionError.value = ''
@@ -213,18 +224,21 @@ async function importAudio(mode: 'files' | 'folder') {
   importing.value = true
   importCancelled.value = false
   importProgress.value = null
+  let imported = false
   await perform(async() => {
     const result = await showSelectDialog(mode === 'folder'
       ? { title: '选择音乐文件夹（包含子文件夹）', properties: ['openDirectory', 'multiSelections'] }
       : { title: '导入本地音乐', properties: ['openFile', 'multiSelections'], filters: [{ name: '音频文件', extensions: [...LOCAL_AUDIO_EXTENSIONS] }] })
     if (result.canceled || !result.filePaths.length) return
-    await chooseList(LOCAL_LIBRARY_ID)
+    if (!active) return
     const resultInfo = await importLocalAudio(result.filePaths, progress => { importProgress.value = progress }, () => importCancelled.value)
+    if (!active) return
+    imported = true
     message.value = `${resultInfo.cancelled ? '已停止导入，' : ''}已导入 ${resultInfo.imported} 首 · 跳过 ${resultInfo.skipped} 项（重复、非音频或链接）· 失败 ${resultInfo.failed + resultInfo.metadataFailed} 项`
     if (resultInfo.errors.length) actionError.value = `未能读取：${resultInfo.errors.join('；')}${resultInfo.failed + resultInfo.metadataFailed > resultInfo.errors.length ? ' 等文件或文件夹' : ''}`
-    if (listId.value === LOCAL_LIBRARY_ID) await loadTracks()
   })
   importing.value = false
+  if (imported && active) await router.push('/local')
 }
 async function exportPlaylist() {
   await perform(async() => {

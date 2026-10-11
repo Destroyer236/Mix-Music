@@ -4,6 +4,7 @@ import { debounce, getPlatform, isLinux, isWin } from '@common/utils'
 import { initWindowSize, minHeight, minWidth } from './utils'
 import { mainSend } from '@common/mainIpc'
 import { encodePath } from '@common/utils/electron'
+import { WIN_LYRIC_RENDERER_EVENT_NAME } from '@common/ipcNames'
 
 // require('./event')
 // require('./rendererEvent')
@@ -12,22 +13,36 @@ let browserWindow: Electron.BrowserWindow | null = null
 let isWinBoundsUpdateing = false
 let lockedMouseTimer: NodeJS.Timeout | undefined
 
-// A small unlock target remains interactive while the lyrics pass clicks through.
+// Native cursor checks work even for a fully transparent, click-through window.
+// Only the visible unlock button intercepts clicks; the lyrics still pass them on.
 export const applyMousePolicy = () => {
   clearInterval(lockedMouseTimer)
   lockedMouseTimer = undefined
   if (!browserWindow) return
   const win = browserWindow
   if (!global.lx.appSetting['desktopLyric.isLock']) { win.setIgnoreMouseEvents(false); return }
+  let wasInside: boolean | undefined
+  let wasIgnoring: boolean | undefined
   const update = () => {
     if (win.isDestroyed()) return
-    const { x, y, width } = win.getBounds()
+    const { x, y, width, height } = win.getBounds()
     const point = screen.getCursorScreenPoint()
-    const overUnlock = point.x >= x + width - 50 && point.x <= x + width - 10 && point.y >= y + 10 && point.y <= y + 50
-    win.setIgnoreMouseEvents(!overUnlock, { forward: !isLinux })
+    // The card has 7 px of outer padding. Its unlock button is inset 14 px
+    // within the card and is 32 px square (keep in sync with LyricToolbar.vue).
+    const isInside = point.x >= x + 7 && point.x < x + width - 7 && point.y >= y + 7 && point.y < y + height - 7
+    const overUnlock = isInside && point.x >= x + width - 53 && point.x < x + width - 21 && point.y >= y + 21 && point.y < y + 53
+    const ignoring = !overUnlock
+    if (wasIgnoring !== ignoring) {
+      wasIgnoring = ignoring
+      win.setIgnoreMouseEvents(ignoring, { forward: !isLinux })
+    }
+    if (wasInside !== isInside) {
+      wasInside = isInside
+      mainSend(win, WIN_LYRIC_RENDERER_EVENT_NAME.mouse_enter_leave, isInside)
+    }
   }
   update()
-  lockedMouseTimer = setInterval(update, 80)
+  lockedMouseTimer = setInterval(update, 100)
 }
 
 const saveBoundsConfig = debounce((config: Partial<LX.AppSetting>) => {

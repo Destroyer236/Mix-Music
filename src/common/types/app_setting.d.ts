@@ -75,6 +75,9 @@ declare global {
        */
       'common.transparentWindow': boolean
 
+      /** 关闭硬件加速，重新启动应用后生效 */
+      'common.disableHardwareAcceleration': boolean
+
       /**
        * 尝试自动更新
        */

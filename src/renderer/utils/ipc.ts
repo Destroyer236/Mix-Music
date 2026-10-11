@@ -13,6 +13,9 @@ export const getSetting = async() => {
 export const updateSetting = async(setting: Partial<LX.AppSetting>) => {
   await rendererInvoke(CMMON_EVENT_NAME.set_app_setting, setting)
 }
+export const restartApp = async() => {
+  await rendererInvoke(WIN_MAIN_RENDERER_EVENT_NAME.restart_app)
+}
 export const onSettingChanged = (listener: LX.IpcRendererEventListenerParams<Partial<LX.AppSetting>>): RemoveListener => {
   rendererOn(WIN_MAIN_RENDERER_EVENT_NAME.on_config_change, listener)
   return () => {

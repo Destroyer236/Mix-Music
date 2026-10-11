@@ -13,6 +13,7 @@ import createWorkers from './worker'
 import { migrateDBData } from './utils/migrate'
 import { openDirInExplorer } from '@common/utils/electron'
 import { setProxyByHost } from '@common/utils/request'
+import { applyRuntimePerformance } from './utils/runtimePerformance'
 
 export const initGlobalData = () => {
   const envParams = parseEnvParams()
@@ -109,6 +110,7 @@ export const applyElectronEnvParams = () => {
   // Is disable hardware acceleration
   if (global.envParams.cmdParams.dha) app.disableHardwareAcceleration()
   if (global.envParams.cmdParams.dhmkh) app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling')
+  applyRuntimePerformance(app.commandLine)
 
   // fix linux transparent fail. https://github.com/electron/electron/issues/25153#issuecomment-843688494
   if (process.platform == 'linux') app.commandLine.appendSwitch('use-gl', 'desktop')

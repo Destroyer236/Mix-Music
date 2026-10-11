@@ -77,6 +77,7 @@ const modules = {
 
 
     restart_window: 'restart_window',
+    restart_app: 'restart_app',
 
     get_lyric_info: 'get_lyric_info',
     set_lyric_info: 'set_lyric_info',

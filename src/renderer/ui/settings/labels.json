@@ -12,6 +12,7 @@
   "common.controlBtnPosition": "控制按钮位置，左边、右边",
   "common.playBarProgressStyle": "播放栏进度条样式",
   "common.transparentWindow": "启用透明窗口",
+  "common.disableHardwareAcceleration": "关闭硬件加速",
   "common.tryAutoUpdate": "尝试自动更新",
   "common.showChangeLog": "更新版本后是否显示变更日志",
   "player.startupAutoPlay": "启动时自动播放歌曲",

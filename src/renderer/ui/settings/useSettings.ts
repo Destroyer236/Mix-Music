@@ -32,12 +32,13 @@ export function useSettings() {
   const syncDevices = ref<LX.Sync.ServerDevices>([])
   const caches = reactive({ resources: '…', sources: 0, urls: 0, lyrics: 0, edited: 0 })
   const rules = ref(dislikeInfo.rules)
-  const confirmation = ref<{ title: string, message: string, danger: boolean } | null>(null)
+  const confirmation = ref<{ title: string, message: string, danger: boolean, confirmLabel: string, cancelLabel: string } | null>(null)
   let resolveConfirmation: ((value: boolean) => void) | null = null
+  let deviceEnumerationActive = false
 
-  async function confirm(title: string, message: string, danger = false): Promise<boolean> {
+  async function confirm(title: string, message: string, danger = false, labels = { confirm: '确认', cancel: '取消' }): Promise<boolean> {
     if (resolveConfirmation) resolveConfirmation(false)
-    confirmation.value = { title, message, danger }
+    confirmation.value = { title, message, danger, confirmLabel: labels.confirm, cancelLabel: labels.cancel }
     return new Promise(resolve => { resolveConfirmation = resolve })
   }
   function answerConfirmation(value: boolean) {
@@ -58,8 +59,10 @@ export function useSettings() {
     } finally { busy.value = false }
   }
   async function saveRecord(setting: Partial<LX.AppSetting>) {
+    const hardwareChanged = typeof setting['common.disableHardwareAcceleration'] === 'boolean' && setting['common.disableHardwareAcceleration'] !== appSetting['common.disableHardwareAcceleration']
     await ipc.updateSetting(setting)
     mergeSetting(setting)
+    if (hardwareChanged && await confirm('重新启动 LinkLine', '修改已保存，是否立即重启 LinkLine 以生效？', false, { confirm: '立即重启', cancel: '稍后' })) await ipc.restartApp()
   }
   async function setPreference(field: SettingField, input: string | boolean) {
     await run('设置已保存', async() => {
@@ -110,6 +113,18 @@ export function useSettings() {
   async function refreshDevices() {
     if (!navigator.mediaDevices) return
     devices.value = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'audiooutput')
+  }
+  function onDeviceChange() {
+    if (!deviceEnumerationActive) return
+    void refreshDevices().catch(() => { failed.value = true; notice.value = '音频输出设备暂时无法读取，可稍后点击刷新。' })
+  }
+  async function setDeviceEnumerationActive(active: boolean) {
+    if (deviceEnumerationActive === active) return
+    deviceEnumerationActive = active
+    if (active) {
+      navigator.mediaDevices?.addEventListener('devicechange', onDeviceChange)
+      await refreshDevices()
+    } else navigator.mediaDevices?.removeEventListener('devicechange', onDeviceChange)
   }
   async function importSourceText(script: string) {
     if (userApi.list.length >= 20) throw new Error('最多可以保存 20 个自定义音源。')
@@ -237,7 +252,7 @@ export function useSettings() {
   }
   async function saveRules() { await run('屏蔽规则已保存', async() => { await overwirteDislikeInfo(rules.value); rules.value = dislikeInfo.rules }) }
   async function initialize() {
-    const results = await Promise.allSettled([ipc.getSystemFonts(), ipc.getUserApiList(), refreshDevices(), refreshCaches(), refreshSyncDevices()])
+    const results = await Promise.allSettled([ipc.getSystemFonts(), ipc.getUserApiList(), refreshCaches(), appSetting['sync.enable'] ? refreshSyncDevices() : Promise.resolve()])
     if (results[0].status === 'fulfilled') fonts.value = results[0].value.map(font => font.replace(/^"|"$/g, ''))
     if (results[1].status === 'fulfilled') userApi.list = results[1].value
     const errors = results.filter(result => result.status === 'rejected')
@@ -245,11 +260,11 @@ export function useSettings() {
   }
   onMounted(() => {
     void initialize()
-    navigator.mediaDevices?.addEventListener('devicechange', refreshDevices)
   })
   onBeforeUnmount(() => {
     answerConfirmation(false)
-    navigator.mediaDevices?.removeEventListener('devicechange', refreshDevices)
+    deviceEnumerationActive = false
+    navigator.mediaDevices?.removeEventListener('devicechange', onDeviceChange)
   })
-  return { busy, notice, failed, fonts, devices, syncDevices, caches, rules, confirmation, answerConfirmation, confirm, run, saveRecord, setPreference, chooseDirectory, refreshDevices, importSource, importSourceText, removeSource, useSource, exportBackup, importBackup, exportText, refreshCaches, clearData, refreshSyncDevices, removeSyncDevice, saveRules, sync, versionInfo, userApi }
+  return { busy, notice, failed, fonts, devices, syncDevices, caches, rules, confirmation, answerConfirmation, confirm, run, saveRecord, setPreference, chooseDirectory, refreshDevices, setDeviceEnumerationActive, importSource, importSourceText, removeSource, useSource, exportBackup, importBackup, exportText, refreshCaches, clearData, refreshSyncDevices, removeSyncDevice, saveRules, sync, versionInfo, userApi }
 }

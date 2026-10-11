@@ -27,7 +27,7 @@ function fixture() {
     vue: { ...vue, onMounted() {} },
     '@lyric/store/state': state,
     '@lyric/useApp/useWindowSize': () => ({ startResize() {} }),
-    '@lyric/useApp/useHoverHide': () => vue.ref(false),
+    '@lyric/useApp/useHoverHide': () => ({ isHoverHide: vue.ref(false), isMouseEnter: vue.ref(false) }),
     '@lyric/useApp/useCommon': () => {},
     '@lyric/useApp/useLyric': () => {},
     '@lyric/useApp/useTheme': () => {},
@@ -78,11 +78,9 @@ test('native configuration forwards saved background alpha for initial load and 
   assert.deepEqual(plain(utils.buildLyricConfig(initial)), { 'desktopLyric.style.backgroundOpacity': 0, 'desktopLyric.style.opacity': 78 })
   const sent = []
   const config = loadSource(read('src/main/modules/winLyric/config.ts'), {
-    '@common/utils': { isLinux: false },
     './main': { isExistWindow: () => true },
     './rendererEvent': { sendConfigChange: patch => sent.push(plain(patch)) },
     './utils': utils,
-    './mouseCheckTools': {},
   }, { global: { lx: { appSetting: initial } } })
   config.setLrcConfig(['desktopLyric.style.backgroundOpacity'], { 'desktopLyric.style.backgroundOpacity': 65 })
   assert.deepEqual(sent, [{ 'desktopLyric.style.backgroundOpacity': 65 }])

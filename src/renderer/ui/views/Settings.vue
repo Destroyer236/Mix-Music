@@ -36,7 +36,7 @@
           <div v-for="field in fieldsFor(category.id)" :key="field.key" class="studio-settings-row">
             <div class="studio-settings-label"><label :for="fieldId(field)">{{ field.label }}</label><p v-if="field.hint">{{ field.hint }}</p></div>
             <div class="studio-settings-control">
-              <button v-if="field.type === 'boolean'" :id="fieldId(field)" type="button" class="studio-settings-switch" :class="{ checked: appSetting[field.key] }" role="switch" :aria-checked="Boolean(appSetting[field.key])" :aria-label="field.label" @click="setPreference(field, !appSetting[field.key])"><span /></button>
+              <button v-if="field.type === 'boolean'" :id="fieldId(field)" type="button" class="studio-settings-switch" :class="{ checked: appSetting[field.key] }" :disabled="busy" role="switch" :aria-checked="Boolean(appSetting[field.key])" :aria-label="field.label" @click="setPreference(field, !appSetting[field.key])"><span /></button>
               <UiSelect v-else-if="optionsFor(field).length" :id="fieldId(field)" :model-value="String(appSetting[field.key] ?? '')" :options="optionsFor(field)" :aria-label="field.label" @change="changeChoice(field, $event)" />
               <template v-else-if="field.type === 'path'"><input :id="fieldId(field)" :value="appSetting[field.key]" @change="changeField(field, $event)"><button type="button" class="studio-settings-icon-button" aria-label="选择保存目录" @click="chooseDirectory"><UiIcon name="folder" /></button><button type="button" class="studio-settings-icon-button" aria-label="打开保存目录" @click="openDirInExplorer(appSetting['download.savePath'])"><UiIcon name="arrowUpRight" /></button></template>
               <div v-else-if="field.type === 'font'" class="studio-settings-font"><UiSelect :model-value="String(appSetting[field.key] ?? '')" :options="fontOptions" :aria-label="`${field.label}，选择系统字体`" placeholder="选择系统字体" @change="changeChoice(field, $event)" /><input :id="fieldId(field)" :value="appSetting[field.key]" placeholder="或手动填写字体家族" @change="changeField(field, $event)"></div>
@@ -91,7 +91,7 @@
         </section>
       </main>
     </div>
-    <UiModal :show="Boolean(confirmation)" :title="confirmation?.title ?? ''" @close="answerConfirmation(false)"><p>{{ confirmation?.message }}</p><template #footer><button type="button" class="ui-dialog-button" @click="answerConfirmation(false)">取消</button><button type="button" class="ui-dialog-button" :class="confirmation?.danger ? 'ui-dialog-button-danger' : 'ui-dialog-button-primary'" @click="answerConfirmation(true)">确认</button></template></UiModal>
+    <UiModal :show="Boolean(confirmation)" :title="confirmation?.title ?? ''" @close="answerConfirmation(false)"><p>{{ confirmation?.message }}</p><template #footer><button type="button" class="ui-dialog-button" @click="answerConfirmation(false)">{{ confirmation?.cancelLabel }}</button><button type="button" class="ui-dialog-button" :class="confirmation?.danger ? 'ui-dialog-button-danger' : 'ui-dialog-button-primary'" @click="answerConfirmation(true)">{{ confirmation?.confirmLabel }}</button></template></UiModal>
     <UiModal :show="licenseOpen" title="开源许可与归属" @close="licenseOpen = false"><p>LinkLine 的播放器、音源接口和资料管理基于 LX Music Desktop。</p><p class="studio-settings-license">LX Music Desktop<br>Copyright © lyswhut / 落雪无痕<br>Licensed under the Apache License, Version 2.0.</p><p>修改后的界面代码与第三方依赖保留各自原始版权和许可声明。完整许可文件随应用一起分发。</p><template #footer><button type="button" class="ui-dialog-button" @click="openUrl('https://www.apache.org/licenses/LICENSE-2.0')">查看 Apache-2.0<UiIcon name="arrowUpRight" /></button><button type="button" class="ui-dialog-button ui-dialog-button-primary" @click="licenseOpen = false">关闭</button></template></UiModal>
   </div>
 </template>
@@ -143,6 +143,8 @@ const fontOptions = computed(() => [{ value: '', label: '系统默认' }, ...fon
 const cacheKinds = [{ id: 'resources', name: '图片和资源缓存' }, { id: 'sources', name: '换源匹配缓存' }, { id: 'urls', name: '播放地址缓存' }, { id: 'lyrics', name: '原始歌词缓存' }, { id: 'edited', name: '已编辑歌词' }] as const
 const keyword = computed(() => query.value.trim().toLowerCase())
 const visibleCategories = computed(() => keyword.value ? categories.filter(category => `${category.name} ${category.description} ${category.keywords}`.toLowerCase().includes(keyword.value) || settingFields.some(field => field.category === category.id && `${field.label} ${field.hint ?? ''}`.toLowerCase().includes(keyword.value))) : categories.filter(category => category.id === active.value))
+const outputDevicesVisible = computed(() => visibleCategories.value.some(category => category.id === 'audio' || category.id === 'playback'))
+watch(outputDevicesVisible, visible => { void settings.setDeviceEnumerationActive(visible).catch(report) })
 const currentSource = computed(() => userApi.list.find(api => api.id === appSetting['common.apiSource']))
 const sourceStatus = computed(() => userApi.status ? '已就绪' : userApi.message === 'initing' ? '正在初始化' : userApi.message ? userApi.message : '尚未连接')
 const syncStatus = computed(() => {
@@ -251,7 +253,10 @@ function shortcutValue(kind: 'local' | 'global', name: string) {
   return hotkeys.formatted(hotkeys.binding(kind, name))
 }
 function enableHotkeys(kind: 'local' | 'global', event: Event) { void hotkeys.enable(kind, (event.target as HTMLInputElement).checked) }
-onMounted(() => { void getUserEQPresetList().then(list => { customEq.value = list }).catch(report) })
+onMounted(() => {
+  void settings.setDeviceEnumerationActive(outputDevicesVisible.value).catch(report)
+  void getUserEQPresetList().then(list => { customEq.value = list }).catch(report)
+})
 </script>
 
 <style lang="less">

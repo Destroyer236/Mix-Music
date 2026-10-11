@@ -10,18 +10,18 @@ LinkLine 是基于 LXMusic 开源项目再开发的桌面音乐应用。全新�
 
 [项目源码](https://github.com/yaonikaixin999999/LinkLine) · [下载与版本记录](https://github.com/yaonikaixin999999/LinkLine/releases) · [完整功能与使用说明](docs/项目说明.md) · [反馈问题](https://github.com/yaonikaixin999999/LinkLine/issues)
 
-当前推荐下载 1.0.5，新增可选隐藏滚动条，统一音乐库面板颜色，修复播放与音效资源的内存累积，并恢复默认使用账号最高音质。包含本地音乐库、文件夹递归导入、专辑 / 歌手搜索、后台播放和应用内下载安装更新。版本说明：[1.0.5](docs/releases/v1.0.5.md) · [1.0.4](docs/releases/v1.0.4.md) · [1.0.3](docs/releases/v1.0.3.md) · [完整更新日志](CHANGELOG.md)。
+当前推荐下载 1.0.6：本地音乐改为独立页面，提供全部歌曲、歌手、专辑和文件夹四种分类；桌面歌词锁定按钮悬停显示，默认显示歌词翻译。新增可保存的硬件加速开关，并限制缓存、按需加载服务，减少普通听歌场景的资源驻留。版本说明：[1.0.6](docs/releases/v1.0.6.md) · [1.0.5](docs/releases/v1.0.5.md) · [1.0.4](docs/releases/v1.0.4.md) · [1.0.3](docs/releases/v1.0.3.md) · [完整更新日志](CHANGELOG.md)。
 
 ## 下载与安装
 
-**1.0.5 发行版：Windows 10 / 11，64 位（x64）。**
+**1.0.6 发行版：Windows 10 / 11，64 位（x64）。**
 
 | 下载入口 | 链接 |
 | --- | --- |
-| GitHub 官方安装包 | [LinkLine-v1.0.5-x64-Setup.exe](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.5/LinkLine-v1.0.5-x64-Setup.exe) |
-| 国内加速下载 | [通过 gh-proxy.com 下载](https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.5/LinkLine-v1.0.5-x64-Setup.exe) |
-| 国内备用入口 | [通过 ghfast.top 下载](https://ghfast.top/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.5/LinkLine-v1.0.5-x64-Setup.exe) |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.5/SHA256SUMS.txt) |
+| GitHub 官方安装包 | [LinkLine-v1.0.6-x64-Setup.exe](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.6/LinkLine-v1.0.6-x64-Setup.exe) |
+| 国内加速下载 | [通过 gh-proxy.com 下载](https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.6/LinkLine-v1.0.6-x64-Setup.exe) |
+| 国内备用入口 | [通过 ghfast.top 下载](https://ghfast.top/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.6/LinkLine-v1.0.6-x64-Setup.exe) |
+| 文件校验 | [SHA256SUMS.txt](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.0.6/SHA256SUMS.txt) |
 | 所有正式版本 | [GitHub Releases](https://github.com/yaonikaixin999999/LinkLine/releases) |
 
 下载后运行安装程序，按提示安装并启动 LinkLine。国内加速入口由第三方提供，用于转发本仓库的官方文件；可用性取决于服务和网络，不能保证所有地区都能访问。无法连接时可切换备用入口或 GitHub 官方源。
@@ -33,7 +33,7 @@ LinkLine 是基于 LXMusic 开源项目再开发的桌面音乐应用。全新�
 3. 点击「同步音乐库」或「同步全部」，在「我喜欢的音乐」查看合并红心，在音乐库查看平台创建的歌单。
 4. 从搜索、精选歌单、排行榜或音乐库中选择歌曲播放。在线播放仍由歌曲版权、平台权限、账号状态与网络决定。
 
-不登录也可以使用音乐库的「导入本地音乐」。需要自定义音乐接口时，在「音源管理」导入自己准备的兼容音源脚本；项目不内置此类脚本。
+不登录也可以从左侧「本地音乐」进入独立页面，导入文件或递归扫描文件夹。需要自定义音乐接口时，在「音源管理」导入自己准备的兼容音源脚本；项目不内置此类脚本。
 
 ## 功能概览
 
@@ -44,16 +44,19 @@ LinkLine 是基于 LXMusic 开源项目再开发的桌面音乐应用。全新�
 | 红心联动 | 主动收藏或取消收藏时，在已连接且支持写入的平台查找同版本歌曲，检查权限并逐个平台操作 |
 | 播放 | 单曲 / 整个列表、播放队列、循环 / 随机 / 顺序、长进度条、音量浮层、播放进度恢复、定时停止 |
 | 音质与换源 | 默认使用账号最高音质，支持标准至无损 / Hi-Res、平台特殊音质；原平台无法播放时尝试其他平台的同版本歌曲 |
-| 本地音乐库 | 独立本地音乐栏目、文件与文件夹导入、子目录递归扫描、无导入数量上限、重复文件跳过、进度与停止、自建歌单、搜索与排序、批量操作、资料编辑、歌单文件导入导出 |
+| 本地音乐库 | 独立页面，全部歌曲 / 歌手 / 专辑 / 文件夹分类、文件与文件夹导入、子目录递归扫描、无导入数量上限、重复文件跳过、进度与停止、分类播放、本地搜索、批量操作与资料编辑 |
 | 下载中心 | 音质选择、任务进度、暂停 / 继续 / 重试、下载目录、完成文件播放、歌词与封面选项 |
-| 歌词与详情 | 滚动歌词、翻译 / 罗马音、歌词偏移、歌手 / 专辑搜索链接、复制歌词、平台评论、独立桌面歌词窗口 |
+| 歌词与详情 | 滚动歌词、默认开启翻译、罗马音、歌词偏移、歌手 / 专辑搜索链接、复制歌词、平台评论、独立桌面歌词窗口、锁定按钮悬停显隐 |
 | 后台播放 | 默认启用托盘、关闭窗口时询问、取消 / 退出 / 最小化到托盘、记住选择与设置调整 |
 | 外观 | 浅 / 深 / 系统主题、点缀色、圆角、面板间距、列表密度、隐藏滚动条、发现页内容开关 |
 | 声音与设备 | 输出设备、播放速率、均衡器及预设、环境音效、环绕与音高选项 |
 | 数据与服务 | 备份恢复、缓存清理、屏蔽规则、设备同步、本地开放 API、应用内 / 全局快捷键 |
+| 运行资源 | 硬件加速默认开启，可关闭并保存后重启；按需加载服务与 Worker，限制歌单和封面地址缓存、V8 旧生代预算 |
 | 更新中心 | 每次启动检查并提示新版本、顶部与设置入口、更新日志、历史版本、国内加速与官方源、应用内下载进度与安装按钮 |
 
 音质菜单会根据当前歌曲和平台展示可用选项。默认使用「账号最高音质」，在当前账号和歌曲权限内选择最高档，并不代表自动获得会员或版权权限。设置与播放栏使用同一份音质偏好。
+
+「设置 → 常规与外观 → 关闭硬件加速」修改后先保存，再提示「修改已保存，是否立即重启 LinkLine 以生效？」。「512 MiB」是单个 V8 旧生代预算，不是软件总内存上限；关闭加速的实际效果取决于设备。详见[性能优化说明](docs/性能优化说明.md)。
 
 ## 平台支持
 
@@ -74,7 +77,7 @@ LinkLine 是基于 LXMusic 开源项目再开发的桌面音乐应用。全新�
 
 国内检查源读取本仓库的 [`updates/stable-linkline.json`](updates/stable-linkline.json)，通过 gh-proxy.com 加速；失败后尝试 ghfast.top，再回退 GitHub 官方。国内下载使用同样的第三方加速入口。可切换到官方源，网络异常时可重试。
 
-仓库改名后，已发布的 1.0.0 / 1.0.1 仍读取兼容清单 `updates/stable.json`；旧仓库地址由 GitHub 重定向。发布脚本同时生成两份清单，后续发布时一起提交，保证旧版国内更新入口继续可用。旧版的官方更新检查可能无法识别改名后的地址，可使用国内更新源，或直接从上方下载 1.0.5 安装包升级。
+仓库改名后，已发布的 1.0.0 / 1.0.1 仍读取兼容清单 `updates/stable.json`；旧仓库地址由 GitHub 重定向。发布脚本同时生成两份清单，后续发布时一起提交，保证旧版国内更新入口继续可用。旧版的官方更新检查可能无法识别改名后的地址，可使用国内更新源，或直接从上方下载 1.0.6 安装包升级。
 
 发布清单提供安装包校验信息时，可在更新中心展开「查看 SHA-256 校验值」，与下载文件的 SHA-256 比较，确认文件完整。
 

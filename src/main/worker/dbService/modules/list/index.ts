@@ -20,20 +20,22 @@ import {
   updateUserLists as updateUserListsFromDB,
   getMusicInfoOrder,
 } from './dbHelper'
+import { MusicListCache } from './musicListCache'
 
 let userLists: LX.DBService.UserListInfo[]
-let musicLists = new Map<string, LX.Music.MusicInfo[]>()
+const musicLists = new MusicListCache()
 let rawPoss = new Map<string, number>()
 
-const toDBMusicInfo = (musicInfos: LX.Music.MusicInfo[], listId: string, offset: number = 0): LX.DBService.MusicInfo[] => {
-  return musicInfos.map((info, index) => {
-    return {
+function * toDBMusicInfo(musicInfos: LX.Music.MusicInfo[], listId: string, offset: number = 0): IterableIterator<LX.DBService.MusicInfo> {
+  for (let index = 0; index < musicInfos.length; index++) {
+    const info = musicInfos[index]
+    yield {
       ...info,
       listId,
       meta: JSON.stringify(info.meta),
       order: offset + index,
     }
-  })
+  }
 }
 
 /**
@@ -108,7 +110,10 @@ export const createUserLists = (position: number, lists: LX.List.UserListInfo[])
 export const removeUserLists = (ids: string[]) => {
   deleteUserLists(ids)
   userLists &&= queryAllUserList()
-  for (const id of ids) rawPoss.delete(id)
+  for (const id of ids) {
+    rawPoss.delete(id)
+    musicLists.delete(id)
+  }
 }
 
 /**
@@ -171,16 +176,17 @@ export const updateUserListsPosition = (position: number, ids: string[]) => {
 export const getListMusics = (listId: string): LX.Music.MusicInfo[] => {
   let targetList: LX.Music.MusicInfo[] | undefined = musicLists.get(listId)
   if (targetList == null) {
-    targetList = queryMusicInfoByListId(listId).map(info => {
-      return {
+    targetList = []
+    for (const info of queryMusicInfoByListId(listId)) {
+      targetList.push({
         id: info.id,
         name: info.name,
         singer: info.singer,
         source: info.source,
         interval: info.interval,
         meta: JSON.parse(info.meta),
-      }
-    })
+      })
+    }
     musicLists.set(listId, targetList)
   }
 
@@ -193,12 +199,13 @@ export const getListMusics = (listId: string): LX.Music.MusicInfo[] => {
  * @param musicInfos 歌曲列表
  */
 export const musicOverwrite = (listId: string, musicInfos: LX.Music.MusicInfo[]) => {
-  let targetList = getListMusics(listId)
+  const targetList = musicLists.get(listId)
   overwriteMusicInfo(listId, toDBMusicInfo(musicInfos, listId))
   if (targetList) {
     targetList.splice(0, targetList.length)
     arrPush(targetList, musicInfos)
   }
+  musicLists.set(listId, targetList ?? musicInfos)
 }
 
 /**
@@ -233,6 +240,7 @@ export const musicsAdd = (listId: string, musicInfos: LX.Music.MusicInfo[], addM
       break
     }
   }
+  musicLists.set(listId, targetList)
 }
 
 /**
@@ -287,6 +295,7 @@ export const musicsMove = (fromId: string, toId: string, musicInfos: LX.Music.Mu
 
   listSet = new Set<string>(ids)
   musicLists.set(fromId, fromList.filter(mInfo => !listSet.has(mInfo.id)))
+  musicLists.set(toId, toList)
 }
 
 /**
@@ -302,6 +311,7 @@ export const musicsUpdate = (musicInfos: LX.List.ListActionMusicUpdate) => {
       order: 0,
     }
   }))
+  const changed = new Map<string, LX.Music.MusicInfo[]>()
   for (const { id, musicInfo } of musicInfos) {
     const targetList = musicLists.get(id)
     if (targetList == null) continue
@@ -312,7 +322,9 @@ export const musicsUpdate = (musicInfos: LX.List.ListActionMusicUpdate) => {
     targetMusic.source = musicInfo.source
     targetMusic.interval = musicInfo.interval
     targetMusic.meta = musicInfo.meta
+    changed.set(id, targetList)
   }
+  for (const [id, list] of changed) musicLists.set(id, list)
 }
 
 /**
@@ -325,6 +337,7 @@ export const musicsClear = (ids: string[]) => {
     const targetList = musicLists.get(id)
     if (!targetList) continue
     targetList.splice(0, targetList.length)
+    musicLists.set(id, targetList)
   }
 }
 
@@ -371,16 +384,16 @@ export const listDataOverwrite = (myListData: MakeOptional<LX.List.ListDataFull,
     tempList: myListData.tempList ?? getListMusics(LIST_IDS.TEMP),
   }
 
-  const dbMusicInfos: LX.DBService.MusicInfo[] = [
-    ...toDBMusicInfo(listData.defaultList, LIST_IDS.DEFAULT),
-    ...toDBMusicInfo(listData.loveList, LIST_IDS.LOVE),
-    ...toDBMusicInfo(listData.tempList, LIST_IDS.TEMP),
-  ]
-  listData.userList.forEach(({ list, ...listInfo }, index) => {
+  listData.userList.forEach(({ list: _list, ...listInfo }, index) => {
     dbLists.push({ ...listInfo, position: index })
-    arrPush(dbMusicInfos, toDBMusicInfo(list, listInfo.id))
   })
-  overwriteListData(dbLists, dbMusicInfos)
+  function * dbMusicInfos() {
+    yield * toDBMusicInfo(listData.defaultList, LIST_IDS.DEFAULT)
+    yield * toDBMusicInfo(listData.loveList, LIST_IDS.LOVE)
+    yield * toDBMusicInfo(listData.tempList, LIST_IDS.TEMP)
+    for (const list of listData.userList) yield * toDBMusicInfo(list.list, list.id)
+  }
+  overwriteListData(dbLists, dbMusicInfos())
 
   if (userLists) userLists.splice(0, userLists.length, ...dbLists)
   else userLists = dbLists

@@ -1,6 +1,18 @@
 # LinkLine 更新日志
 
-本文件记录 LinkLine 的正式版本变化。完整发行说明见 [docs/releases/](docs/releases/)，下载文件见[本项目 Releases](https://github.com/yaonikaixin999999/LinkLine/releases)。
+本文件记录 LinkLine 的版本变化。完整发行说明见 [docs/releases/](docs/releases/)，下载文件见[本项目 Releases](https://github.com/yaonikaixin999999/LinkLine/releases)。
+
+## [1.0.6](https://github.com/yaonikaixin999999/LinkLine/releases/tag/v1.0.6) — 2026-10-11
+
+- 本地音乐改为独立页面，提供全部歌曲、歌手、专辑和文件夹分类，按标签及完整文件路径自动归类。支持本地搜索、分类播放、导入目录、编辑信息与批量加入歌单、移除；保留现有曲库与原音频文件。
+- 删除「我的音乐库」内部重复的本地音乐入口，统一从主侧栏进入独立页面；旧本地音乐链接自动跳转。
+- 桌面歌词锁定按钮随鼠标悬停显示，移出歌词区域后隐藏；锁定状态下仍可移入并解锁。
+- 歌词翻译默认开启，保留已保存的关闭选择。
+- 「常规与外观」新增「关闭硬件加速」，默认使用硬件加速。修改先保存到本地，再提示「修改已保存，是否立即重启 LinkLine 以生效？」，可选择立即重启或稍后。
+- 关闭听歌不需要的 Chromium 后台网络、浏览器扩展、投屏与自动填充通信；设备同步、开放接口、下载 Worker 和输出设备发现改为按需加载，音乐请求、账号登录与应用更新继续可用。
+- 主界面 V8 旧生代预算设为 512 MiB，数据库 Worker 旧生代预算设为 512 MiB；为歌单与封面地址缓存设置 LRU 保留预算。此预算不代表软件总运行内存上限，详见[性能优化说明](docs/性能优化说明.md)。
+
+[阅读 1.0.6 发行说明](docs/releases/v1.0.6.md)
 
 ## [1.0.5](https://github.com/yaonikaixin999999/LinkLine/releases/tag/v1.0.5) — 2026-10-11
 

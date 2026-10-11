@@ -94,7 +94,7 @@ test('platform-created Library playlists play through the real queue and IPC wit
   const module = { exports: {} }
   const imports = {
     vue: { ...vue, watch() {}, onMounted() {}, onBeforeUnmount() {} },
-    'vue-router': { useRoute: () => ({ query: { id: 'platform-fixture' } }), useRouter: () => ({ replace() {} }) },
+    'vue-router': { useRoute: () => ({ query: { id: 'platform-fixture' } }), useRouter: () => ({ replace() {} }), onBeforeRouteUpdate() {} },
     '@renderer/store/list/state': h.state,
     '@renderer/store/list/action': h.actions,
     '@common/constants': { LIST_IDS: h.LIST_IDS },

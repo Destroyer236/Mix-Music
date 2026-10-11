@@ -76,6 +76,7 @@ test('opening brings lyrics above other windows without focus or changing an exi
     if (name === '@common/utils') return { debounce: callback => callback, getPlatform: () => 'win32', isWin: true, isLinux: false }
     if (name === './utils') return utils
     if (name === '@common/mainIpc') return { mainSend: () => {} }
+    if (name === '@common/ipcNames') return { WIN_LYRIC_RENDERER_EVENT_NAME: { mouse_enter_leave: 'lyric-hover' } }
     if (name === '@common/utils/electron') return { encodePath: value => value }
     throw new Error(name)
   }, globals)

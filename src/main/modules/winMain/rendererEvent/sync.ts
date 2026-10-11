@@ -1,18 +1,14 @@
 import { mainHandle } from '@common/mainIpc'
 import { WIN_MAIN_RENDERER_EVENT_NAME } from '@common/ipcNames'
-import {
-  startServer,
-  stopServer,
-  getServerStatus,
-  generateCode,
-  connectServer,
-  disconnectServer,
-  getClientStatus,
-  getServerDevices,
-  removeServerDevice,
-} from '@main/modules/sync'
+import type * as SyncService from '@main/modules/sync'
 import { sendEvent } from '../main'
 
+// Cross-device sync is optional. Merely registering its IPC handlers must not
+// retain the WebSocket server/client and snapshot management dependency tree.
+let syncService: Promise<typeof SyncService> | null = null
+const loadSyncService = async() => syncService ??= import('@main/modules/sync')
+const disabledServerStatus = (): LX.Sync.ServerStatus => ({ status: false, message: '', address: [], code: '', devices: [] })
+const disabledClientStatus = (): LX.Sync.ClientStatus => ({ status: false, message: '', address: [] })
 
 let selectModeListenr: ((mode: LX.Sync.ModeTypes[keyof LX.Sync.ModeTypes] | null) => void) | null = null
 
@@ -20,14 +16,16 @@ export default () => {
   mainHandle<LX.Sync.SyncServiceActions, any>(WIN_MAIN_RENDERER_EVENT_NAME.sync_action, async({ params: data }) => {
     switch (data.action) {
       case 'enable_server':
-        data.data.enable ? await startServer(parseInt(data.data.port)) : await stopServer()
+        if (data.data.enable) await (await loadSyncService()).startServer(parseInt(data.data.port))
+        else if (syncService) await (await syncService).stopServer()
         return
       case 'enable_client':
-        data.data.enable ? await connectServer(data.data.host, data.data.authCode) : await disconnectServer()
+        if (data.data.enable) await (await loadSyncService()).connectServer(data.data.host, data.data.authCode)
+        else if (syncService) await (await syncService).disconnectServer()
         return
-      case 'get_server_status': return getServerStatus()
-      case 'get_client_status': return getClientStatus()
-      case 'generate_code': return generateCode()
+      case 'get_server_status': return syncService ? (await syncService).getServerStatus() : disabledServerStatus()
+      case 'get_client_status': return syncService ? (await syncService).getClientStatus() : disabledClientStatus()
+      case 'generate_code': return (await loadSyncService()).generateCode()
       case 'select_mode':
         if (selectModeListenr) {
           selectModeListenr(data.data.mode)
@@ -39,10 +37,10 @@ export default () => {
     }
   })
   mainHandle<never, LX.Sync.ServerDevices>(WIN_MAIN_RENDERER_EVENT_NAME.sync_get_server_devices, async() => {
-    return getServerDevices()
+    return (await loadSyncService()).getServerDevices()
   })
   mainHandle<string>(WIN_MAIN_RENDERER_EVENT_NAME.sync_remove_server_device, async({ params: clientId }) => {
-    await removeServerDevice(clientId)
+    await (await loadSyncService()).removeServerDevice(clientId)
   })
 }
 

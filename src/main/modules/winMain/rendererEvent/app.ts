@@ -44,6 +44,12 @@ export default () => {
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.quit, () => {
     quitApp()
   })
+  mainHandle(WIN_MAIN_RENDERER_EVENT_NAME.restart_app, async({ event }: LX.IpcMainInvokeEvent) => {
+    if (event.sender !== getWebContents()) throw new Error('无效的窗口请求。')
+    app.relaunch()
+    // Let the invoke reply finish before gracefully closing the player and DB.
+    setImmediate(() => { quitApp() })
+  })
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.min_toggle, () => {
     toggleMinimize()
   })

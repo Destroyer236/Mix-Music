@@ -1,8 +1,6 @@
-import { isLinux } from '@common/utils'
 import { closeWindow, createWindow, getBounds, isExistWindow, alwaysOnTopTools, setBounds, applyMousePolicy, setSkipTaskbar, showWindow } from './main'
-import { sendConfigChange, sendMouseLeave } from './rendererEvent'
+import { sendConfigChange } from './rendererEvent'
 import { buildLyricConfig, getLyricWindowBounds, initWindowSize, watchConfigKeys } from './utils'
-import { mouseCheckTools } from './mouseCheckTools'
 
 let isLock: boolean
 let isEnable: boolean
@@ -10,7 +8,6 @@ let isAlwaysOnTop: boolean
 let isAlwaysOnTopLoop: boolean
 let isShowTaskbar: boolean
 let isLockScreen: boolean
-let isHoverHide: boolean
 
 
 export const setLrcConfig = (keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) => {
@@ -20,24 +17,7 @@ export const setLrcConfig = (keys: Array<keyof LX.AppSetting>, setting: Partial<
     sendConfigChange(buildLyricConfig(setting))
     if (keys.includes('desktopLyric.isLock') && isLock != global.lx.appSetting['desktopLyric.isLock']) {
       isLock = global.lx.appSetting['desktopLyric.isLock']
-      if (global.lx.appSetting['desktopLyric.isLock']) {
-        applyMousePolicy()
-        mouseCheckTools.runCheck(sendMouseLeave)
-      } else {
-        applyMousePolicy()
-        mouseCheckTools.cacnelCheck()
-      }
-    }
-    if (keys.includes('desktopLyric.isHoverHide') && isHoverHide != global.lx.appSetting['desktopLyric.isHoverHide']) {
-      isHoverHide = global.lx.appSetting['desktopLyric.isHoverHide']
-      if (!isLinux) {
-        applyMousePolicy()
-        if (isHoverHide) {
-          mouseCheckTools.runCheck(sendMouseLeave)
-        } else {
-          mouseCheckTools.cacnelCheck()
-        }
-      }
+      applyMousePolicy()
     }
     if (keys.includes('desktopLyric.isAlwaysOnTop') && isAlwaysOnTop != global.lx.appSetting['desktopLyric.isAlwaysOnTop']) {
       isAlwaysOnTop = global.lx.appSetting['desktopLyric.isAlwaysOnTop']
@@ -86,7 +66,6 @@ export const setLrcConfig = (keys: Array<keyof LX.AppSetting>, setting: Partial<
       createWindow()
     } else {
       alwaysOnTopTools.clearLoop()
-      mouseCheckTools.cacnelCheck()
       closeWindow()
     }
   }

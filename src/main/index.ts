@@ -15,6 +15,7 @@ import { initAppSetting } from '@main/app'
 import registerModules from '@main/modules'
 import path from 'node:path'
 import { prepareUserDataDirectory } from './utils/userDataDirectory'
+import { applyStartupPreferences } from './utils/startupPreferences'
 
 // 初始化应用
 const init = () => {
@@ -43,6 +44,7 @@ initGlobalData()
 initSingleInstanceHandle()
 applyElectronEnvParams()
 setUserDataPath()
+applyStartupPreferences(app, global.lxDataPath)
 registerDeeplink(init)
 listenerAppEvent(init)
 

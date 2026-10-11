@@ -1,5 +1,5 @@
 <template>
-  <span ref="host" class="ui-track-artwork"><img v-if="url && !failed" :src="url" :alt="alt" loading="lazy" @error="imageError"><span v-else class="ui-track-artwork-fallback" aria-hidden="true"><UiIcon name="music" /></span></span>
+  <span ref="host" class="ui-track-artwork"><img v-if="visible && url && !failed" :src="url" :alt="alt" loading="lazy" decoding="async" @error="imageError"><span v-else class="ui-track-artwork-fallback" aria-hidden="true"><UiIcon name="music" /></span></span>
 </template>
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -25,13 +25,22 @@ async function load(refresh = false) {
   failed.value = !result
 }
 function imageError() { failed.value = true; if (!refreshed && props.track) { refreshed = true; void load(true) } }
-watch(() => [props.track?.id, props.src, props.track?.meta.picUrl], () => { version++; url.value = ''; failed.value = false; refreshed = false; void load() })
+watch(() => [props.track?.source, props.track?.id, props.src, props.track?.meta.picUrl], () => { version++; url.value = ''; failed.value = false; refreshed = false; void load() })
 onMounted(() => {
   observer = new IntersectionObserver(entries => {
-    if (!entries.some(entry => entry.isIntersecting)) return
-    visible.value = true
-    observer?.disconnect()
-    void load()
+    const intersecting = entries.some(entry => entry.isIntersecting)
+    if (visible.value === intersecting) return
+    visible.value = intersecting
+    // If the original URL had expired, reuse its refreshed cache entry when
+    // the row returns instead of retrying the stale URL from track metadata.
+    if (intersecting) void load(refreshed)
+    else {
+      // Remove the decoded image when its row leaves the visible region. The
+      // artwork service retains only a small bounded cache for scrolling back.
+      version++
+      url.value = ''
+      failed.value = false
+    }
   }, { rootMargin: '100px' })
   if (host.value) observer.observe(host.value)
 })

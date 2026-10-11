@@ -43,9 +43,6 @@ export const onMainWindowInited = (listener: LX.IpcRendererEventListener): Remov
   }
 }
 
-export const sendMouseEnterLeave = (isEnter: boolean) => {
-  rendererSend(WIN_LYRIC_RENDERER_EVENT_NAME.mouse_enter_leave, isEnter)
-}
 export const onMouseEnterLeave = (listener: LX.IpcRendererEventListenerParams<boolean>): RemoveListener => {
   rendererOn<boolean>(WIN_LYRIC_RENDERER_EVENT_NAME.mouse_enter_leave, listener)
   return () => {

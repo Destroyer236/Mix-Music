@@ -1,5 +1,5 @@
 <template>
-  <div class="lyric-window" :class="{ locked: setting['desktopLyric.isLock'], hidden: setting['desktopLyric.isLock'] && (isHide || isHoverHide) }" :style="backgroundStyle">
+  <div class="lyric-window" :class="{ locked: setting['desktopLyric.isLock'], hovered: isMouseEnter, hidden: setting['desktopLyric.isLock'] && (isHide || isHoverHide) }" :style="backgroundStyle">
     <div class="lyric-window-card" @pointerdown="startDrag">
       <LyricSpectrum v-if="setting['desktopLyric.audioVisualization']" />
       <LyricStage />
@@ -31,7 +31,7 @@ useAppearance()
 useCommon()
 useLyric()
 useTheme()
-const isHoverHide = useHoverHide()
+const { isHoverHide, isMouseEnter } = useHoverHide()
 const isHide = usePauseHide()
 const startDrag = useDesktopDrag()
 const { startResize } = useWindowSize()
@@ -61,5 +61,5 @@ body { user-select: none; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif
 .lyric-window-resize-top { top: 0; }.lyric-window-resize-bottom { bottom: 0; }
 .lyric-window-resize-top-left, .lyric-window-resize-top-right, .lyric-window-resize-bottom-left, .lyric-window-resize-bottom-right { width: 12px; height: 12px; }
 .lyric-window-resize-top-left { top: 0; left: 0; cursor: nwse-resize; }.lyric-window-resize-top-right { top: 0; right: 0; cursor: nesw-resize; }.lyric-window-resize-bottom-left { bottom: 0; left: 0; cursor: nesw-resize; }.lyric-window-resize-bottom-right { bottom: 0; right: 0; cursor: nwse-resize; }
-@media (prefers-reduced-motion: reduce) { .lyric-toolbar, .lyric-stage .line-content { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .lyric-toolbar, .lyric-unlock, .lyric-stage .line-content { transition: none; } }
 </style>
