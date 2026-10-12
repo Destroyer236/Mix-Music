@@ -75,44 +75,6 @@ npm start
 
 生产构建只生成 `dist/` 中的运行资源，不生成安装包。后续确需 Windows x64 安装程序时，单独运行 `npm run pack:win:setup:x64`；本次不执行该步骤。当前交付和验证以真实 Electron 测试运行结果为准。
 
-## 验证记录
-
-2026-10-09，LinkLine 品牌与资料兼容：`node --test tests/userDataDirectory.test.cjs` 的 10 项检查通过，覆盖完整资料复制（含 SQLite/WAL/SHM、设置和外观存储）、旧目录保留、已有新目录不覆盖、活动或未知旧锁跳过复制、环境变量优先级、便携目录、复制失败回退、临时目录清理失败不中断启动及新旧协议识别。本次未运行个人目录迁移或安装包生成。
-
-2026-10-09：设置页及设置模块的定向 ESLint 检查通过；128 个偏好项标签、备份设置过滤、数值和空值处理，以及快捷键 IPC 序列化与绑定替换通过行为检查。
-
-真实 Electron 外观与桌面歌词检查通过，记录见 [native-appearance-verification.json](../artifacts/native-appearance-verification.json)：音乐库布局、真实歌词行与字号设置同步、主窗口与桌面歌词外观同步、竖排歌词与工具栏边界、歌词方向及置顶设置。
-
-主窗口原生回归通过，记录见 [native-verification.json](../artifacts/native-verification.json)：播放按钮居中偏差为 0 px、浅深主题切换、连续创建歌单与重名检查、重命名及删除、本地音频导入与真实播放暂停、全部主导航页面、重启后的歌曲和主题持久化。全源码 ESLint 和生产资源构建通过，回归中未出现 renderer 异常。
-
-在线与离线联动通过，记录见 [native-online-verification.json](../artifacts/native-online-verification.json)：使用隔离数据目录和本地 HTTP 测试音源，验证真实音源导入与初始化、SQLite 歌单导入、在线 MP3 解码播放、实际下载与音频帧哈希一致，以及关闭 HTTP 服务后的下载文件离线播放。测试数据与个人数据分开保存。
-
-全局快捷键原生回归通过，记录见 [native-hotkeys-verification.json](../artifacts/native-hotkeys-verification.json)：设置页录入后新键立即注册、替换后旧键注销、禁用时编辑不注册，以及启用/禁用状态和组合键的写盘与重启持久化。主进程在保存时立即更新内存配置，磁盘写入继续节流。
-
-本次没有生成或验证安装包。测试音源只用于验证调用链，用户音源的实际可用性需使用自己的音源和网络验证。
-
-2026-10-09，界面问题修复回归：主窗口 6 项原生检查通过，记录见 [native-window-verification.json](../artifacts/native-window-verification.json)。验证了最大化保留任务栏、精确还原原尺寸、F11 进出全屏及状态同步、Esc 返回原窗口、最小化恢复和缩放能力启用。自动鼠标拖拽受到桌面输入或目标窗口焦点变化干扰，四边和四角的完整拖拽检查未完成，报告单独标注这项限制。
-
-播放栏 13 项原生检查通过，记录见 [native-player-verification.json](../artifacts/native-player-verification.json)。三种进度条样式在 720、900、1114 和 1500 宽度下均保持播放按钮与进度条居中、顶栏水平对齐且组件不重叠；本地音频导入、真实播放暂停、跳转至 10 秒及音量 0.37 的后端同步通过。
-
-自绘下拉菜单 10 项检查通过，记录见 [native-menu-verification.json](../artifacts/native-menu-verification.json)。覆盖浅深主题、选择值写入原生设置、方向键与 Enter、Esc、Tab、外部点击关闭、底栏菜单向上展开、窄窗口边界和平台分类分组。所有操作图标使用 SVG 绘制。
-
-封面 8 项检查通过，记录见 [native-artwork-verification.json](../artifacts/native-artwork-verification.json)。使用隔离目录与 HTTP 测试代理验证真实 Kuwo SDK 请求、空封面地址的读取、图片失败后的单次刷新、服务失败占位、懒加载及最多 4 个并发请求。列表、播放栏和播放详情复用同一张已解码图片；封面保存后后台刷新歌曲资料，保留歌单滚动位置。上述界面回归均无 renderer 运行时异常。全源码 ESLint、后续修改的定向 ESLint、主进程 TypeScript 及主窗口/歌词生产资源构建通过。
-
-窄高度检查通过，记录见 [native-sidebar-height-verification.json](../artifacts/native-sidebar-height-verification.json)：827 × 541 下导航独立滚动，主题按钮可见，切换主题前后顶栏、品牌和根页面滚动位置稳定。
-
-QQ 音乐参考播放栏调整回归通过：中间区域由 26% 扩展到 42%，简洁进度组的最大宽度由 184 px 增至 300 px；1114 宽窗口下居中进度轨道约为 274 px。更新后的 13 项播放栏回归继续通过，新增音量浮层 10 项检查通过，记录见 [native-volume-verification.json](../artifacts/native-volume-verification.json)。覆盖浅深主题和 4 种窗口尺寸、竖向滑块的键盘调节、37% 音量及静音状态的主进程保存、点击/Esc/外部关闭的焦点恢复及播放详情使用；无 renderer 异常。定向 ESLint 和主窗口生产构建通过，仍未生成安装包。
-
-2026-10-09，平台账户与红心联动检查通过：平台匹配、网易云分页/版权判断/红心写入、账号会话恢复、过期登录、账号切换隔离、退出登录竞态、导航重定向域名边界、多平台逐项结果和异常缓存由 `node --test tests/*.test.cjs` 验证（31 项通过）。QQ 音乐接口 fixture 及真实只读搜索/歌曲详情通过，见 `artifacts/qq-provider-qa.log`；网易云真实只读搜索、歌曲详情和匿名账号响应通过，见 `artifacts/native-platform-smoke.json`。平台设置页与收藏服务 7 项行为检查通过，见 `artifacts/platform-renderer-service-verification.json`；真实 Electron 平台账号页面、LinkLine C 声波音符 Logo 和空账号状态通过，见 `artifacts/native-platform-ui.json`。登录和红心写入需要用户在测试版中自行完成官方网页登录后验证，本次未使用个人账号，也未生成安装包。
-
-2026-10-10，登录与收藏故障修复：聚合快照使用浅层响应状态，收藏输入在 Electron IPC 前拆除嵌套 Vue Proxy。`tests/platformRenderer.test.cjs` 使用真实 Vue 和结构化克隆复现旧故障并验证修复。QQ 登录入口改为官方 OAuth 网页及网页回调，从 `y.qq.com` 读取音乐登录状态；认证成功即关闭登录窗口并返回主窗口，后台继续同步红心，认证和同步失败原因在账号页显示。QQ 请求有 20 秒超时，接口自动测试不发送真实网络写请求。
-
-本轮 `node --test tests/*.test.cjs` 共 56 项通过。实际生产 Electron 收藏回归见 [native-favorites-regression.json](../artifacts/native-favorites-regression.json)：809 条模拟平台记录聚合成 805 首，通过真实 renderer IPC 写入 SQLite；红心入口、80 首分页、搜索、歌曲表格收藏和重启保留通过。模拟数据用于验证应用链路，并不代表已验证个人账号的远端同步。
-
-设置默认首项为「平台账号与红心」。首次协议改为 LinkLine 内容，仅留一句「基于 LX Music 构建」，关于页仍保留上游许可。接受后提供一次性官方平台登录引导。实际首用及重启验证共 8 项通过，见 [native-first-use-verification.json](../artifacts/native-first-use-verification.json)。
-
-桌面歌词修复了暂停时控制栏难见、偏好面板裁切、Windows 拖动缩放、锁定后解锁、播放状态和歌词重解析定位。实际生产 Electron 与本地 WAV/LRC 联动回归 9 项通过，见 [lyric-production-verification.json](../artifacts/lyric-production-verification.json)；暂停在 7 秒打开和重解析歌词、最小尺寸的左上边缘约束及竖排定位另有 4 项回归通过，见 [lyric-regression-verification.json](../artifacts/lyric-regression-verification.json)。ESLint、主窗口/主进程/歌词 TypeScript 和生产资源编译通过。本次仍未生成安装包；个人账号需重新在测试版中完成登录后验证红心同步。
-
 ## 上游版权与许可
 
 LinkLine 的播放器、音源服务、数据库和同步基础来源于 [LX Music Desktop](https://github.com/lyswhut/lx-music-desktop)，作者 lyswhut / 落雪无痕。保留上游版权、仓库根目录的 `LICENSE` 和 `licenses/` 中的第三方许可，遵循 Apache License 2.0。应用「关于」页提供项目归属和许可入口，后续打包配置保留许可文件分发规则。

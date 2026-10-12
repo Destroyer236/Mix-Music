@@ -20,7 +20,7 @@ const dialogTitle = computed(() => titles[props.action])
 const name = ref('')
 const busy = ref(false)
 const error = ref('')
-watch(() => props.show, show => { if (show) { name.value = props.action === 'rename' ? props.listInfo?.name ?? '' : ''; error.value = '' } })
+watch(() => props.show, show => { if (show) { name.value = props.action === 'rename' ? props.listInfo?.name ?? '' : ''; error.value = '' } }, { immediate: true })
 async function submit() {
   if (busy.value) return
   const value = name.value.trim()

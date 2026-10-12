@@ -18,15 +18,26 @@
             <fieldset class="appearance-section">
               <legend>外观主题</legend>
               <div class="appearance-modes">
-                <button v-for="mode in modes" :key="mode.value" type="button" class="appearance-mode" :class="{ selected: appearance.mode === mode.value }" :aria-pressed="appearance.mode === mode.value" @click="appearance.mode = mode.value">
-                  <span class="appearance-mode-preview" :class="mode.value" aria-hidden="true"><i /><i /><i /></span>
+                <button v-for="mode in modes" :key="mode.value" type="button" class="appearance-mode" :class="{ selected: appearance.mode === mode.value }" :aria-pressed="appearance.mode === mode.value" :disabled="wallpaperBusy" @click="chooseMode(mode.value)">
+                  <span class="appearance-mode-preview" :class="mode.value" :style="mode.value === 'custom' && wallpaperUrl ? { backgroundImage: `url(${JSON.stringify(wallpaperUrl)})` } : undefined" aria-hidden="true"><UiIcon v-if="mode.value === 'custom' && !wallpaperUrl" name="imagePlus" /><template v-else><i /><i /><i /></template></span>
                   <span>{{ mode.label }}</span>
-                  <svg v-if="appearance.mode === mode.value" class="appearance-mode-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>
+                  <UiIcon v-if="appearance.mode === mode.value" class="appearance-mode-check" name="check" />
                 </button>
               </div>
             </fieldset>
 
-            <fieldset class="appearance-section">
+            <div v-if="appearance.mode === 'custom' || wallpaperBusy || wallpaperError" class="appearance-section appearance-wallpaper">
+              <button type="button" class="appearance-wallpaper-upload" :disabled="wallpaperBusy" :aria-busy="wallpaperBusy" @click="uploadWallpaper">
+                <span v-if="wallpaperUrl" class="appearance-wallpaper-thumb" :style="{ backgroundImage: `url(${JSON.stringify(wallpaperUrl)})` }" /><span v-else class="appearance-wallpaper-glyph"><UiIcon name="imagePlus" /></span>
+                <span><strong>{{ wallpaperBusy ? '正在生成配色…' : wallpaper ? '更换背景图片' : '选择背景图片' }}</strong><small :title="wallpaper?.name">{{ wallpaper?.name || 'JPG、PNG、WebP、BMP · 最大 32 MB' }}</small></span><UiIcon name="plus" />
+              </button>
+              <p v-if="wallpaperError" class="appearance-wallpaper-error" role="alert">{{ wallpaperError }}</p>
+              <div v-if="wallpaper" class="appearance-wallpaper-caption"><span>图片已保存到本地</span><button type="button" @click="openWallpaperFolder"><UiIcon name="folderOpen" />打开文件夹</button></div>
+              <div v-if="wallpaper && appearance.mode === 'custom'" class="appearance-wallpaper-tones" role="group" aria-label="背景明暗"><span>背景明暗</span><div><button v-for="tone in customTones" :key="tone.value" type="button" :aria-pressed="appearance.customTone === tone.value" @click="appearance.customTone = tone.value">{{ tone.label }}</button></div></div>
+            </div>
+
+            <fieldset v-if="appearance.mode === 'custom' && wallpaper" class="appearance-section appearance-image-colors"><legend>图片配色<span class="appearance-value">自动协调</span></legend><div><span v-for="role in colorRoles" :key="role.variable" :style="{ background: `var(${role.variable})` }" :title="role.label" /><p>面板、文字与按钮随背景配色</p></div></fieldset>
+            <fieldset v-else class="appearance-section">
               <legend>点缀颜色 <span class="appearance-value">{{ appearance.accent.toUpperCase() }}</span></legend>
               <div class="appearance-colors">
                 <button v-for="swatch in swatches" :key="swatch.color" type="button" class="appearance-swatch" :class="{ selected: appearance.accent === swatch.color }" :style="{ '--swatch': swatch.color }" :aria-label="swatch.label" :aria-pressed="appearance.accent === swatch.color" @click="appearance.accent = swatch.color">
@@ -60,11 +71,6 @@
             </fieldset>
 
             <div class="appearance-section appearance-toggle-row">
-              <div><label id="appearance-scrollbars-label">隐藏滚动条</label><p>保留滚动操作，只隐藏歌单、歌曲列表和歌词页的滚动条</p></div>
-              <button type="button" class="appearance-toggle" role="switch" :aria-checked="appearance.hideScrollbars" aria-labelledby="appearance-scrollbars-label" @click="appearance.hideScrollbars = !appearance.hideScrollbars"><span /></button>
-            </div>
-
-            <div class="appearance-section appearance-toggle-row">
               <div><label id="appearance-explore-label">显示发现推荐</label><p>在发现页展示氛围与灵感卡片</p></div>
               <button type="button" class="appearance-toggle" role="switch" :aria-checked="appearance.showExplore" aria-labelledby="appearance-explore-label" @click="appearance.showExplore = !appearance.showExplore"><span /></button>
             </div>
@@ -88,13 +94,22 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { appearance, appearancePanelOpen, resetAppearance, type Appearance } from '@renderer/composables/useAppearance'
+import { selectWallpaper, wallpaper, wallpaperUrl, wallpaperBusy, wallpaperError, openWallpaperFolder } from '../useWallpaper'
+import UiIcon from './UiIcon.vue'
 
 const panel = ref<HTMLElement | null>(null)
 const modes: Array<{ value: Appearance['mode'], label: string }> = [
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' },
-  { value: 'system', label: '跟随系统' },
+  { value: 'custom', label: '自定义' },
 ]
+const customTones: Array<{ value: Appearance['customTone'], label: string }> = [{ value: 'auto', label: '自动' }, { value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }]
+const colorRoles = [{ variable: '--modern-accent', label: '强调色' }, { variable: '--modern-accent-soft', label: '选中背景' }, { variable: '--modern-sidebar', label: '侧栏' }, { variable: '--modern-panel', label: '内容面板' }, { variable: '--modern-text', label: '文字' }]
+async function uploadWallpaper() { if (await selectWallpaper()) { appearance.customTone = 'auto'; appearance.mode = 'custom' } }
+async function chooseMode(mode: Appearance['mode']) {
+  if (mode === 'custom' && !wallpaper.value) await uploadWallpaper()
+  else appearance.mode = mode
+}
 const swatches = [
   { color: '#638575', label: '鼠尾草绿' },
   { color: '#6287b5', label: '雾霭蓝' },
@@ -104,7 +119,10 @@ const swatches = [
   { color: '#737e83', label: '石墨灰' },
 ]
 let previousFocus: HTMLElement | null = null
-const close = () => { appearancePanelOpen.value = false }
+const close = () => {
+  appearancePanelOpen.value = false
+  if (wallpaper.value) wallpaperError.value = ''
+}
 function handleAccentInput(event: Event) {
   const value = (event.target as HTMLInputElement).value
   if (/^#[\da-f]{6}$/i.test(value)) appearance.accent = value.toLowerCase()

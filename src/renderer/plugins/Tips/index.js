@@ -11,14 +11,17 @@ const getTipText = el => {
   return el.getAttribute('aria-label') && el.getAttribute('ignore-tip') == null ? el.getAttribute('aria-label') : null
 }
 
-const getTips = el =>
-  el
-    ? getTipText(el)
-      ? getTipText(el)
-      : el.parentNode === document.documentElement
-        ? null
-        : getTips(el.parentNode)
-    : null
+const getTips = el => {
+  if (!(el instanceof window.Element)) return null
+  // A title on the hovered element or its ancestor already supplies a native
+  // tooltip. Keep aria-label for accessibility without showing a second tip.
+  if (el.closest('[title]')?.getAttribute('title')?.trim()) return null
+  for (let current = el; current && current !== document.documentElement; current = current.parentElement) {
+    const text = getTipText(current)
+    if (text) return text
+  }
+  return null
+}
 
 const showTips = debounce(event => {
   if (isDraging) return
@@ -56,7 +59,8 @@ const updateTips = event => {
   if (!instance) return showTips(event)
   setTimeout(() => {
     let msg = getTips(event.target)
-    if (!msg || prevTips === msg) return
+    if (!msg) return hideTips()
+    if (prevTips === msg) return
     setTips(msg)
     prevTips = msg
   })

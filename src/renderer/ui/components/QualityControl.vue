@@ -24,7 +24,7 @@ import { sourceNames } from '@renderer/store'
 import { activeStream, getPlatformQualitys, preferredQuality, qualityChanging, qualityChangeError, setPreferredQuality } from '../services/platformPlayback'
 import UiIcon from './UiIcon.vue'
 
-const props = defineProps<{ track: LX.Music.MusicInfo | null }>()
+const props = defineProps<{ track: LX.Music.MusicInfo | null, deferLoad?: boolean }>()
 const panelId = `ui-quality-panel-${crypto.randomUUID()}`
 const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
@@ -79,7 +79,7 @@ async function loadQualitys() {
     if (requestId === qualityRequestId) queryError.value = err instanceof Error ? err.message : '暂时无法查询平台音质，先使用歌曲已有的音质信息。'
   } finally { if (requestId === qualityRequestId) loading.value = false }
 }
-watch(() => `${props.track?.source}:${props.track?.id}__${qualityTrack.value?.source}:${qualityTrack.value?.id}`, () => { void loadQualitys() }, { immediate: true })
+watch(() => `${props.track?.source}:${props.track?.id}__${qualityTrack.value?.source}:${qualityTrack.value?.id}`, () => { if (!props.deferLoad || open.value) void loadQualitys() }, { immediate: true })
 watch([qualitys, loading, changing, error], async() => { if (open.value) { await nextTick(); place() } })
 
 function place() {
@@ -107,6 +107,7 @@ async function toggle() {
   if (!props.track || props.track.source === 'local') return
   position.value = { visibility: 'hidden' }
   open.value = true
+  if (props.deferLoad) void loadQualitys()
   document.addEventListener('pointerdown', outside, true)
   document.addEventListener('scroll', place, true)
   window.addEventListener('resize', place)

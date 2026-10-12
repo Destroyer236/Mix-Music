@@ -6,12 +6,12 @@
       <div class="track-table__head" role="row">
         <span class="track-table__index">#</span><span>歌曲</span><span class="track-table__singer">歌手</span><span class="track-table__duration">时长</span><span class="track-table__actions">操作</span>
       </div>
-      <div class="track-table__rows">
-        <div v-for="row in rows" :key="row.key" class="track-table__row" role="row">
+      <div ref="scrollContainer" class="track-table__rows">
+        <div v-for="row in rows" :key="row.key" class="track-table__row" :class="{ 'track-table__row--playing': currentTrack?.id === row.track.id && currentTrack?.source === row.track.source }" role="row">
           <span class="track-table__index">{{ row.number }}</span>
           <div class="track-table__name" role="button" tabindex="0" :aria-label="`播放 ${row.track.name || '未命名歌曲'}`" :title="row.track.name" @click="$emit('play', row.track, row.index)" @keydown.enter="$emit('play', row.track, row.index)" @keydown.space.prevent="$emit('play', row.track, row.index)">
             <span class="track-table__cover"><TrackArtwork :track="row.track" :list-id="listId" /></span>
-            <span class="track-table__title"><strong>{{ row.track.name || '未命名歌曲' }}</strong><template v-if="albumName(row.track)"><button type="button" class="track-table__metadata-link track-table__album-link" :aria-label="`搜索专辑 ${albumName(row.track)}`" @click.stop="searchMetadata('album', albumName(row.track), row.track)">{{ albumName(row.track) }}</button></template><small v-else>{{ row.track.source.toUpperCase() }}</small></span>
+            <span class="track-table__title"><strong>{{ row.track.name || '未命名歌曲' }}</strong><template v-if="showAlbum(row.track)"><button type="button" class="track-table__metadata-link track-table__album-link" :aria-label="`搜索专辑 ${albumName(row.track)}`" @click.stop="searchMetadata('album', albumName(row.track), row.track)">{{ albumName(row.track) }}</button></template></span>
           </div>
           <span class="track-table__singer" :title="row.track.singer"><template v-if="artistNames(row.track).length"><template v-for="(artist, artistIndex) in artistNames(row.track)" :key="`${row.track.id}-${artist}`"><span v-if="artistIndex" aria-hidden="true">、</span><button type="button" class="track-table__metadata-link track-table__artist-link" :aria-label="`搜索歌手 ${artist}`" @click="searchMetadata('artist', artist, row.track)">{{ artist }}</button></template></template><span v-else>未知歌手</span></span>
           <span class="track-table__duration">{{ row.track.interval || '--:--' }}</span>
@@ -23,13 +23,17 @@
             <slot name="actions" :track="row.track" :index="row.index" />
           </div>
         </div>
+        <LazyListEnd v-if="hasMore" @more="loadMore" /><div v-if="hasMore" class="ui-lazy-list-reserve" :style="{ height: reservedHeight + 'px' }" aria-hidden="true" />
       </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { playMusicInfo } from '@renderer/store/player/state'
+import LazyListEnd from './LazyListEnd.vue'
+import { useProgressiveList } from '../useProgressiveList'
 import { useRoute, useRouter } from 'vue-router'
 import UiEmpty from './UiEmpty.vue'
 import TrackArtwork from './TrackArtwork.vue'
@@ -45,8 +49,12 @@ const props = withDefaults(defineProps<{ list: LX.Music.MusicInfo[], listId?: st
 })
 const router = useRouter()
 const route = useRoute()
+const scrollContainer = ref<HTMLElement>()
+const { visibleItems, hasMore, reservedHeight, loadMore, reset } = useProgressiveList<LX.Music.MusicInfo>(computed(() => props.list), 24, scrollContainer, '.track-table__row')
+watch(() => [props.listId, route.fullPath], reset, { flush: 'post' })
+const currentTrack = computed(() => { const track = playMusicInfo.musicInfo; return track && 'metadata' in track ? track.metadata.musicInfo : track })
 interface TrackRow { track: LX.Music.MusicInfo, index: number, key: string, number: string }
-const rows = computed<TrackRow[]>(() => props.list.map((track: LX.Music.MusicInfo, index: number) => ({ track, index, key: `${track.source}-${track.id}-${index}`, number: String(index + 1 + props.offset).padStart(2, '0') })))
+const rows = computed<TrackRow[]>(() => visibleItems.value.map((track: LX.Music.MusicInfo, index: number) => ({ track, index, key: `${track.source}-${track.id}-${index}`, number: String(index + 1 + props.offset).padStart(2, '0') })))
 defineEmits<{
   play: [track: LX.Music.MusicInfo, index: number]
   add: [track: LX.Music.MusicInfo, index: number]
@@ -56,6 +64,8 @@ defineEmits<{
 }>()
 
 const albumName = (track: LX.Music.MusicInfo) => String(track.meta?.albumName ?? '').trim()
+const normalizeTitle = (text: string) => text.normalize('NFKC').trim().toLocaleLowerCase().replace(/\s+/g, '')
+const showAlbum = (track: LX.Music.MusicInfo) => albumName(track) && normalizeTitle(albumName(track)) !== normalizeTitle(track.name)
 const artistNames = (track: LX.Music.MusicInfo) => String(track.singer ?? '').split(/\s*、\s*|\s+\/\s+/).map(name => name.trim()).filter(Boolean)
 const searchMetadata = (type: 'album' | 'artist', text: string, track: LX.Music.MusicInfo) => {
   const source = getCatalogSources(type).includes(track.source as LX.OnlineSource) ? track.source : 'all'

@@ -13,6 +13,7 @@ export default createRouter({
   routes: [
     { path: '/discover', name: 'Discover', component: Discover, meta: { name: 'Discover' } },
     { path: '/search', name: 'Search', component: Search, meta: { name: 'Search' } },
+    { path: '/comment', name: 'Comments', component: async() => import('./ui/views/Comments.vue'), meta: { name: 'Comments' } },
     { path: '/songList', redirect: '/songList/list' },
     { path: '/songList/list', name: 'SongList', component: SongLists, meta: { name: 'SongList' } },
     { path: '/songList/detail', name: 'SongListDetail', component: SongListDetail, meta: { name: 'SongList' } },

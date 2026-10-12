@@ -27,12 +27,6 @@ function build() {
   spinners.add('renderer-scripts', { text: 'renderer-scripts building' })
   let results = ''
 
-  // m.on('success', () => {
-  //   process.stdout.write('\x1B[2J\x1B[0f')
-  //   console.log(`\n\n${results}`)
-  //   console.log(`${okayLog}take it away ${chalk.yellow('`electron-builder`')}\n`)
-  //   process.exit()
-  // })
   function handleSuccess() {
     process.stdout.write('\x1B[2J\x1B[0f')
     console.log(`\n\n${results}`)

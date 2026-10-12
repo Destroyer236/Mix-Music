@@ -2,7 +2,7 @@
   <div class="local-track-table" role="table" aria-label="本地音乐歌曲列表" :aria-busy="loading">
     <div v-if="loading" class="local-track-table__loading" role="status"><UiIcon name="refresh" />正在加载本地音乐…</div>
     <UiEmpty v-else-if="error || !list.length" :title="error ? '加载失败' : emptyTitle" :description="error || emptyDescription" :retry="Boolean(error)" @retry="$emit('retry')" />
-    <div v-else class="local-track-table__scroll scroll">
+    <div v-else ref="scrollContainer" class="local-track-table__scroll scroll">
       <div class="local-track-table__head" role="row">
         <span class="local-track-table__index" role="columnheader">#</span>
         <span role="columnheader">歌曲 / 歌手</span>
@@ -12,7 +12,7 @@
         <span class="local-track-table__actions" role="columnheader">操作</span>
       </div>
       <div role="rowgroup">
-        <div v-for="(track, index) in list" :key="track.id" class="local-track-table__row" :class="{ 'local-track-table__row--active': currentTrack?.source === 'local' && currentTrack.id === track.id, 'local-track-table__row--selected': selectedIds?.has(track.id) }" role="row" :data-track-id="track.id" :aria-selected="Boolean(selectedIds?.has(track.id))" :title="track.meta.filePath">
+        <div v-for="(track, index) in visibleItems" :key="track.id" class="local-track-table__row" :class="{ 'local-track-table__row--active': currentTrack?.source === 'local' && currentTrack.id === track.id, 'local-track-table__row--selected': selectedIds?.has(track.id) }" role="row" :data-track-id="track.id" :aria-selected="Boolean(selectedIds?.has(track.id))" :title="track.meta.filePath">
           <span class="local-track-table__index" role="cell"><UiIcon v-if="currentTrack?.source === 'local' && currentTrack.id === track.id && isPlay" name="quality" /><template v-else>{{ String(Number(index) + 1 + offset).padStart(2, '0') }}</template></span>
           <div class="local-track-table__song" role="cell">
             <button type="button" class="local-track-table__cover" tabindex="-1" :aria-label="`播放 ${track.name || '未命名歌曲'}`" @click="$emit('play', track)"><TrackArtwork :track="track" :list-id="listId" /><span class="local-track-table__cover-play" aria-hidden="true"><UiIcon name="play" filled /></span></button>
@@ -32,18 +32,21 @@
           </div>
         </div>
       </div>
+      <LazyListEnd v-if="hasMore" @more="loadMore" /><div v-if="hasMore" class="ui-lazy-list-reserve" :style="{ height: reservedHeight + 'px' }" aria-hidden="true" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import LazyListEnd from './LazyListEnd.vue'
+import { useProgressiveList } from '../useProgressiveList'
 import { isPlay, playMusicInfo } from '@renderer/store/player/state'
 import TrackArtwork from './TrackArtwork.vue'
 import UiEmpty from './UiEmpty.vue'
 import UiIcon from './UiIcon.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   list: LX.Music.MusicInfoLocal[]
   listId: string
   loading?: boolean
@@ -72,6 +75,9 @@ defineEmits<{
   album: [text: string, track: LX.Music.MusicInfoLocal]
 }>()
 
+const scrollContainer = ref<HTMLElement>()
+const { visibleItems, hasMore, reservedHeight, loadMore, reset } = useProgressiveList<LX.Music.MusicInfoLocal>(computed(() => props.list), 24, scrollContainer, '.local-track-table__row')
+watch(() => props.listId, reset, { flush: 'post' })
 const currentTrack = computed(() => {
   const track = playMusicInfo.musicInfo
   return track && 'metadata' in track ? track.metadata.musicInfo : track

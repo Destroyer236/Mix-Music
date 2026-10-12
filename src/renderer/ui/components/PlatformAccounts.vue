@@ -1,6 +1,6 @@
 <template>
   <div class="ui-platform-accounts">
-    <div class="ui-platform-toolbar"><router-link to="/list?id=love"><UiIcon name="heart" /><span>红心音乐 <strong>{{ platformSnapshot.favorites.length }}</strong></span><UiIcon name="chevronRight" /></router-link><button type="button" class="studio-settings-button" :disabled="platformLoading || platformBusy.size > 0 || !syncableAccounts.length" @click="syncPlatforms()"><UiIcon name="refresh" />同步全部</button></div>
+    <div class="ui-platform-toolbar"><router-link to="/list?id=love"><UiIcon name="heart" filled /><span>红心音乐 <strong>{{ platformSnapshot.favorites.length }}</strong></span><UiIcon name="chevronRight" /></router-link><button type="button" class="studio-settings-button" :disabled="platformLoading || platformBusy.size > 0 || !syncableAccounts.length" @click="syncPlatforms()"><UiIcon name="refresh" />同步全部</button></div>
     <p v-if="platformLoading" class="ui-platform-status" role="status">正在检查账号…</p>
     <div v-if="platformError" class="ui-platform-error" role="alert">{{ platformError }}</div>
     <article v-for="account in accounts" :key="account.platform" class="ui-platform-account">

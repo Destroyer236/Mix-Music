@@ -1,18 +1,19 @@
 <template>
   <section class="ui-downloads">
-    <header class="ui-downloads-heading"><div><span class="ui-downloads-eyebrow">TAKE YOUR MUSIC WITH YOU</span><h1>下载中心</h1><p>喜欢的声音，留在你的电脑里。</p></div><button type="button" class="ui-downloads-folder" @click="revealFolder"><UiIcon name="folder" />打开下载位置</button></header>
+    <nav class="ui-device-tabs" aria-label="本地与下载"><router-link to="/local">本地音乐</router-link><router-link to="/download" aria-current="page">下载管理</router-link></nav>
     <div class="ui-downloads-summary"><div><span>正在下载</span><strong>{{ activeTasks.length }}</strong><small>首歌曲在队列中</small></div><div><span>已经完成</span><strong>{{ completedTasks.length }}</strong><small>首音乐随时可听</small></div><div><span>保存到</span><strong class="ui-downloads-path">{{ folderName }}</strong><button type="button" @click="chooseFolder">更改下载位置 <UiIcon name="arrowUpRight" /></button></div></div>
-    <div class="ui-downloads-tools"><div class="ui-downloads-tabs" role="tablist" aria-label="下载状态"><button v-for="item in tabs" :key="item.id" type="button" role="tab" :aria-selected="tab === item.id" :class="{ active: tab === item.id }" @click="tab = item.id">{{ item.label }}<span>{{ countFor(item.id) }}</span></button></div><div class="ui-downloads-bulk"><button type="button" :disabled="busy || !resumableTasks.length" @click="resumeAll">全部继续</button><button type="button" :disabled="busy || !activeTasks.length" @click="pauseAll">全部暂停</button></div></div>
+    <div class="ui-downloads-tools"><div class="ui-downloads-tabs" role="tablist" aria-label="下载状态"><button v-for="item in tabs" :key="item.id" type="button" role="tab" :aria-selected="tab === item.id" :class="{ active: tab === item.id }" @click="tab = item.id">{{ item.label }}<span>{{ countFor(item.id) }}</span></button></div><div class="ui-downloads-bulk"><button type="button" :disabled="busy || !resumableTasks.length" @click="resumeAll">全部继续</button><button type="button" :disabled="busy || !activeTasks.length" @click="pauseAll">全部暂停</button><button type="button" class="ui-downloads-reveal" @click="revealFolder"><UiIcon name="folder" />打开目录</button></div></div>
     <div v-if="message" class="ui-downloads-message" role="status">{{ message }}<button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
     <div v-if="actionError" class="ui-downloads-error" role="alert">{{ actionError }}<button type="button" aria-label="关闭错误提示" @click="actionError = ''"><UiIcon name="close" /></button></div>
-    <div class="ui-downloads-content scroll">
+    <div ref="scrollContainer" class="ui-downloads-content scroll">
       <div v-if="loading" class="ui-downloads-loading" role="status">正在读取下载任务…</div>
       <UiEmpty v-else-if="error || !filteredTasks.length" :title="error ? '下载列表加载失败' : tab === 'completed' ? '还没有已完成的下载' : '这里暂时没有下载任务'" :description="error || '在搜索或歌单中选择下载，音乐会来到这里。'" :retry="Boolean(error)" @retry="load" />
-      <article v-for="task in filteredTasks" v-else :key="task.id" class="ui-download-task" :class="{ failed: task.status === DOWNLOAD_STATUS.ERROR }">
+      <article v-for="task in visibleItems" v-else :key="task.id" class="ui-download-task" :class="{ failed: task.status === DOWNLOAD_STATUS.ERROR }">
         <div class="ui-download-art"><TrackArtwork :track="task.metadata.musicInfo" /></div>
         <div class="ui-download-info"><div class="ui-download-title"><h2>{{ task.metadata.musicInfo.name }}</h2><span>{{ task.metadata.quality.toUpperCase() }}</span></div><p>{{ task.metadata.musicInfo.singer || '未知歌手' }}<span v-if="task.metadata.musicInfo.meta.albumName"> · {{ task.metadata.musicInfo.meta.albumName }}</span></p><div class="ui-download-progress" :class="{ completed: task.status === DOWNLOAD_STATUS.COMPLETED }" role="progressbar" :aria-valuenow="percentage(task)" aria-valuemin="0" aria-valuemax="100" :aria-label="`${task.metadata.musicInfo.name} 下载进度`"><span :style="{ width: `${percentage(task)}%` }" /></div><div class="ui-download-details"><span class="ui-download-status">{{ statusLabel(task) }}</span><span v-if="task.status === DOWNLOAD_STATUS.RUN">{{ task.speed || '连接中' }}</span><span>{{ formatBytes(task.downloaded) }}{{ task.total ? ` / ${formatBytes(task.total)}` : '' }}</span><span>{{ percentage(task).toFixed(1) }}%</span></div></div>
         <div class="ui-download-actions"><button v-if="task.status === DOWNLOAD_STATUS.RUN || task.status === DOWNLOAD_STATUS.WAITING" type="button" :disabled="busy" aria-label="暂停下载" title="暂停下载" @click="pauseTask(task)"><UiIcon name="pause" filled /></button><button v-else-if="task.status === DOWNLOAD_STATUS.PAUSE || task.status === DOWNLOAD_STATUS.ERROR" type="button" :disabled="busy" :aria-label="task.status === DOWNLOAD_STATUS.ERROR ? '重试下载' : '继续下载'" @click="resumeTask(task)"><UiIcon :name="task.status === DOWNLOAD_STATUS.ERROR ? 'refresh' : 'play'" :filled="task.status !== DOWNLOAD_STATUS.ERROR" /></button><template v-else><button type="button" aria-label="播放已下载音乐" title="播放" @click="playTask(task)"><UiIcon name="play" filled /></button><button type="button" aria-label="在文件夹中显示" title="在文件夹中显示" @click="revealTask(task)"><UiIcon name="folder" /></button><button type="button" aria-label="加入歌单" title="加入歌单" @click="addTask(task)"><UiIcon name="plus" /></button></template><button type="button" :disabled="busy" aria-label="移除下载记录" title="移除下载记录" @click="askRemove(task)"><UiIcon name="close" /></button></div>
       </article>
+      <LazyListEnd v-if="!loading && !error && hasMore" @more="loadMore" /><div v-if="hasMore" class="ui-lazy-list-reserve" :style="{ height: reservedHeight + 'px' }" aria-hidden="true" />
     </div>
     <footer class="ui-downloads-footer"><span>{{ tasks.length }} 条下载记录</span><span>{{ appSetting['download.savePath'] }}</span></footer>
     <UiModal :show="removeOpen" title="移除下载记录" :subtitle="removeTarget?.metadata.musicInfo.name" @close="removeOpen = false"><p class="ui-dialog-note">{{ removeTarget?.status === DOWNLOAD_STATUS.COMPLETED ? '移除记录后，已经保存的音乐文件仍会保留。' : '这个任务将从下载队列移除。你可以在歌单中重新添加下载。' }}</p><template #footer><button type="button" class="ui-dialog-button" @click="removeOpen = false">取消</button><button type="button" class="ui-dialog-button ui-dialog-button-danger" :disabled="busy" @click="confirmRemove">移除记录</button></template></UiModal>
@@ -21,9 +22,11 @@
 </template>
 
 <script setup lang="ts">
+import LazyListEnd from '../components/LazyListEnd.vue'
+import { useProgressiveList } from '../useProgressiveList'
 import TrackArtwork from '@renderer/ui/components/TrackArtwork.vue'
 import UiIcon from '@renderer/ui/components/UiIcon.vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import UiEmpty from '../components/UiEmpty.vue'
 import UiModal from '../components/UiModal.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
@@ -43,6 +46,8 @@ const error = ref('')
 const actionError = ref('')
 const message = ref('')
 const tab = ref<Tab>('all')
+const scrollContainer = ref<HTMLElement>()
+watch(tab, () => { if (scrollContainer.value) scrollContainer.value.scrollTop = 0 }, { flush: 'post' })
 const busy = ref(false)
 const removeOpen = ref(false)
 const removeTarget = ref<LX.Download.ListItem | null>(null)
@@ -53,6 +58,8 @@ const completedTasks = computed(() => tasks.value.filter(task => task.status ===
 const resumableTasks = computed(() => tasks.value.filter(task => task.status === DOWNLOAD_STATUS.PAUSE || task.status === DOWNLOAD_STATUS.ERROR))
 const folderName = computed(() => appSetting['download.savePath'].split(/[\\/]/).filter(Boolean).pop() ?? '未设置')
 const filteredTasks = computed(() => tasks.value.filter(task => matches(task, tab.value)))
+const { visibleItems, hasMore, reservedHeight, loadMore, reset } = useProgressiveList<LX.Download.ListItem>(filteredTasks, 24, scrollContainer, '.ui-download-task')
+watch(tab, reset, { flush: 'post' })
 function matches(task: LX.Download.ListItem, selectedTab: Tab) { return selectedTab === 'all' || (selectedTab === 'active' ? task.status === DOWNLOAD_STATUS.RUN || task.status === DOWNLOAD_STATUS.WAITING : task.status === (selectedTab === 'paused' ? DOWNLOAD_STATUS.PAUSE : selectedTab)) }
 function countFor(selectedTab: Tab) { return tasks.value.filter(task => matches(task, selectedTab)).length }
 function statusLabel(task: LX.Download.ListItem) { return task.statusText || statusLabels[task.status] }

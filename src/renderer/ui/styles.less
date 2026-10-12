@@ -77,23 +77,12 @@ svg { flex: none; }
 .ui-detail-body { display: grid; grid-template-columns: 44% 1fr; min-height: 0; flex: 1; gap: 30px; padding: 25px 55px; }
 .ui-detail-song { align-self: center; min-width: 0; h1 { font-size: 23px; line-height: 1.4; font-weight: 550; margin-top: 25px; } p { color: var(--modern-muted); font-size: 13px; margin-top: 10px; } > small { color: var(--modern-muted); font-size: 10px; display: block; margin-top: 8px; } }
 .ui-detail-cover { aspect-ratio: 1; width: min(100%, 275px); display: grid; place-items: center; border-radius: var(--modern-radius); background: var(--modern-hero-bg); color: var(--modern-accent-ink); box-shadow: var(--modern-shadow); overflow: hidden; img { width: 100%; height: 100%; object-fit: cover; } svg { height: 90px; width: 90px; opacity: .5; } }
-.ui-detail-actions { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
 .ui-detail-offset { display: flex; gap: 8px; align-items: center; margin-top: 20px; color: var(--modern-muted); font-size: 10px; button { background: var(--modern-hover); border: 0; border-radius: 8px; padding: 6px 8px; color: inherit; } }
 .ui-detail-lyrics { overflow: auto; padding: 35% 0; scroll-behavior: smooth; button { display: block; width: 100%; text-align: inherit; border: 0; padding: 14px 8px; color: var(--modern-muted); background: transparent; line-height: 1.7; font-size: 20px; opacity: .55; transition: opacity .25s, color .25s; small { display: block; font-size: 12px; } &.ui-lyric-current { color: var(--modern-accent-ink); opacity: 1; font-weight: 550; } } }
 .ui-lyric-empty { text-align: center; color: var(--modern-muted); font-size: 13px; p { margin-top: 20px; } }
 .ui-detail-enter-active, .ui-detail-leave-active { transition: opacity .2s, transform .2s; }
 .ui-detail-enter-from, .ui-detail-leave-to { opacity: 0; transform: translateY(25px); }
 .scroll, .ui-page, .ui-main-panel { scrollbar-width: thin; scrollbar-color: var(--modern-border) transparent; &::-webkit-scrollbar { width: 5px; height: 5px; } &::-webkit-scrollbar-thumb { background: var(--modern-border); border-radius: 8px; } }
-// Scrollbars remain usable with wheel/touch input while their native track and
-// arrows are hidden when the user enables the compact visual treatment.
-html[data-modern-hide-scrollbars='true'] {
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-  * {
-    scrollbar-width: none;
-    &::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-  }
-}
 @media (max-width: 1000px) { .ui-shell { grid-template-columns: 172px minmax(0, 1fr); } .ui-global-search { width: 185px; } .ui-collect-button { display: none; } .ui-quick-grid { grid-template-columns: 1fr; } .ui-detail-body { padding: 20px 35px; gap: 25px; } }
 @media (max-width: 800px) { .ui-shell { grid-template-columns: 65px minmax(0, 1fr); } .ui-sidebar { padding: 20px 8px 12px; } .ui-brand { padding: 0 8px 20px; > span:last-child { display: none; } } .ui-new-search, .ui-nav-label, .ui-sidebar-lists, .ui-sidebar-footer small { display: none; } .ui-sidebar nav a, .ui-sidebar-footer a, .ui-sidebar-footer button { justify-content: center; padding: 10px 0; span { display: none; } } .ui-sidebar-footer { margin-top: auto; } .ui-breadcrumb > span { display: none; } .ui-player-tools select { width: 55px; } .ui-player-tools > button:first-child { display: none; } .ui-page { padding: 25px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

@@ -4,7 +4,6 @@
   "common.startInFullscreen": "以全屏启动",
   "common.langId": "语言id",
   "common.apiSource": "当前音源",
-  "common.sourceNameType": "音源名称类型，原名、别名",
   "common.font": "显示的字体",
   "common.isShowAnimation": "启用动画",
   "common.randomAnimate": "启用随机弹窗动画",

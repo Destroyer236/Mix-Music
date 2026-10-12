@@ -14,5 +14,6 @@ onMounted(() => { document.getElementById('root').style.display = 'block' })
 <style lang="less">
 @import './assets/styles/index.less';
 @import './ui/styles.less';
+@import './ui/qq-music.less';
 </style>
 

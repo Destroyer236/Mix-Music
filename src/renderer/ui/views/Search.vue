@@ -1,25 +1,34 @@
 <template>
-  <div class="ui-search ui-discovery-page" @keyup.space.stop>
-    <header class="ui-discovery-heading"><div><span class="ui-eyebrow">FIND YOUR SOUND</span><h1>搜索音乐</h1><p>下一首喜欢的歌，从这里开始。</p></div><span class="ui-heading-glyph" aria-hidden="true"><UiIcon name="search" /></span></header>
-    <form class="ui-search-composer" @submit.prevent="submit()"><UiIcon name="search" /><input v-model="input" aria-label="歌曲、专辑、歌手或歌单关键词" placeholder="搜索歌曲、专辑、歌手或歌单" autocomplete="off"><button type="submit" :disabled="!input.trim()" aria-label="搜索"><UiIcon name="arrowUp" /></button></form>
-    <div class="ui-search-filters"><div class="ui-segmented" role="group" aria-label="搜索类型"><button v-for="item in searchKinds" :key="item.value" type="button" :class="{ active: kind === item.value }" :aria-pressed="kind === item.value" @click="changeKind(item.value)">{{ item.label }}</button></div><label class="ui-source-select"><span>音源</span><UiSelect :model-value="source" :options="sourceOptions" aria-label="搜索音源" @change="changeSource" /></label></div>
-    <p v-if="catalogNote" class="ui-discovery-note">{{ catalogNote }}</p>
+  <div ref="pageContainer" class="ui-search ui-discovery-page" @keyup.space.stop>
+    <header class="ui-search-heading"><div><p>{{ keyword ? '搜索结果' : '发现音乐' }}</p><h1>{{ keyword || '从喜欢的声音开始' }}</h1></div><span v-if="keyword" class="ui-search-heading-hint">找到喜欢的，就听一听</span></header>
+    <div class="ui-search-navigation"><div class="ui-search-kind-tabs" role="group" aria-label="搜索类型"><button v-for="item in searchKinds" :key="item.value" type="button" :class="{ active: kind === item.value }" :aria-pressed="kind === item.value" @click="changeKind(item.value)">{{ item.label }}</button></div><UiSelect :model-value="source" :options="sourceOptions" aria-label="搜索音源" @change="changeSource" /></div>
+    <p v-if="sourceNotice" class="ui-discovery-note">{{ sourceNotice }}</p>
     <div v-if="message" class="ui-inline-message" role="status"><span>{{ message }}</span><button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
     <template v-if="!keyword">
       <section v-if="appSetting['search.isShowHistorySearch'] && historyList.length" class="ui-search-history"><div class="ui-section-heading"><h2>最近搜索</h2><button type="button" @click="clearHistoryList('')">清空</button></div><div class="ui-search-history__items"><span v-for="(word, index) in historyList" :key="word"><button type="button" @click="submit(word)">{{ word }}</button><button type="button" :aria-label="`删除搜索记录 ${word}`" @click="removeHistoryWord(index)"><UiIcon name="close" /></button></span></div></section>
       <section class="ui-search-start"><div class="ui-search-start__mark" aria-hidden="true"><UiIcon name="music" /></div><h2>音乐，为每一种心情</h2><p>试试一位歌手、一个歌名，或一种想要的氛围。</p><div class="ui-search-prompts"><button v-for="prompt in prompts" :key="prompt.text" type="button" @click="submit(prompt.text, 'songlist')"><span><UiIcon :name="prompt.icon" /></span><strong>{{ prompt.label }}</strong><small>{{ prompt.text }}</small><b aria-hidden="true"><UiIcon name="arrowUpRight" /></b></button></div></section>
     </template>
-    <section v-else-if="selectedEntity" class="ui-search-results ui-catalog-detail">
+    <section v-else-if="selectedEntity && kind !== 'artist'" class="ui-search-results ui-catalog-detail">
       <button type="button" class="ui-catalog-back" @click="closeEntity"><UiIcon name="back" />返回{{ kind === 'album' ? '专辑' : '歌手' }}搜索结果</button>
       <div class="ui-catalog-detail__heading"><img v-if="selectedEntity.img" :src="selectedEntity.img" alt="" :class="{ artist: selectedEntity.kind === 'artist' }" @error="hideImage"><div><span class="ui-eyebrow">{{ selectedEntity.kind === 'album' ? '专辑曲目' : '歌手作品' }} · {{ sourceNames[selectedEntity.source] }}</span><h2>{{ selectedEntity.name }}</h2><p>{{ selectedEntity.author }}<span v-if="selectedEntity.date"> · {{ selectedEntity.date }}</span><span v-if="!entityLoading && !entityError"> · {{ entityTotal.toLocaleString() }} 首歌曲</span></p></div><button v-if="entityTracks.length && !entityLoading" type="button" class="ui-button ui-button--primary" @click="playEntityPage"><UiIcon name="play" filled />播放本页</button></div>
       <TrackTable :list="entityTracks" :loading="entityLoading" :error="entityError" :offset="(entityPage - 1) * entityLimit" empty-title="平台暂未返回该条目的作品" @play="playOne" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="loadEntity" />
       <UiPagination v-if="!entityError" :page="entityPage" :pages="entityPages" :loading="entityLoading" @change="changeEntityPage" />
     </section>
-    <section v-else class="ui-search-results"><div class="ui-section-heading"><h2>“{{ keyword }}”<span v-if="!loading && !error"> · {{ total.toLocaleString() }} {{ resultUnit }}</span></h2><button v-if="kind === 'music' && tracks.length && !loading" type="button" @click="playPage"><UiIcon name="play" filled />播放本页</button></div><p v-if="partialFailure && !loading" class="ui-discovery-note">{{ partialFailure }}</p>
-      <TrackTable v-if="kind === 'music'" :list="tracks" :loading="loading" :error="error" :offset="source === 'all' ? 0 : (page - 1) * limit" empty-title="没有找到这首歌" @play="playOne" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="load" />
-      <template v-else-if="kind === 'songlist'"><UiEmpty v-if="loading || error || !playlists.length" :title="loading ? '正在寻找歌单…' : error ? '搜索暂时失败' : '没有找到相关歌单'" :description="error || (loading ? '正在读取所选平台的结果。' : '试试更简短的关键词，或切换音源。')" :retry="Boolean(error)" @retry="load" /><PlaylistGrid v-else :list="playlists" @open="openPlaylist" @play="openPlaylist($event, true)" /></template>
-      <template v-else><UiEmpty v-if="loading || error || !catalog.length" :title="loading ? `正在寻找${kind === 'album' ? '专辑' : '歌手'}…` : error ? '搜索暂时失败' : `没有找到相关${kind === 'album' ? '专辑' : '歌手'}`" :description="error || (loading ? '正在读取所选平台的音乐目录。' : '试试更简短的关键词，或切换音源。')" :retry="Boolean(error)" @retry="load" /><CatalogGrid v-else :list="catalog" @open="openEntity" @play="openEntity($event, true)" /></template>
-      <UiPagination v-if="!error" :page="page" :pages="pages" :loading="loading" @change="changePage" />
+    <section v-else class="ui-search-results" :aria-busy="loading"><div v-if="kind !== 'artist' || !artistMatches.exact || loading || error" class="ui-section-heading"><h2>{{ resultHeading }}<span v-if="!loading && !error">{{ resultSummary }}</span></h2><button v-if="kind === 'music' && tracks.length && !loading" type="button" class="ui-search-play" @click="playPage"><UiIcon name="play" filled />播放本页</button></div><p v-if="partialFailure && !loading" class="ui-discovery-note">{{ partialFailure }}</p>
+      <div v-if="loading" class="ui-search-results-skeleton" :class="{ 'is-cards': kind === 'album' || kind === 'songlist' }" role="status" aria-label="正在搜索"><div v-for="index in 6" :key="index"><i :class="{ 'is-artist': kind === 'artist' }" /><span><i /><i /></span></div></div>
+      <TrackTable v-else-if="kind === 'music'" :list="tracks" :error="error" :offset="source === 'all' ? 0 : (page - 1) * limit" empty-title="没有找到相关歌曲" @play="playOne" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="load" />
+      <template v-else-if="kind === 'songlist'"><UiEmpty v-if="error || !playlists.length" :title="error ? '搜索暂时失败' : '没有找到相关歌单'" :description="error || '试试更简短的关键词，或切换平台。'" :retry="Boolean(error)" @retry="load" /><PlaylistGrid v-else :list="playlists" @open="openPlaylist" @play="openPlaylist($event, true)" /></template>
+      <template v-else-if="kind === 'artist'">
+        <UiEmpty v-if="error || !artistMatches.groups.length" :title="error ? '搜索暂时失败' : '没有找到匹配的歌手'" :description="error || '试试歌手的完整姓名，或切换平台。'" :retry="Boolean(error)" @retry="load" />
+        <SearchArtists v-else :groups="artistMatches.groups" :selected="selectedEntity" @open="openEntity" />
+        <section v-if="selectedEntity" class="ui-search-artist-works" :aria-label="`${selectedEntity.name}的作品`" :aria-busy="entityLoading">
+          <div class="ui-section-heading"><h2>歌手作品<span>{{ selectedEntity.name }} · {{ sourceNames[selectedEntity.source] }}</span></h2><button v-if="entityTracks.length && !entityLoading" type="button" class="ui-search-play" @click="playEntityPage"><UiIcon name="play" filled />播放本页</button></div>
+          <TrackTable :list="entityTracks" :loading="entityLoading" :error="entityError" :offset="(entityPage - 1) * entityLimit" empty-title="这个平台暂未返回作品" @play="playOne" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="loadEntity" />
+          <UiPagination v-if="!entityError" :page="entityPage" :pages="entityPages" :loading="entityLoading" @change="changeEntityPage" />
+        </section>
+      </template>
+      <template v-else><UiEmpty v-if="error || !catalog.length" :title="error ? '搜索暂时失败' : '没有找到相关专辑'" :description="error || '试试更简短的关键词，或切换平台。'" :retry="Boolean(error)" @retry="load" /><CatalogGrid v-else :list="catalog" @open="openEntity" @play="openEntity($event, true)" /></template>
+      <UiPagination v-if="!error && !loading && !(kind === 'artist' && artistMatches.exact)" :page="page" :pages="pages" :loading="loading" @change="changePage" />
     </section>
     <TrackActionModal :show="actionOpen" :tracks="actionTracks" :action="action" @close="actionOpen = false" @success="message = $event" />
   </div>
@@ -36,6 +45,9 @@ import UiSelect from '../components/UiSelect.vue'
 import PlaylistGrid from '../components/PlaylistGrid.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
 import CatalogGrid from '../components/CatalogGrid.vue'
+import SearchArtists from '../components/SearchArtists.vue'
+import { matchArtists } from '../artistResults'
+import { usePaginationScroll } from '../usePaginationScroll'
 import { getCatalogSources, searchMusicCatalog, readCatalogTracks, type CatalogEntry } from '../services/catalogSearch'
 import { playTrack, playTracks } from '../services/music'
 import music from '@renderer/utils/musicSdk'
@@ -70,6 +82,7 @@ const entityTracks = ref<LX.Music.MusicInfo[]>([])
 const entityLoading = ref(false)
 const entityError = ref('')
 const entityPage = ref(1)
+const pageContainer = usePaginationScroll([page, entityPage])
 const entityPages = ref(1)
 const entityLimit = ref(30)
 const entityTotal = ref(0)
@@ -86,7 +99,9 @@ const sourcesFor = (value: SearchKind) => value === 'music' ? musicSources : val
 const availableSources = computed(() => sourcesFor(kind.value).filter((item): item is LX.OnlineSource => item !== 'all'))
 const sourceOptions = computed(() => [{ value: 'all', label: '全部平台' }, ...availableSources.value.map(item => ({ value: item, label: sourceNames.value[item] }))])
 const resultUnit = computed(() => ({ music: '首歌曲', songlist: '份歌单', album: '张专辑', artist: '位歌手' }[kind.value]))
-const catalogNote = computed(() => sourceNotice.value || (kind.value === 'album' ? '专辑目录支持网易云、QQ 音乐、酷狗和酷我。咪咕与哔哩哔哩暂未提供可读取的专辑曲目目录。' : kind.value === 'artist' ? '点击歌手查看作品。哔哩哔哩暂未提供音乐歌手目录。' : ''))
+const artistMatches = computed(() => matchArtists(catalog.value, keyword.value))
+const resultHeading = computed(() => ({ music: '歌曲', artist: '匹配歌手', album: '专辑', songlist: '歌单' }[kind.value]))
+const resultSummary = computed(() => kind.value === 'artist' ? `${artistMatches.value.exact ? '' : '本页 '}${artistMatches.value.groups.length} 组结果` : source.value === 'all' ? `本页 ${kind.value === 'music' ? tracks.value.length : kind.value === 'album' ? catalog.value.length : playlists.value.length} ${resultUnit.value}` : `${total.value.toLocaleString()} ${resultUnit.value}`)
 const prompts = [{ icon: 'moon', label: '放松一下', text: '睡前 轻音乐' }, { icon: 'focus', label: '保持专注', text: '专注 工作' }, { icon: 'discover', label: '发现好心情', text: '快乐 流行' }]
 let requestId = 0
 let entityRequestId = 0
@@ -149,7 +164,10 @@ async function load() {
     partialFailure.value = failed.length ? `${failed.join('、')}暂时不可用，已显示其他平台的结果。` : ''
     if (currentKind === 'music') tracks.value = deduplicationList(results.flatMap(item => (item.list as LX.Music.MusicInfo[]).map(track => toNewMusicInfo(track))))
     else if (currentKind === 'songlist') playlists.value = results.flatMap(item => item.list as ListInfoItem[])
-    else catalog.value = results.flatMap(item => item.list as CatalogEntry[])
+    else {
+      catalog.value = results.flatMap(item => item.list as CatalogEntry[])
+      if (currentKind === 'artist' && artistMatches.value.exact && artistMatches.value.groups.length === 1) void openEntity(artistMatches.value.groups[0].entries[0])
+    }
   } catch (err) {
     if (id !== requestId) return
     error.value = err instanceof Error ? err.message : '搜索失败，请稍后重试。'
