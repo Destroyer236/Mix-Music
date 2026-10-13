@@ -1,11 +1,13 @@
 <template>
-  <span ref="host" class="ui-track-artwork"><img v-if="visible && url && !failed" :src="url" :alt="alt" loading="lazy" decoding="async" @error="imageError"><span v-else class="ui-track-artwork-fallback" aria-hidden="true"><UiIcon name="music" /></span></span>
+  <span ref="host" class="ui-track-artwork"><img v-if="visible && url && !failed" :src="url" :alt="alt" loading="lazy" decoding="async" @load="imageLoaded" @error="imageError"><span v-else class="ui-track-artwork-fallback" aria-hidden="true"><UiIcon name="music" /></span></span>
 </template>
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import UiIcon from './UiIcon.vue'
 import { resolveArtwork } from '../services/artwork'
 const props = withDefaults(defineProps<{ track?: LX.Music.MusicInfo | null, src?: string | null, listId?: string | null, alt?: string }>(), { track: null, src: null, listId: null, alt: '' })
+const emit = defineEmits<{ loaded: [image: HTMLImageElement] }>()
+function imageLoaded(event: Event) { emit('loaded', event.target as HTMLImageElement) }
 const host = ref<HTMLElement | null>(null)
 const url = ref('')
 const failed = ref(false)

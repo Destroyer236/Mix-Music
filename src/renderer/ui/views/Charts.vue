@@ -1,13 +1,17 @@
 <template>
-  <div class="ui-charts ui-discovery-page" @keyup.space.stop>
-    <header class="ui-discovery-heading"><div><span class="ui-eyebrow">ON REPEAT, EVERYWHERE</span><h1>正在被世界听见</h1><p>热歌、新歌与飙升趋势，从各个平台找到你的下一首。</p></div><span class="ui-heading-glyph" aria-hidden="true"><UiIcon name="chart" /></span></header>
-    <div class="ui-source-pills" role="group" aria-label="排行榜平台"><button v-for="item in sources" :key="item" type="button" :class="{ active: item === source }" @click="selectSource(item)">{{ sourceNames[item] }}</button></div>
-    <UiEmpty v-if="boardsLoading || boardsError || !boardList.length" :title="boardsLoading ? '正在读取排行榜…' : boardsError ? '排行榜暂时不可用' : '这个平台暂无排行榜'" :description="boardsError || ''" :retry="Boolean(boardsError)" @retry="loadBoards(true)" />
+  <div ref="pageContainer" class="ui-charts ui-discovery-page ui-qq-browse ui-qq-charts" @keyup.space.stop>
+    <header class="qq-browse-heading"><h1>排行榜</h1><span>发现正在流行的好音乐</span></header>
+    <div class="ui-source-pills qq-browse-sources" role="group" aria-label="排行榜平台"><button v-for="item in sources" :key="item" type="button" :class="{ active: item === source }" :aria-pressed="item === source" @click="selectSource(item)">{{ sourceNames[item] }}</button></div>
+    <div v-if="boardsLoading" class="qq-board-loading" role="status" aria-label="正在加载排行榜" aria-busy="true"><div class="qq-board-tabs-skeleton" aria-hidden="true"><span v-for="slot in 4" :key="slot" class="qq-skeleton-block" /></div><div class="qq-chart-skeleton-head" aria-hidden="true"><div class="qq-skeleton-block" /><div><div class="qq-skeleton-line" /><div class="qq-skeleton-line is-short" /></div></div><div v-for="slot in 5" :key="slot" class="qq-chart-skeleton-row" aria-hidden="true"><div class="qq-skeleton-block" /><div class="qq-skeleton-line" /><div class="qq-skeleton-line is-short" /></div></div>
+    <UiEmpty v-else-if="boardsError || !boardList.length" :title="boardsError ? '排行榜暂时不可用' : '这个平台暂无排行榜'" :description="boardsError || ''" :retry="Boolean(boardsError)" @retry="loadBoards(true)" />
     <template v-else>
-      <section class="ui-charts-picks" aria-label="推荐榜单"><button v-for="(board, index) in boardList.slice(0, 4)" :key="board.id" type="button" :class="{ active: board.id === boardId }" @click="selectBoard(board.id)"><span class="ui-charts-picks__number">0{{ index + 1 }}</span><strong>{{ board.name }}</strong><small>{{ sourceNames[source] }} · 音乐趋势</small><span class="ui-charts-picks__arrow" aria-hidden="true"><UiIcon name="arrowUpRight" /></span></button></section>
-      <div class="ui-charts-toolbar"><label>更多榜单<UiSelect :model-value="boardId" :options="boardOptions" aria-label="选择排行榜" @change="changeBoard" /></label><button type="button" class="ui-outline-button" :disabled="loading || busy" @click="importCollection"><UiIcon name="plus" />{{ busy === 'import' ? '正在导入…' : '加入音乐库' }}</button></div>
+      <div class="qq-board-navigation"><section class="ui-charts-picks" aria-label="推荐榜单"><button v-for="board in boardList.slice(0, 4)" :key="board.id" type="button" :class="{ active: board.id === boardId }" :aria-pressed="board.id === boardId" @click="selectBoard(board.id)">{{ board.name }}</button></section><UiSelect :model-value="boardId" :options="boardOptions" aria-label="选择排行榜" @change="changeBoard" /></div>
       <div v-if="message" class="ui-inline-message" role="status"><span>{{ message }}</span><button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
-      <section class="ui-charts-tracks"><div class="ui-section-heading"><h2>{{ boardName }}<span v-if="!loading && !error"> · {{ total.toLocaleString() }} 首歌曲</span></h2><div><button type="button" :disabled="loading || busy || !tracks.length" @click="playCollection()"><UiIcon name="play" filled />{{ busy === 'play' ? '正在准备…' : '播放榜单' }}</button><button type="button" :disabled="loading" @click="loadTracks(true)">刷新<UiIcon name="refresh" /></button></div></div><div class="ui-track-panel"><TrackTable :list="tracks" :loading="loading" :error="error" :offset="(page - 1) * limit" empty-title="这个榜单暂无歌曲" @play="playCollection($event)" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="loadTracks(true)" /></div><UiPagination :page="page" :pages="pages" :loading="loading" @change="changePage" /></section>
+      <section class="ui-charts-tracks">
+        <header class="qq-chart-feature"><div class="qq-chart-cover" :class="{ 'qq-skeleton-block': loading }"><TrackArtwork v-if="!loading" :track="tracks[0]" :alt="boardName + '歌曲封面'" /></div><div class="qq-chart-feature-copy"><span>{{ sourceNames[source] }} · 排行榜</span><h2>{{ boardName }}</h2><p>{{ loading ? '正在读取榜单歌曲…' : error ? '歌曲暂时无法加载' : total.toLocaleString() + ' 首歌曲' }}</p><div class="qq-chart-feature-actions"><button type="button" class="ui-solid-button" :disabled="loading || busy || !tracks.length" @click="playCollection()"><UiIcon name="play" filled />{{ busy === 'play' ? '正在准备…' : '播放榜单' }}</button><button type="button" class="ui-outline-button" :disabled="loading || busy" @click="importCollection"><UiIcon name="plus" />{{ busy === 'import' ? '正在导入…' : '加入音乐库' }}</button></div></div><button type="button" class="qq-browse-refresh" :disabled="loading" @click="loadTracks(true)"><UiIcon name="refresh" />刷新</button></header>
+        <div v-if="loading" class="qq-chart-tracks-loading" role="status" aria-label="正在加载榜单歌曲" aria-busy="true"><div v-for="slot in 6" :key="slot" class="qq-chart-skeleton-row" aria-hidden="true"><div class="qq-skeleton-block" /><div class="qq-skeleton-line" /><div class="qq-skeleton-line is-short" /></div></div>
+        <div v-else class="ui-track-panel"><TrackTable :list="tracks" :loading="loading" :error="error" :offset="(page - 1) * limit" empty-title="这个榜单暂无歌曲" @play="playCollection($event)" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="loadTracks(true)" /></div><UiPagination :page="page" :pages="pages" :loading="loading" @change="changePage" />
+      </section>
     </template>
     <TrackActionModal :show="actionOpen" :tracks="actionTracks" :action="action" @close="actionOpen = false" @success="message = $event" />
   </div>
@@ -27,10 +31,12 @@ import { LIST_IDS } from '@common/constants'
 import { playTrack } from '../services/music'
 import UiEmpty from '../components/UiEmpty.vue'
 import TrackTable from '../components/TrackTable.vue'
+import TrackArtwork from '../components/TrackArtwork.vue'
 import UiPagination from '../components/UiPagination.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
 import UiIcon from '../components/UiIcon.vue'
 import UiSelect from '../components/UiSelect.vue'
+import { usePaginationScroll } from '../usePaginationScroll'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,6 +47,7 @@ const boardCache = new Map<LX.OnlineSource, BoardItem[]>()
 const boardId = ref('')
 const boardName = computed(() => boardList.value.find(item => item.id === boardId.value)?.name ?? '排行榜')
 const page = ref(1)
+const pageContainer = usePaginationScroll([page])
 const limit = ref(30)
 const total = ref(0)
 const pages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))

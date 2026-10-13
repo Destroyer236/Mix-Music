@@ -70,28 +70,14 @@ build
 dist
 /dist-preview/
 
-# Local QA output; retain reports referenced by doc/modern-ui.md
+# Local runtime data and temporary verification output
 /artifacts/*
-!/artifacts/native-appearance-verification.json
-!/artifacts/native-verification.json
-!/artifacts/native-online-verification.json
-!/artifacts/native-hotkeys-verification.json
-!/artifacts/native-window-verification.json
-!/artifacts/native-player-verification.json
-!/artifacts/native-menu-verification.json
-!/artifacts/native-artwork-verification.json
-!/artifacts/native-sidebar-height-verification.json
-!/artifacts/native-volume-verification.json
-!/artifacts/native-platform-smoke.json
-!/artifacts/platform-renderer-service-verification.json
-!/artifacts/native-platform-ui.json
-!/artifacts/native-favorites-regression.json
-!/artifacts/native-first-use-verification.json
-!/artifacts/lyric-production-verification.json
-!/artifacts/lyric-regression-verification.json
 
 publish/assets
 
 publish/utils/githubToken.js
 
 src/**/*-internal.js
+
+# Personal music links, recommendation history and future local runtime data
+/data/

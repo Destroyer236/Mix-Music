@@ -1,5 +1,5 @@
 <template>
-  <div class="ui-song-detail ui-discovery-page" @keyup.space.stop>
+  <div ref="pageContainer" class="ui-song-detail ui-discovery-page" @keyup.space.stop>
     <button type="button" class="ui-song-detail__back" @click="router.push({ path: '/songList/list', query: { source } })"><UiIcon name="back" />精选歌单</button>
     <section class="ui-song-detail__hero"><div class="ui-song-detail__cover"><img v-if="cover" :src="cover" :alt="name" @error="hideImage"><span aria-hidden="true"><UiIcon name="music" /></span></div><div class="ui-song-detail__info"><span class="ui-eyebrow">PLAYLIST · {{ sourceNames[source] }}</span><h1>{{ name }}</h1><p class="ui-song-detail__author">{{ detail?.info.author || '精选歌单' }}<span v-if="detail?.total"> · {{ detail.total.toLocaleString() }} 首歌曲</span><span v-if="detail?.info.play_count"> · {{ detail.info.play_count }} 次播放</span></p><p v-if="description" class="ui-song-detail__description">{{ description }}</p><div class="ui-song-detail__buttons"><button type="button" class="ui-solid-button" :disabled="loading || busy || !detail?.list.length" @click="playCollection()"><UiIcon name="play" filled />{{ busy === 'play' ? '正在准备…' : '播放歌单' }}</button><button type="button" class="ui-outline-button" :disabled="loading || busy || !detail?.list.length" @click="importCollection"><UiIcon name="plus" />{{ busy === 'import' ? '正在导入…' : '加入音乐库' }}</button></div></div></section>
     <div v-if="message" class="ui-inline-message" role="status"><span>{{ message }}</span><button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
@@ -25,6 +25,7 @@ import { playTrack } from '../services/music'
 import TrackTable from '../components/TrackTable.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
 import UiPagination from '../components/UiPagination.vue'
+import { usePaginationScroll } from '../usePaginationScroll'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +33,7 @@ const queryValue = (value: unknown) => typeof value === 'string' ? value : ''
 const source = computed(() => sources.includes(queryValue(route.query.source) as LX.OnlineSource) ? route.query.source as LX.OnlineSource : sources[0] || 'kw')
 const playlistId = computed(() => queryValue(route.query.id))
 const page = computed(() => Math.max(1, Number.parseInt(queryValue(route.query.page), 10) || 1))
+const pageContainer = usePaginationScroll([page])
 const detail = ref<ListDetailInfo | null>(null)
 const name = computed(() => detail.value?.info.name ?? (queryValue(route.query.name) || '歌单详情'))
 const cover = computed(() => detail.value?.info.img ?? queryValue(route.query.picUrl))

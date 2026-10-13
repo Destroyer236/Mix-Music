@@ -1,4 +1,4 @@
-import { onBeforeUnmount, onMounted, reactive, ref, toRaw } from 'vue'
+import { onBeforeUnmount, reactive, ref, toRaw } from 'vue'
 import { appSetting, mergeSetting } from '@renderer/store/setting'
 import { defaultList, loveList, userLists } from '@renderer/store/list/state'
 import { getListMusics, overwriteListFull, overwriteListMusics } from '@renderer/store/list/action'
@@ -251,20 +251,21 @@ export function useSettings() {
     await run('设备已取消配对', async() => { await ipc.removeSyncServerDevice(device.clientId); await refreshSyncDevices() })
   }
   async function saveRules() { await run('屏蔽规则已保存', async() => { await overwirteDislikeInfo(rules.value); rules.value = dislikeInfo.rules }) }
-  async function initialize() {
-    const results = await Promise.allSettled([ipc.getSystemFonts(), ipc.getUserApiList(), refreshCaches(), appSetting['sync.enable'] ? refreshSyncDevices() : Promise.resolve()])
-    if (results[0].status === 'fulfilled') fonts.value = results[0].value.map(font => font.replace(/^"|"$/g, ''))
-    if (results[1].status === 'fulfilled') userApi.list = results[1].value
-    const errors = results.filter(result => result.status === 'rejected')
-    if (errors.length) { failed.value = true; notice.value = '部分设备信息暂时无法读取，可稍后点击刷新。' }
+  const initializedSections = new Set<string>()
+  async function initializeSection(id: string) {
+    if (initializedSections.has(id)) return
+    initializedSections.add(id)
+    try {
+      if (id === 'general') fonts.value = (await ipc.getSystemFonts()).map(font => font.replace(/^"|"$/g, ''))
+      else if (id === 'sources') userApi.list = await ipc.getUserApiList()
+      else if (id === 'data') await refreshCaches()
+      else if (id === 'sync' && appSetting['sync.enable']) await refreshSyncDevices()
+    } catch { initializedSections.delete(id); failed.value = true; notice.value = '部分设置资料暂时无法读取，可稍后点击刷新。' }
   }
-  onMounted(() => {
-    void initialize()
-  })
   onBeforeUnmount(() => {
     answerConfirmation(false)
     deviceEnumerationActive = false
     navigator.mediaDevices?.removeEventListener('devicechange', onDeviceChange)
   })
-  return { busy, notice, failed, fonts, devices, syncDevices, caches, rules, confirmation, answerConfirmation, confirm, run, saveRecord, setPreference, chooseDirectory, refreshDevices, setDeviceEnumerationActive, importSource, importSourceText, removeSource, useSource, exportBackup, importBackup, exportText, refreshCaches, clearData, refreshSyncDevices, removeSyncDevice, saveRules, sync, versionInfo, userApi }
+  return { busy, notice, failed, fonts, devices, syncDevices, caches, rules, confirmation, answerConfirmation, confirm, run, saveRecord, setPreference, chooseDirectory, refreshDevices, setDeviceEnumerationActive, initializeSection, importSource, importSourceText, removeSource, useSource, exportBackup, importBackup, exportText, refreshCaches, clearData, refreshSyncDevices, removeSyncDevice, saveRules, sync, versionInfo, userApi }
 }

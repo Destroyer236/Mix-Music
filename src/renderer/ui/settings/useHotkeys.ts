@@ -52,7 +52,7 @@ export function useHotkeys(report: (error: unknown) => void) {
       status.value = await hotKeyGetStatus()
     } catch (error) { report(error) }
   }
-  onMounted(() => { void refresh().catch(report); window.app_event.on('keyDown', handleKey) })
+  onMounted(() => { window.app_event.on('keyDown', handleKey) })
   onBeforeUnmount(() => { window.app_event.off('keyDown', handleKey); if (recording.value) { window.lx.isEditingHotKey = false; void hotKeySetEnable(true).catch(report) } })
   return { config, status, recording, allHotKeys, formatted, binding, begin, finish, enable, refresh }
 }

@@ -1,14 +1,10 @@
 <template>
-  <section class="ui-library">
-    <aside class="ui-library-rail">
-      <div class="ui-library-rail-heading"><span>我的音乐库</span><button type="button" aria-label="创建新歌单" @click="openPlaylist('create')"><UiIcon name="plus" /></button></div>
-      <div class="ui-library-playlists scroll"><button v-for="item in playlists" :key="item.id" type="button" :class="{ active: listId === item.id }" @click="chooseList(item.id)"><img v-if="item.cover" class="ui-library-list-cover" :src="item.cover" alt="" referrerpolicy="no-referrer"><UiIcon v-else class="ui-library-list-icon" :name="item.id === 'love' ? 'heart' : item.id === LOCAL_LIBRARY_ID ? 'folder' : item.id === 'default' ? 'music' : 'list'" /><span class="ui-library-list-label">{{ item.name }}<small v-if="item.platform">{{ platformName(item.platform) }}</small></span></button></div>
-      <div class="ui-library-rail-bottom"><button type="button" :disabled="importing" @click="importAudioOpen = true"><UiIcon name="plus" />导入本地音乐</button><button type="button" :disabled="importing" @click="importPlaylist"><UiIcon name="upload" />导入歌单文件</button></div>
-    </aside>
+  <section ref="pageContainer" class="ui-library ui-library-single-panel">
+
 
     <main class="ui-library-main">
       <header class="ui-library-heading">
-        <div class="ui-library-cover" :class="{ love: listId === 'love' }"><img v-if="currentPlatformList?.cover" :src="currentPlatformList.cover" alt="" referrerpolicy="no-referrer"><UiIcon v-else :name="listId === 'love' ? 'heart' : listId === LOCAL_LIBRARY_ID ? 'folder' : 'music'" /></div>
+        <div class="ui-library-cover" :class="{ love: listId === 'love' }"><TrackArtwork v-if="coverTrack" :track="coverTrack" :list-id="listId" :alt="`${currentName} 封面`" /><img v-else-if="currentPlatformList?.cover" :src="currentPlatformList.cover" alt="" referrerpolicy="no-referrer"><UiIcon v-else :name="listId === 'love' ? 'heart' : listId === LOCAL_LIBRARY_ID ? 'folder' : 'music'" /></div>
         <div class="ui-library-title"><span class="ui-library-eyebrow">YOUR COLLECTION</span><h1>{{ currentName }}</h1><p>{{ tracks.length }} 首歌曲 · {{ currentPlatformList ? `${platformName(currentPlatformList.platform)} · 平台创建歌单` : `${localCount} 首本地音乐` }}</p></div>
         <div v-if="currentUserList" class="ui-library-edit"><button type="button" aria-label="重命名当前歌单" @click="openPlaylist('rename')">编辑</button><button type="button" aria-label="删除当前歌单" @click="openPlaylist('delete')">删除</button></div>
       </header>
@@ -17,21 +13,21 @@
         <button type="button" class="ui-library-primary" :disabled="!tracks.length" @click="playFirst"><UiIcon name="play" filled />播放全部</button>
         <button v-if="currentPlatformList" type="button" :disabled="loading" @click="refreshPlatformPlaylist"><UiIcon name="refresh" />同步歌单</button>
         <button v-else type="button" :disabled="importing" @click="importAudioOpen = true">{{ importing ? '正在导入…' : '导入音乐' }}</button>
+        <button type="button" :disabled="importing" @click="importPlaylist">导入歌单</button>
         <button type="button" :disabled="!tracks.length" @click="exportPlaylist">导出歌单</button>
         <label class="ui-library-search"><UiIcon name="search" /><input v-model="query" placeholder="搜索此歌单" aria-label="搜索此歌单"></label>
         <UiSelect :model-value="sort" :options="sortOptions" aria-label="歌单排序" @change="changeSort" />
       </div>
 
       <div v-if="importProgress && importing" class="ui-library-import-progress" role="status" aria-live="polite"><div><strong>正在扫描并导入本地音乐</strong><p>发现 {{ importProgress.discovered }} 首 · 已导入 {{ importProgress.imported }} 首 · 跳过 {{ importProgress.skipped }} 项 · 失败 {{ importProgress.failed + importProgress.metadataFailed }} 项</p><small :title="importProgress.directory">{{ importProgress.directory || '正在读取所选文件…' }}</small></div><button type="button" :disabled="importCancelled" @click="importCancelled = true">{{ importCancelled ? '正在停止…' : '停止导入' }}</button></div>
-      <div v-if="message" class="ui-library-message" role="status">{{ message }}<button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
       <div v-if="actionError" class="ui-library-error" role="alert">{{ actionError }}<button type="button" aria-label="关闭错误提示" @click="actionError = ''"><UiIcon name="close" /></button></div>
       <div v-if="selected.size" class="ui-library-selection"><span>已选择 {{ selected.size }} 首</span><button type="button" @click="openTrackAction('add', selectedTracks)">加入歌单</button><button type="button" @click="favoriteMany(selectedTracks)">收藏</button><button type="button" @click="openTrackAction('download', selectedTracks)">下载</button><button v-if="!currentPlatformList" type="button" @click="requestRemove(selectedTracks)">移除</button><button type="button" @click="selected = new Set()">取消选择</button></div>
       <div class="ui-library-results">
-        <TrackTable :list="pageTracks" :list-id="listId" :loading="loading" :error="error" :offset="(page - 1) * PAGE_SIZE" :removable="!currentPlatformList" :empty-title="query ? '没有找到匹配的歌曲' : currentPlatformList ? '平台歌单暂时没有歌曲' : listId === LOCAL_LIBRARY_ID ? '导入文件或文件夹，开始聆听本地音乐' : '给这个歌单加入第一首音乐'" @play="playTrack" @add="addTrack" @download="downloadTrack" @remove="removeTrack" @retry="loadTracks">
-          <template #actions="{ track }: { track: LX.Music.MusicInfo }"><button type="button" class="ui-library-row-btn" :class="{ loved: isFavorite(track) }" :aria-label="isFavorite(track) ? '取消收藏' : '收藏歌曲'" :disabled="favoritePending.has(track.id)" @click="toggleFavorite(track)"><UiIcon name="heart" :filled="isFavorite(track)" /></button><button v-if="!currentPlatformList" type="button" class="ui-library-row-btn" aria-label="编辑歌曲信息" @click="editTrack(track)"><UiIcon name="more" /></button><input type="checkbox" :checked="selected.has(track.id)" :aria-label="`选择 ${track.name}`" @change="toggleSelected(track.id)"></template>
+        <TrackTable :list="filteredTracks" :list-id="listId" :loading="loading" :error="error" :removable="!currentPlatformList" :empty-title="query ? '没有找到匹配的歌曲' : currentPlatformList ? '平台歌单暂时没有歌曲' : listId === LOCAL_LIBRARY_ID ? '导入文件或文件夹，开始聆听本地音乐' : '给这个歌单加入第一首音乐'" @play="playTrack" @add="addTrack" @download="downloadTrack" @remove="removeTrack" @retry="loadTracks">
+          <template #actions="{ track }: { track: LX.Music.MusicInfo }"><button type="button" class="ui-library-row-btn" :class="{ loved: isFavorite(track) }" :aria-pressed="isFavorite(track)" :aria-label="isFavorite(track) ? '取消收藏' : '收藏歌曲'" :disabled="favoritePending.has(track.id)" @click="toggleFavorite(track)"><UiIcon name="heart" :filled="isFavorite(track)" /></button><button v-if="!currentPlatformList" type="button" class="ui-library-row-btn" aria-label="编辑歌曲信息" @click="editTrack(track)"><UiIcon name="more" /></button><input type="checkbox" :checked="selected.has(track.id)" :aria-label="`选择 ${track.name}`" @change="toggleSelected(track.id)"></template>
         </TrackTable>
       </div>
-      <footer v-if="filteredTracks.length" class="ui-library-pagination"><label><input type="checkbox" :checked="pageAllSelected" @change="selectPage">选择本页</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><button type="button" :disabled="page <= 1" @click="page--">上一页</button><span>{{ page }} / {{ pages }}</span><button type="button" :disabled="page >= pages" @click="page++">下一页</button></footer>
+      <footer v-if="filteredTracks.length" class="ui-library-pagination"><label><input type="checkbox" :checked="allSelected" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
     </main>
 
     <PlaylistDialog :show="playlistOpen" :action="playlistAction" :list-info="currentUserList" @close="playlistOpen = false" @saved="playlistSaved" />
@@ -48,11 +44,14 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import TrackTable from '../components/TrackTable.vue'
 import UiModal from '../components/UiModal.vue'
 import UiIcon from '../components/UiIcon.vue'
+import TrackArtwork from '../components/TrackArtwork.vue'
+import { playlistCoverTrack, rememberPlaylistCover } from '../usePlaylistCover'
 import UiSelect from '../components/UiSelect.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
 import PlaylistDialog from '../components/PlaylistDialog.vue'
 import TrackMetadataModal from '../components/TrackMetadataModal.vue'
-import { defaultList, loveList, userLists } from '@renderer/store/list/state'
+import { usePaginationScroll } from '../usePaginationScroll'
+import { loveList, userLists } from '@renderer/store/list/state'
 import { getListMusics, getUserLists, addListMusics, createUserList, removeListMusics, updateListMusicsPosition, setTempList } from '@renderer/store/list/action'
 import { LIST_IDS } from '@common/constants'
 import { LOCAL_AUDIO_EXTENSIONS, LOCAL_LIBRARY_ID } from '@common/localMusic'
@@ -65,19 +64,17 @@ import { favoritePending, isFavorite, refreshFavorites, setFavorite, setFavorite
 
 const route = useRoute()
 const router = useRouter()
-const PAGE_SIZE = 80
-const listId = ref(typeof route.query.id === 'string' ? route.query.id : defaultList.id)
+const listId = ref(typeof route.query.id === 'string' ? route.query.id : loveList.id)
 const tracks = ref<LX.Music.MusicInfo[]>([])
 const loading = ref(true)
 const initialized = ref(false)
 const error = ref('')
 const actionError = ref('')
-const message = ref('')
 const query = ref('')
 const sort = ref('original')
 const sortOptions = [{ value: 'original', label: '原始排序' }, { value: 'name', label: '按歌曲名称' }, { value: 'singer', label: '按歌手名称' }]
 const originalOrder = ref<string[]>([])
-const page = ref(1)
+const pageContainer = usePaginationScroll([query, listId], '.track-table__rows')
 const importing = ref(false)
 const importAudioOpen = ref(false)
 const importProgress = ref<LocalImportProgress | null>(null)
@@ -94,7 +91,6 @@ const removeOpen = ref(false)
 const removeTracks = ref<LX.Music.MusicInfo[]>([])
 const removing = ref(false)
 const playlists = computed(() => [
-  { ...defaultList, name: '试听列表', platform: null, cover: '' },
   { ...loveList, name: '我的收藏', platform: null, cover: '' },
   ...platformPlaylists.value,
   ...userLists.filter(item => item.id !== LOCAL_LIBRARY_ID).map(item => ({ ...item, platform: null, cover: '' })),
@@ -102,15 +98,14 @@ const playlists = computed(() => [
 const currentPlatformList = computed(() => platformPlaylists.value.find(item => item.id === listId.value) ?? null)
 const currentName = computed(() => playlists.value.find(item => item.id === listId.value)?.name ?? '我的音乐')
 const currentUserList = computed(() => listId.value === LOCAL_LIBRARY_ID ? null : userLists.find(item => item.id === listId.value) ?? null)
+const coverTrack = computed(() => playlistCoverTrack(listId.value, tracks.value))
 const localCount = computed(() => tracks.value.filter(track => track.source === 'local').length)
 const filteredTracks = computed(() => {
   const text = query.value.trim().toLowerCase()
   return text ? tracks.value.filter(track => `${track.name} ${track.singer} ${track.meta.albumName}`.toLowerCase().includes(text)) : tracks.value
 })
-const pages = computed(() => Math.max(1, Math.ceil(filteredTracks.value.length / PAGE_SIZE)))
-const pageTracks = computed(() => filteredTracks.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 const selectedTracks = computed(() => tracks.value.filter(track => selected.value.has(track.id)))
-const pageAllSelected = computed(() => pageTracks.value.length > 0 && pageTracks.value.every(track => selected.value.has(track.id)))
+const allSelected = computed(() => filteredTracks.value.length > 0 && filteredTracks.value.every(track => selected.value.has(track.id)))
 let requestId = 0
 let active = true
 async function loadTracks(background = false, refresh = false) {
@@ -122,10 +117,10 @@ async function loadTracks(background = false, refresh = false) {
   try {
     const data = currentPlatformList.value ? (await loadPlatformPlaylist(id, refresh)).tracks : await getListMusics(id)
     if (request !== requestId) return
+    rememberPlaylistCover(id, data)
     tracks.value = [...data]
     const ids = new Set(data.map(track => track.id))
     selected.value = new Set([...selected.value].filter(key => ids.has(key)))
-    page.value = Math.min(page.value, pages.value)
   } catch (err) { if (request === requestId) error.value = err instanceof Error ? err.message : '无法读取歌单，请重试。' } finally { if (request === requestId) loading.value = false }
 }
 async function loadFavorites() { await refreshFavorites() }
@@ -139,12 +134,11 @@ onBeforeRouteUpdate(to => to.query.id === LOCAL_LIBRARY_ID ? { path: '/local', r
 watch(() => route.query.id, id => {
   if (!active || route.path !== '/list') return
   if (id === LOCAL_LIBRARY_ID) { void router.replace('/local'); return }
-  if (typeof id === 'string' && id !== listId.value) listId.value = id
+  if (typeof id === 'string' && id !== listId.value) listId.value = playlists.value.some(item => item.id === id) ? id : loveList.id
 })
-watch(listId, () => { query.value = ''; sort.value = 'original'; originalOrder.value = []; page.value = 1; selected.value = new Set(); saveListPrevSelectId(listId.value); void loadTracks() })
-watch(query, () => { page.value = 1 })
+watch(listId, () => { query.value = ''; sort.value = 'original'; originalOrder.value = []; selected.value = new Set(); saveListPrevSelectId(listId.value); void loadTracks() })
 watch(() => playlists.value.map(item => item.id), () => {
-  if (initialized.value && !playlists.value.some(item => item.id === listId.value)) void chooseList(defaultList.id)
+  if (initialized.value && !playlists.value.some(item => item.id === listId.value)) void chooseList(loveList.id)
 })
 function handleListUpdate(ids: string[]) {
   if (importing.value && ids.every(id => id === LOCAL_LIBRARY_ID)) return
@@ -159,7 +153,7 @@ onMounted(async() => {
     const requestedId = typeof route.query.id === 'string' ? route.query.id : previousId
     initialized.value = true
     if (requestedId === LOCAL_LIBRARY_ID) { await router.replace('/local'); return }
-    const id = playlists.value.some(item => item.id === requestedId) ? requestedId : defaultList.id
+    const id = playlists.value.some(item => item.id === requestedId) ? requestedId : loveList.id
     if (listId.value !== id) await chooseList(id)
     else await loadTracks()
     if (!active) return
@@ -167,10 +161,10 @@ onMounted(async() => {
   } catch (err) { if (active) { loading.value = false; error.value = err instanceof Error ? err.message : '音乐库加载失败。' } }
 })
 onBeforeUnmount(() => { active = false; requestId++; importCancelled.value = true; window.app_event.off('myListUpdate', handleListUpdate) })
-function handleSuccess(value: string) { message.value = value; selected.value = new Set() }
-async function perform(task: () => Promise<void>, success?: string) {
+function handleSuccess() { selected.value = new Set() }
+async function perform(task: () => Promise<void>) {
   actionError.value = ''
-  try { await task(); if (success) message.value = success } catch (err) { actionError.value = err instanceof Error ? err.message : '操作未能完成，请重试。' }
+  try { await task() } catch (err) { actionError.value = err instanceof Error ? err.message : '操作未能完成，请重试。' }
 }
 async function playTrack(track: LX.Music.MusicInfo) {
   const index = tracks.value.findIndex(item => item.id === track.id)
@@ -185,14 +179,14 @@ async function playTrack(track: LX.Music.MusicInfo) {
 function playFirst() { if (tracks.value.length) void playTrack(tracks.value[0]) }
 async function refreshPlatformPlaylist() { await loadTracks(false, true) }
 function openPlaylist(action: 'create' | 'rename' | 'delete') { playlistAction.value = action; playlistOpen.value = true }
-async function playlistSaved(id: string) { await getUserLists(); await chooseList(id); message.value = '歌单已更新' }
+async function playlistSaved(id: string) { await getUserLists(); await chooseList(id) }
 function editTrack(track: LX.Music.MusicInfo) { metadataTrack.value = track; metadataOpen.value = true }
-async function metadataSaved() { await loadTracks(); message.value = '歌曲信息已更新' }
+async function metadataSaved() { await loadTracks() }
 function openTrackAction(action: 'add' | 'download', list: LX.Music.MusicInfo[]) { trackAction.value = action; actionTracks.value = [...list]; trackActionOpen.value = true }
 function addTrack(track: LX.Music.MusicInfo) { openTrackAction('add', [track]) }
 function downloadTrack(track: LX.Music.MusicInfo) { openTrackAction('download', [track]) }
 function toggleSelected(id: string) { const next = new Set(selected.value); if (next.has(id)) next.delete(id); else next.add(id); selected.value = next }
-function selectPage() { const next = new Set(selected.value); for (const track of pageTracks.value) { if (pageAllSelected.value) next.delete(track.id); else next.add(track.id) }; selected.value = next }
+function selectAll() { const next = new Set(selected.value); for (const track of filteredTracks.value) { if (allSelected.value) next.delete(track.id); else next.add(track.id) }; selected.value = next }
 async function favoriteMany(list: LX.Music.MusicInfo[]) { await perform(async() => { await setFavorites(list, true); await loadFavorites(); selected.value = new Set() }) }
 async function toggleFavorite(track: LX.Music.MusicInfo) {
   await perform(async() => { await setFavorite(track, !isFavorite(track)); await loadFavorites() })
@@ -201,7 +195,7 @@ function requestRemove(list: LX.Music.MusicInfo[]) { removeTracks.value = [...li
 function removeTrack(track: LX.Music.MusicInfo) { requestRemove([track]) }
 async function confirmRemove() {
   removing.value = true
-  await perform(async() => { if (listId.value === loveList.id) await setFavorites(removeTracks.value, false); else await removeListMusics({ listId: listId.value, ids: removeTracks.value.map(track => track.id) }); await loadTracks(); removeOpen.value = false; selected.value = new Set() }, listId.value === loveList.id ? undefined : '歌曲已从歌单移除')
+  await perform(async() => { if (listId.value === loveList.id) await setFavorites(removeTracks.value, false); else await removeListMusics({ listId: listId.value, ids: removeTracks.value.map(track => track.id) }); await loadTracks(); removeOpen.value = false; selected.value = new Set() })
   removing.value = false
 }
 async function changeSort(input: string | number) {
@@ -234,7 +228,6 @@ async function importAudio(mode: 'files' | 'folder') {
     const resultInfo = await importLocalAudio(result.filePaths, progress => { importProgress.value = progress }, () => importCancelled.value)
     if (!active) return
     imported = true
-    message.value = `${resultInfo.cancelled ? '已停止导入，' : ''}已导入 ${resultInfo.imported} 首 · 跳过 ${resultInfo.skipped} 项（重复、非音频或链接）· 失败 ${resultInfo.failed + resultInfo.metadataFailed} 项`
     if (resultInfo.errors.length) actionError.value = `未能读取：${resultInfo.errors.join('；')}${resultInfo.failed + resultInfo.metadataFailed > resultInfo.errors.length ? ' 等文件或文件夹' : ''}`
   })
   importing.value = false
@@ -246,7 +239,6 @@ async function exportPlaylist() {
     if (result.canceled || !result.filePath) return
     const info = currentPlatformList.value ? { id: listId.value, name: currentName.value } : playlists.value.find(item => item.id === listId.value)!
     await window.lx.worker.main.saveLxConfigFile(result.filePath, { type: 'playListPart_v2', data: { ...toRaw(info), list: toRaw(tracks.value) } })
-    message.value = '歌单已导出'
   })
 }
 async function importPlaylist() {
@@ -269,7 +261,6 @@ async function importPlaylist() {
     }
     await getUserLists()
     await chooseList(id)
-    message.value = `已导入 ${list.length} 首歌曲`
   })
   importing.value = false
 }
@@ -293,12 +284,12 @@ async function importPlaylist() {
 .ui-library-toolbar { display: flex; gap: 8px; align-items: center; padding: 24px 0 18px; flex: none; > button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); padding: 9px 12px; background: var(--modern-panel); color: var(--modern-muted); font-size: 11px; cursor: pointer; svg { width: 14px; height: 14px; } &:hover { color: var(--modern-text); background: var(--modern-hover); } &:disabled { opacity: .4; cursor: default; } } button.ui-library-primary { background: var(--modern-text); border-color: transparent; color: var(--modern-panel); } .ui-select { width: 125px; flex: none; } }
 .ui-library-search { margin-left: auto; min-width: 60px; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); color: var(--modern-muted); svg { width: 15px; height: 15px; } input { min-width: 0; width: 115px; border: 0; outline: none; background: transparent; font-size: 11px; color: var(--modern-text); font-family: inherit; } }
 .ui-library-results { flex: 1; min-height: 0; overflow: hidden; }
-.ui-library-message, .ui-library-error { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 9px; font-size: 11px; margin-bottom: 10px; background: var(--modern-accent-soft); color: var(--modern-accent-ink); button { border: 0; color: inherit; background: transparent; cursor: pointer; svg { width: 15px; height: 15px; } } }
+.ui-library-error { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 9px; font-size: 11px; margin-bottom: 10px; background: var(--modern-accent-soft); color: var(--modern-accent-ink); button { border: 0; color: inherit; background: transparent; cursor: pointer; svg { width: 15px; height: 15px; } } }
 .ui-library-error { color: #c66666; background: rgba(197, 78, 78, .08); }
 .ui-library-import-progress { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 10px; border-radius: var(--modern-radius-small); background: var(--modern-accent-soft); color: var(--modern-accent-ink); font-size: 11px; > div { flex: 1; min-width: 0; } strong { font-size: 12px; } p { margin-top: 5px; } small { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--modern-muted); } button { flex: none; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--modern-border); background: var(--modern-panel); color: inherit; font-size: 11px; cursor: pointer; &:disabled { opacity: .5; } } }
 .ui-local-import-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; button { display: flex; align-items: center; gap: 13px; padding: 16px; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); color: var(--modern-text); background: var(--modern-bg); text-align: left; cursor: pointer; &:hover { background: var(--modern-accent-soft); } > svg:first-child { color: var(--modern-accent-ink); width: 24px; height: 24px; } > svg:last-child { margin-left: auto; width: 17px; height: 17px; color: var(--modern-muted); } strong { display: block; font-size: 13px; font-weight: 600; } small { display: block; margin-top: 4px; font-size: 11px; color: var(--modern-muted); } } }
 .ui-library-selection { display: flex; gap: 10px; align-items: center; padding: 9px 12px; margin-bottom: 8px; background: var(--modern-accent-soft); color: var(--modern-accent-ink); border-radius: 10px; font-size: 11px; button { border: 0; color: inherit; background: transparent; font-size: 11px; cursor: pointer; } }
-.ui-library-row-btn { border: 0; background: transparent; color: var(--modern-muted); padding: 4px; line-height: 1; cursor: pointer; svg { width: 17px; height: 17px; } &.loved { color: #b17b86; } }
+.ui-library-row-btn { border: 0; background: transparent; color: var(--modern-muted); padding: 4px; line-height: 1; cursor: pointer; svg { width: 17px; height: 17px; } &.loved { color: var(--ui-favorite); } }
 .ui-library-pagination { display: flex; align-items: center; gap: 12px; padding: 14px 0; color: var(--modern-muted); font-size: 10px; flex: none; label { display: flex; align-items: center; gap: 5px; } label + span { margin-right: auto; } button { border: 1px solid var(--modern-border); border-radius: 7px; background: transparent; color: var(--modern-muted); padding: 5px 8px; font-size: 10px; cursor: pointer; &:disabled { opacity: .3; cursor: default; } } }
 @media (max-width: 1050px) { .ui-library-rail { width: 155px; } .ui-library-main { padding: 22px 18px 0; } .ui-library-toolbar { flex-wrap: wrap; } .ui-library-search { flex: 1; input { width: 100%; } } }
 @media (max-width: 760px) { .ui-library-rail { width: 128px; } .ui-library-main { padding: 18px 12px 0; } .ui-library-cover { width: 48px; height: 48px; font-size: 25px; } .ui-library-title h1 { font-size: 19px; } .ui-library-eyebrow { display: none; } .ui-library-heading { gap: 10px; } .ui-library-edit { flex-direction: column; gap: 0; } }

@@ -1,4 +1,3 @@
-// const path = require('path')
 const webpack = require('webpack')
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 const TerserPlugin = require('terser-webpack-plugin')
@@ -7,18 +6,9 @@ const { merge } = require('webpack-merge')
 const baseConfig = require('./webpack.config.base')
 const buildConfig = require('../webpack-build-config')
 
-// const { dependencies } = require('../../package.json')
-
-// let whiteListedModules = ['vue']
-// let whiteListedModules = ['vue', 'vue-router', 'vuex', 'vue-i18n']
-
-
 module.exports = merge(baseConfig, {
   mode: 'production',
-  devtool: 'source-map',
-  externals: [
-    // ...Object.keys(dependencies || {}).filter(d => !whiteListedModules.includes(d)),
-  ],
+  devtool: false,
   plugins: [
     new webpack.DefinePlugin({
       'process.env': {

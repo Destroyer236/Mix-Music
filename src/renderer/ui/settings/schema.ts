@@ -42,7 +42,6 @@ const align = choices([['left', '靠左'], ['center', '居中'], ['right', '靠�
 const enums: Partial<Record<SettingKey, Option[]>> = {
   'common.windowSizeId': windowSizeList.map(item => ({ value: item.id, label: `${item.width} × ${item.height}` })),
   'common.langId': [{ value: '', label: '跟随系统' }, ...langList.map(item => ({ value: item.locale, label: item.name }))],
-  'common.sourceNameType': choices([['alias', '音源别名'], ['real', '平台原名']]),
   'common.controlBtnPosition': choices([['left', '左侧'], ['right', '右侧']]),
   'common.closeAction': choices([['ask', '每次询问'], ['tray', '最小化到托盘'], ['quit', '退出应用']]),
   'common.playBarProgressStyle': choices([['mini', '简洁'], ['middle', '居中'], ['full', '完整宽度']]),
@@ -113,7 +112,7 @@ function categoryFor(key: SettingKey): string {
 }
 
 export const settingFields: SettingField[] = (Object.keys(defaultSetting) as SettingKey[])
-  .filter(key => !['version', 'common.isAgreePact', 'common.tryAutoUpdate', 'common.showChangeLog', 'theme.id', 'theme.lightId', 'theme.darkId'].includes(key))
+  .filter(key => !['version', 'common.isAgreePact', 'common.tryAutoUpdate', 'common.showChangeLog', 'common.sourceNameType', 'theme.id', 'theme.lightId', 'theme.darkId'].includes(key))
   .map(key => {
     const value = defaultSetting[key]
     const range = key.startsWith('player.soundEffect.biquadFilter.') ? [-15, 15, 0.1] : bounds[key]

@@ -87,6 +87,8 @@ LinkLine 是基于 LXMusic 开源项目再开发的桌面音乐应用。全新�
 
 正常安装启动的数据目录为 `%APPDATA%\LinkLine`，音乐资料位于其中的 `LxDatas`。登录会话、个人音乐库与设置保存在本机。正式安装启动与源码测试脚本默认使用不同的数据目录：`启动测试版.cmd` 沿用项目内的 `artifacts/user-test-data`。
 
+项目内的 `data/`、`artifacts/`、`dist/` 和 `node_modules/` 已由 Git 忽略，上传源码时不会包含个人歌曲链接、推荐历史、本地资料、构建输出或已安装依赖。生产构建不生成源码映射文件，开发模式仍保留调试能力。
+
 「设置与偏好 → 备份与数据」支持完整备份、音乐库或偏好设置的分别导入导出，以及歌单文本 / CSV 导出。支持兼容的 `.lxmc` 资料文件；备份不等于复制原始音频文件或平台登录会话。详见[完整说明](docs/项目说明.md#数据存储备份与迁移)。
 
 ## 开发与构建
@@ -105,10 +107,9 @@ npm run build
 npm start
 ```
 
-自动测试与代码检查：
+代码检查：
 
 ```sh
-node --test tests/*.test.cjs
 npm run lint
 ```
 
@@ -127,7 +128,7 @@ npm run release:prepare
 
 该命令读取实际安装包和 `docs/releases/v<版本>.md`，生成 `updates/stable-linkline.json`、旧版兼容清单 `updates/stable.json` 及 `build/SHA256SUMS.txt`；不会上传、发布或运行安装程序。
 
-主要目录：`src/renderer/ui/` 为主界面，`src/renderer-lyric/ui/` 为桌面歌词，`src/main/` 为 Electron 与平台服务，`src/common/` 为共享类型和配置，`tests/` 为回归测试，`build-config/` 为构建与打包配置。
+主要目录：`src/renderer/ui/` 为主界面，`src/renderer-lyric/ui/` 为桌面歌词，`src/main/` 为 Electron 与平台服务，`src/common/` 为共享类型和配置，`build-config/` 为构建与打包配置。
 
 ## 维护正式版本
 

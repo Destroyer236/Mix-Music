@@ -1,18 +1,19 @@
 <template>
-  <div class="studio-settings">
+  <div class="studio-settings studio-settings-continuous">
     <header class="studio-settings-heading">
-      <div><p>MAKE IT YOURS</p><h1>设置</h1><span>让每一次聆听，都更合心意。</span></div>
+      <div class="ui-settings-title"><span class="ui-settings-emblem"><UiIcon name="gear" /></span><div><h1>设置与偏好</h1><p>按你的习惯，调整每一次聆听。</p></div></div>
       <label class="studio-settings-search"><UiIcon name="search" /><input v-model="query" type="search" placeholder="搜索设置…" aria-label="搜索设置"></label>
     </header>
     <div class="studio-settings-layout">
-      <nav class="studio-settings-nav" aria-label="设置分类">
-        <button v-for="category in categories" :key="category.id" type="button" :class="{ active: active === category.id && !query }" @click="selectCategory(category.id)">{{ category.name }}<UiIcon name="chevronRight" /></button>
+      <nav ref="categoryNav" class="studio-settings-nav" aria-label="设置分类">
+        <button v-for="category in categories" :key="category.id" type="button" :data-category="category.id" :aria-current="active === category.id ? 'location' : undefined" :class="{ active: active === category.id }" @click="selectCategory(category.id)">{{ category.name }}</button>
       </nav>
-      <main ref="content" class="studio-settings-content scroll">
+      <main ref="content" class="studio-settings-content scroll" @scroll.passive="scheduleScrollSpy">
         <div v-if="notice" class="studio-settings-notice" :class="{ error: failed }" role="status"><span>{{ notice }}</span><button type="button" aria-label="关闭提示" @click="notice = ''"><UiIcon name="close" /></button></div>
         <div v-if="!visibleCategories.length" class="studio-settings-empty"><h2>没有找到相关设置</h2><p>试试「音源」「歌词」「代理」或「备份」。</p></div>
-        <section v-for="category in visibleCategories" :key="category.id" class="studio-settings-panel">
+        <section v-for="category in visibleCategories" :key="category.id" :data-section="category.id" class="studio-settings-panel">
           <header class="studio-settings-section-heading"><h2>{{ category.name }}</h2><p>{{ category.description }}</p></header>
+          <template v-if="mountedSections.has(category.id) || keyword">
 
           <div v-if="category.id === 'general'" class="studio-settings-feature">
             <div><h3>你的音乐，你的风格</h3><p>浅色与深色、点缀色、圆角、间距与发现页内容，即刻调整。</p></div>
@@ -78,7 +79,7 @@
             <div class="studio-settings-actions spaced"><button type="button" class="studio-settings-button" :disabled="busy" @click="exportText('text')">歌单导出为文本</button><button type="button" class="studio-settings-button" :disabled="busy" @click="exportText('csv')">歌单导出为 CSV</button></div>
             <div class="studio-settings-subheading"><h3>缓存与存储</h3><button type="button" class="studio-settings-text-button" @click="run('缓存统计已刷新', refreshCaches)">刷新统计</button></div>
             <div v-for="cache in cacheKinds" :key="cache.id" class="studio-settings-row"><div class="studio-settings-label"><span>{{ cache.name }}</span><p>{{ cache.id === 'resources' ? caches.resources : `${caches[cache.id]} 条` }}</p></div><button type="button" class="studio-settings-button" :disabled="busy" @click="clearData(cache.id)">清理</button></div>
-            <div class="studio-settings-feature danger"><div><h3>清空音乐库</h3><p>删除所有歌单、试听列表与收藏。清理前请导出备份。</p></div><button type="button" class="studio-settings-button danger" :disabled="busy" @click="clearData('lists')">清空音乐库</button></div>
+            <div class="studio-settings-feature danger"><div><h3>清空音乐库</h3><p>删除所有歌单与收藏。清理前请导出备份。</p></div><button type="button" class="studio-settings-button danger" :disabled="busy" @click="clearData('lists')">清空音乐库</button></div>
           </template>
 
           <UpdateCenterPanel v-if="category.id === 'updates'" />
@@ -88,6 +89,8 @@
             <p class="studio-settings-hint">LinkLine 基于 LXMusic 开源项目再开发。遵循 Apache-2.0 开源许可。</p>
             <div class="studio-settings-actions spaced"><button type="button" class="studio-settings-button" @click="openUrl(LINKLINE_REPOSITORY)">项目源码<UiIcon name="arrowUpRight" /></button><button type="button" class="studio-settings-button" @click="openUrl(`${LINKLINE_REPOSITORY}#readme`)">使用说明<UiIcon name="arrowUpRight" /></button><button type="button" class="studio-settings-button" @click="licenseOpen = true">开源许可</button><button type="button" class="studio-settings-button" @click="openUpdateCenter"><UiIcon name="cloudDownload" />检查更新</button></div>
           </template>
+          </template>
+          <div v-else class="studio-settings-placeholder" aria-hidden="true"><span /><span /><span /></div>
         </section>
       </main>
     </div>
@@ -97,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { appearancePanelOpen } from '@renderer/composables/useAppearance'
 import { appSetting } from '@renderer/store/setting'
@@ -127,6 +130,8 @@ const router = useRouter()
 const resolveCategory = (id: unknown) => typeof id === 'string' && categories.some(category => category.id === id) ? id : 'accounts'
 const query = ref('')
 const active = ref(resolveCategory(route.query.category))
+const categoryNav = ref<HTMLElement | null>(null)
+const mountedSections = shallowRef(new Set<string>())
 const content = ref<HTMLElement | null>(null)
 const sourceUrl = ref('')
 const authCode = ref('')
@@ -142,8 +147,8 @@ const backupKinds = [{ id: 'all', name: '完整备份', icon: 'folder', descript
 const fontOptions = computed(() => [{ value: '', label: '系统默认' }, ...fonts.value.map(font => ({ value: font, label: font }))])
 const cacheKinds = [{ id: 'resources', name: '图片和资源缓存' }, { id: 'sources', name: '换源匹配缓存' }, { id: 'urls', name: '播放地址缓存' }, { id: 'lyrics', name: '原始歌词缓存' }, { id: 'edited', name: '已编辑歌词' }] as const
 const keyword = computed(() => query.value.trim().toLowerCase())
-const visibleCategories = computed(() => keyword.value ? categories.filter(category => `${category.name} ${category.description} ${category.keywords}`.toLowerCase().includes(keyword.value) || settingFields.some(field => field.category === category.id && `${field.label} ${field.hint ?? ''}`.toLowerCase().includes(keyword.value))) : categories.filter(category => category.id === active.value))
-const outputDevicesVisible = computed(() => visibleCategories.value.some(category => category.id === 'audio' || category.id === 'playback'))
+const visibleCategories = computed(() => keyword.value ? categories.filter(category => `${category.name} ${category.description} ${category.keywords}`.toLowerCase().includes(keyword.value) || settingFields.some(field => field.category === category.id && `${field.label} ${field.hint ?? ''}`.toLowerCase().includes(keyword.value))) : categories)
+const outputDevicesVisible = computed(() => active.value === 'audio' || active.value === 'playback')
 watch(outputDevicesVisible, visible => { void settings.setDeviceEnumerationActive(visible).catch(report) })
 const currentSource = computed(() => userApi.list.find(api => api.id === appSetting['common.apiSource']))
 const sourceStatus = computed(() => userApi.status ? '已就绪' : userApi.message === 'initing' ? '正在初始化' : userApi.message ? userApi.message : '尚未连接')
@@ -152,17 +157,64 @@ const syncStatus = computed(() => {
   return status.status ? '设备同步正在运行' : status.message || '设备同步未启动'
 })
 const fieldId = (field: SettingField) => `pref-${field.key.replaceAll('.', '-')}`
-function selectCategory(id: string) {
-  active.value = resolveCategory(id)
-  query.value = ''
-  content.value?.scrollTo({ top: 0 })
-  if (route.query.category !== active.value) void router.replace({ path: '/setting', query: { ...route.query, category: active.value } })
+let sectionObserver: IntersectionObserver | undefined
+let scrollFrame = 0
+let navigationVersion = 0
+function mountSection(id: string) {
+  if (mountedSections.value.has(id)) return
+  mountedSections.value = new Set([...mountedSections.value, id])
+  void settings.initializeSection(id)
+  if (id === 'hotkeys') void hotkeys.refresh().catch(report)
+  if (id === 'audio') void getUserEQPresetList().then(list => { customEq.value = list }).catch(report)
 }
-watch(() => route.query.category, id => {
-  active.value = resolveCategory(id)
+function observeSections() {
+  sectionObserver?.disconnect()
+  if (!content.value) return
+  sectionObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) mountSection((entry.target as HTMLElement).dataset.section!)
+  }, { root: content.value, rootMargin: '180px 0px' })
+  content.value.querySelectorAll<HTMLElement>('[data-section]').forEach(section => { sectionObserver?.observe(section) })
+}
+function scheduleScrollSpy() {
+  if (scrollFrame) return
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0
+    const container = content.value
+    if (!container) return
+    const sections = Array.from(container.querySelectorAll<HTMLElement>('[data-section]'))
+    const threshold = container.getBoundingClientRect().top + 48
+    let current: HTMLElement | undefined = sections[0]
+    for (const section of sections) if (section.getBoundingClientRect().top <= threshold) current = section
+    if (container.scrollTop > 0 && container.scrollTop + container.clientHeight >= container.scrollHeight - 2) current = sections.at(-1)
+    if (current) active.value = current.dataset.section!
+  })
+}
+async function scrollToCategory(id: string) {
+  const version = ++navigationVersion
   query.value = ''
-  content.value?.scrollTo({ top: 0 })
+  mountSection(id)
+  await nextTick()
+  if (version !== navigationVersion) return
+  const container = content.value
+  const section = container?.querySelector<HTMLElement>(`[data-section="${id}"]`)
+  if (container && section) container.scrollTo({ top: section.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 24 })
+  active.value = id
+}
+function selectCategory(id: string) {
+  const target = resolveCategory(id)
+  void scrollToCategory(target)
+  if (route.query.category !== target) void router.replace({ path: '/setting', query: { ...route.query, category: target } })
+}
+watch(() => route.query.category, id => { if (resolveCategory(id) !== active.value) void scrollToCategory(resolveCategory(id)) })
+watch(visibleCategories, async() => { if (keyword.value) visibleCategories.value.forEach(category => { mountSection(category.id) }); await nextTick(); observeSections(); content.value?.scrollTo({ top: 0 }); scheduleScrollSpy() })
+watch(active, async id => {
+  await nextTick()
+  const nav = categoryNav.value
+  const button = nav?.querySelector<HTMLElement>(`[data-category="${id}"]`)
+  if (nav && button) nav.scrollTo({ left: Math.max(0, button.offsetLeft - nav.offsetLeft - nav.clientWidth / 2 + button.clientWidth / 2) })
 })
+onMounted(async() => { observeSections(); if (route.query.category) await scrollToCategory(resolveCategory(route.query.category)) })
+onBeforeUnmount(() => { navigationVersion++; sectionObserver?.disconnect(); cancelAnimationFrame(scrollFrame) })
 function fieldsFor(id: string) {
   const category = categories.find(item => item.id === id)
   const matchesCategory = `${category?.name} ${category?.description} ${category?.keywords}`.toLowerCase().includes(keyword.value)
@@ -255,7 +307,6 @@ function shortcutValue(kind: 'local' | 'global', name: string) {
 function enableHotkeys(kind: 'local' | 'global', event: Event) { void hotkeys.enable(kind, (event.target as HTMLInputElement).checked) }
 onMounted(() => {
   void settings.setDeviceEnumerationActive(outputDevicesVisible.value).catch(report)
-  void getUserEQPresetList().then(list => { customEq.value = list }).catch(report)
 })
 </script>
 

@@ -83,9 +83,7 @@ export const windowSizeActive = computed(() => {
   return windowSizeList.find(i => i.id === appSetting['common.windowSizeId']) ?? windowSizeList[0]
 })
 
-export const getSourceI18nPrefix = () => {
-  return appSetting['common.sourceNameType'] == 'real' ? 'source_' : 'source_alias_'
-}
+export const getSourceI18nPrefix = () => 'source_'
 
 export const sourceNames = computed(() => {
   const prefix = getSourceI18nPrefix()

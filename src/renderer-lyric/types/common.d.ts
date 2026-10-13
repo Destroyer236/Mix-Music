@@ -1,4 +1,5 @@
-// import '@common/types/app_setting'
+import '@renderer/types/common'
+import '@renderer/types/player'
 // import '@common/types/common'
 // import '@common/types/user_api'
 // import '@common/types/sync'

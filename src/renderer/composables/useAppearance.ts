@@ -1,37 +1,41 @@
 import { computed, reactive, ref, watch } from 'vue'
+import { initializeWallpaper, wallpaper, wallpaperUrl } from '@renderer/ui/useWallpaper'
+import { wallpaperColors } from '@renderer/ui/wallpaperPalette'
 
 export interface Appearance {
-  mode: 'light' | 'dark' | 'system'
+  mode: 'light' | 'dark' | 'system' | 'custom'
+  customTone: 'auto' | 'light' | 'dark'
   accent: string
   radius: number
   panelGap: number
   density: 'comfortable' | 'compact'
   showExplore: boolean
-  hideScrollbars: boolean
 }
 
 const STORAGE_KEY = 'lx-modern-appearance-v1'
+// Visual defaults for the LinkLine "vivid green" design language. Saved user
+// preferences are validated against these and always win.
 const defaults: Appearance = {
   mode: 'light',
-  accent: '#638575',
-  radius: 20,
-  panelGap: 12,
+  customTone: 'auto',
+  accent: '#00cc66',
+  radius: 14,
+  panelGap: 14,
   density: 'comfortable',
   showExplore: true,
-  hideScrollbars: true,
 }
 
 /** Keep old or malformed saved preferences from breaking the renderer. */
 export function validateAppearance(value: unknown): Appearance {
   const input = value && typeof value === 'object' ? value as Partial<Appearance> : {}
   return {
-    mode: input.mode === 'dark' || input.mode === 'system' ? input.mode : 'light',
+    mode: input.mode === 'dark' || input.mode === 'system' || input.mode === 'custom' ? input.mode : 'light',
+    customTone: input.customTone === 'dark' || input.customTone === 'light' ? input.customTone : 'auto',
     accent: typeof input.accent === 'string' && /^#[\da-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : defaults.accent,
     radius: typeof input.radius === 'number' && Number.isFinite(input.radius) ? Math.min(28, Math.max(8, Math.round(input.radius))) : defaults.radius,
     panelGap: typeof input.panelGap === 'number' && Number.isFinite(input.panelGap) ? Math.min(32, Math.max(4, Math.round(input.panelGap))) : defaults.panelGap,
     density: input.density === 'compact' ? 'compact' : 'comfortable',
     showExplore: typeof input.showExplore === 'boolean' ? input.showExplore : defaults.showExplore,
-    hideScrollbars: typeof input.hideScrollbars === 'boolean' ? input.hideScrollbars : defaults.hideScrollbars,
   }
 }
 
@@ -46,7 +50,16 @@ function readAppearance(): Appearance {
 export const appearance = reactive<Appearance>(readAppearance())
 export const appearancePanelOpen = ref(false)
 const systemDark = ref(false)
-export const resolvedAppearanceMode = computed(() => appearance.mode === 'system' ? (systemDark.value ? 'dark' : 'light') : appearance.mode)
+export const resolvedAppearanceMode = computed<'light' | 'dark'>(() => {
+  if (appearance.mode === 'system') return systemDark.value ? 'dark' : 'light'
+  if (appearance.mode === 'custom') return appearance.customTone === 'auto' ? (wallpaper.value?.palette.dark ? 'dark' : 'light') : appearance.customTone
+  return appearance.mode
+})
+export function toggleAppearanceMode() {
+  const next = resolvedAppearanceMode.value === 'light' ? 'dark' : 'light'
+  if (appearance.mode === 'custom') appearance.customTone = next
+  else appearance.mode = next
+}
 
 type RGB = [number, number, number]
 const rgb = (hex: string): RGB => [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16)) as RGB
@@ -68,13 +81,14 @@ function readableAccent(accent: RGB, panel: RGB, text: RGB): RGB {
 function applyAppearance() {
   const root = document.documentElement
   const dark = resolvedAppearanceMode.value === 'dark'
-  const bg = rgb(dark ? '#181a1a' : '#f7f8f7')
-  const panel = rgb(dark ? '#222525' : '#ffffff')
-  const sidebar = rgb(dark ? '#1d2020' : '#f0f2f0')
-  const text = rgb(dark ? '#eceeed' : '#252b28')
-  const muted = rgb(dark ? '#a1aaa6' : '#78817c')
-  const accent = rgb(appearance.accent)
-  const ink = readableAccent(accent, panel, text)
+  const custom = appearance.mode === 'custom' && wallpaper.value && wallpaperUrl.value ? wallpaperColors(wallpaper.value.palette, dark) : null
+  const bg = custom?.bg ?? rgb(dark ? '#17191e' : '#e9ebf0')
+  const panel = custom?.panel ?? rgb(dark ? '#22252c' : '#f8f9fc')
+  const sidebar = custom?.sidebar ?? (dark ? rgb('#1c1f26') : panel)
+  const text = custom?.text ?? rgb(dark ? '#eceef3' : '#252832')
+  const muted = custom?.muted ?? rgb(dark ? '#adb3c1' : '#626b7a')
+  const accent = custom?.accent ?? rgb(appearance.accent)
+  const ink = custom?.ink ?? readableAccent(accent, panel, text)
   const soft = mix(panel, accent, dark ? 0.17 : 0.1)
   const hover = mix(panel, text, dark ? 0.06 : 0.04)
   const border = alpha(text, dark ? 0.1 : 0.08)
@@ -82,13 +96,16 @@ function applyAppearance() {
     '--modern-bg': color(bg),
     '--modern-panel': color(panel),
     '--modern-sidebar': color(sidebar),
-    '--modern-hero-bg': dark ? '#29312c' : '#e9efea',
+    '--modern-hero-bg': custom ? color(mix(panel, accent, 0.12)) : dark ? '#29312c' : '#e9efea',
+    '--modern-wallpaper-image': custom ? `url(${JSON.stringify(wallpaperUrl.value)})` : 'none',
+    '--modern-panel-surface': custom ? alpha(panel, 0.86) : color(panel),
+    '--modern-sidebar-surface': custom ? alpha(sidebar, 0.9) : color(sidebar),
     '--modern-text': color(text),
     '--modern-muted': color(muted),
     '--modern-border': border,
     '--modern-accent': color(accent),
     '--modern-accent-ink': color(ink),
-    '--modern-accent-contrast': contrast(accent, [255, 255, 255]) >= contrast(accent, [20, 25, 23]) ? '#ffffff' : '#141917',
+    '--modern-accent-contrast': custom ? (contrast(accent, [255, 255, 255]) >= contrast(accent, [0, 0, 0]) ? '#ffffff' : '#000000') : contrast(accent, [255, 255, 255]) >= contrast(accent, [20, 25, 23]) ? '#ffffff' : '#141917',
     '--modern-accent-soft': color(soft),
     '--modern-hover': color(hover),
     '--modern-radius': `${appearance.radius}px`,
@@ -142,8 +159,8 @@ function applyAppearance() {
   }
   for (const [name, value] of Object.entries(tokens)) root.style.setProperty(name, value)
   root.dataset.modernTheme = resolvedAppearanceMode.value
+  root.dataset.modernWallpaper = custom ? 'true' : 'false'
   root.dataset.modernDensity = appearance.density
-  root.dataset.modernHideScrollbars = appearance.hideScrollbars ? 'true' : 'false'
   root.style.colorScheme = resolvedAppearanceMode.value
 }
 
@@ -158,7 +175,8 @@ export function useAppearance() {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     systemDark.value = media.matches
     media.addEventListener('change', event => { systemDark.value = event.matches })
-    watch([appearance, systemDark], () => {
+    void initializeWallpaper()
+    watch([appearance, systemDark, wallpaper, wallpaperUrl], () => {
       applyAppearance()
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance))

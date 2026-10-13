@@ -1,14 +1,10 @@
 <template>
-  <section class="ui-local-music">
-    <header class="ui-local-heading">
-      <span class="ui-local-emblem"><UiIcon name="folder" /></span>
-      <div><span class="ui-local-eyebrow">ON YOUR DEVICE</span><h1>本地音乐 <small>共 {{ tracks.length }} 首</small></h1><p>按歌手、专辑和文件夹，整理你珍藏的声音。</p></div>
-      <button type="button" class="ui-local-directory" :disabled="importing" @click="importAudio('folder')">选择目录 <UiIcon name="chevronRight" /></button>
-    </header>
-
+  <section ref="pageContainer" class="ui-local-music">
+    <nav class="ui-device-tabs" aria-label="本地与下载"><router-link to="/local" aria-current="page">本地音乐</router-link><router-link to="/download">下载管理</router-link></nav>
     <div class="ui-local-toolbar">
       <button type="button" class="ui-local-button ui-local-primary" :disabled="loading || playing || !filteredTracks.length" @click="playTrack(filteredTracks[0])"><UiIcon name="play" filled />{{ playing ? '正在准备…' : '播放全部' }}</button>
       <button type="button" class="ui-local-button" :disabled="importing" @click="importAudio('files')"><UiIcon name="plus" />导入音乐</button>
+      <button type="button" class="ui-local-button" :disabled="importing" @click="importAudio('folder')"><UiIcon name="folder" />选择目录</button>
       <button type="button" class="ui-local-button ui-local-icon-button" :disabled="loading || importing" title="刷新曲库" aria-label="刷新曲库" @click="loadTracks()"><UiIcon name="refresh" /></button>
       <label class="ui-local-search"><UiIcon name="search" /><input v-model="query" placeholder="搜索本地音乐" aria-label="搜索本地音乐"><button v-if="query" type="button" aria-label="清空本地搜索" @click="query = ''"><UiIcon name="close" /></button></label>
     </div>
@@ -40,10 +36,10 @@
         <div v-if="category !== 'all' || query" class="ui-local-section-heading"><div><h2>{{ currentGroup?.name || (category === 'all' ? '搜索结果' : `全部${categoryLabel}`) }}</h2><p v-if="currentGroup?.subtitle" :title="currentGroup.subtitle">{{ currentGroup.subtitle }}</p></div><span>{{ filteredTracks.length }} 首</span><button v-if="groupId" type="button" @click="chooseGroup(null)">查看全部</button></div>
         <div v-if="selected.size" class="ui-local-selection"><span>已选择 {{ selected.size }} 首</span><button type="button" @click="addTracks(selectedTracks)">加入歌单</button><button type="button" @click="requestRemove(selectedTracks)">移除</button><button type="button" @click="selected = new Set()">取消选择</button></div>
         <div v-if="!loading && !error && !tracks.length" class="ui-local-empty">
-          <div class="ui-local-empty-art" aria-hidden="true"><UiIcon name="folder" /><span><UiIcon name="music" /></span></div><h2>把你的音乐带到这里</h2><p>导入音乐文件，或选择文件夹自动扫描。<br>歌手、专辑和文件夹分类会随曲库一起生成。</p><div><button type="button" class="ui-local-button ui-local-primary" :disabled="importing" @click="importAudio('folder')"><UiIcon name="folder" />选择音乐目录</button><button type="button" class="ui-local-button" :disabled="importing" @click="importAudio('files')">选择音乐文件</button></div><small>保留原文件位置 · 支持递归扫描 · 导入数量不限</small>
+          <div class="ui-local-empty-art" aria-hidden="true"><UiIcon name="music" /></div><h2>收藏在电脑里的好音乐</h2><p>导入歌曲，或选择一个音乐文件夹。<br>按歌手、专辑和文件夹，找到想听的声音。</p><div><button type="button" class="ui-local-button ui-local-primary" :disabled="importing" @click="importAudio('folder')"><UiIcon name="folder" />选择音乐目录</button><button type="button" class="ui-local-button" :disabled="importing" @click="importAudio('files')">选择音乐文件</button></div><small>音乐文件保留在原位置</small>
         </div>
-        <LocalTrackTable v-else :list="pageTracks" :list-id="LOCAL_LIBRARY_ID" :loading="loading" :error="error" :offset="(page - 1) * PAGE_SIZE" :selected-ids="selected" empty-title="没有找到匹配的本地音乐" empty-description="试试其他关键词，或切换歌手、专辑和文件夹。" @play="playTrack" @add="addTrack" @edit="editTrack" @remove="removeTrack" @select="toggleSelected" @artist="chooseArtist" @album="chooseAlbum" @retry="loadTracks()" />
-        <footer v-if="filteredTracks.length && !loading" class="ui-local-pagination"><label><input type="checkbox" :checked="pageAllSelected" aria-label="选择本页音乐" @change="selectPage">选择本页</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><button type="button" :disabled="page <= 1" @click="page--">上一页</button><span>{{ page }} / {{ pages }}</span><button type="button" :disabled="page >= pages" @click="page++">下一页</button></footer>
+        <LocalTrackTable v-else :list="filteredTracks" :list-id="LOCAL_LIBRARY_ID" :loading="loading" :error="error" :selected-ids="selected" empty-title="没有找到匹配的本地音乐" empty-description="试试其他关键词，或切换歌手、专辑和文件夹。" @play="playTrack" @add="addTrack" @edit="editTrack" @remove="removeTrack" @select="toggleSelected" @artist="chooseArtist" @album="chooseAlbum" @retry="loadTracks()" />
+        <footer v-if="filteredTracks.length && !loading" class="ui-local-pagination"><label><input type="checkbox" :checked="allSelected" aria-label="选择全部音乐" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
       </main>
     </div>
     <TrackActionModal :show="addOpen" action="add" :tracks="actionTracks" :from-list-id="LOCAL_LIBRARY_ID" @close="addOpen = false" @success="handleSuccess" />
@@ -68,15 +64,15 @@ import TrackActionModal from '../components/TrackActionModal.vue'
 import TrackMetadataModal from '../components/TrackMetadataModal.vue'
 import UiIcon from '../components/UiIcon.vue'
 import UiModal from '../components/UiModal.vue'
+import { usePaginationScroll } from '../usePaginationScroll'
 
-const PAGE_SIZE = 80
 const GROUP_PAGE_SIZE = 100
 const categories: Array<{ id: LocalLibraryCategory, label: string }> = [{ id: 'all', label: '全部歌曲' }, { id: 'artist', label: '歌手' }, { id: 'album', label: '专辑' }, { id: 'folder', label: '文件夹' }]
 const tracks = shallowRef<LX.Music.MusicInfoLocal[]>([])
 const category = ref<LocalLibraryCategory>('all')
 const groupId = ref<string | null>(null)
 const query = ref('')
-const page = ref(1)
+const pageContainer = usePaginationScroll([query, category, groupId], '.local-track-table__scroll')
 const groupLimit = ref(GROUP_PAGE_SIZE)
 const loading = ref(true)
 const error = ref('')
@@ -105,18 +101,15 @@ const searchedIds = computed(() => new Set(searchedTracks.value.map(track => tra
 const matchingGroups = computed(() => query.value.trim() ? groups.value.filter(group => group.trackIds.some(id => searchedIds.value.has(id))) : groups.value)
 const visibleGroups = computed(() => matchingGroups.value.slice(0, groupLimit.value))
 const filteredTracks = computed(() => filterLocalLibraryTracks(searchedTracks.value, groupIndex.value, category.value, groupId.value, ''))
-const pages = computed(() => Math.max(1, Math.ceil(filteredTracks.value.length / PAGE_SIZE)))
-const pageTracks = computed(() => filteredTracks.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 const selectedTracks = computed(() => tracks.value.filter(track => selected.value.has(track.id)))
-const pageAllSelected = computed(() => pageTracks.value.length > 0 && pageTracks.value.every(track => selected.value.has(track.id)))
+const allSelected = computed(() => filteredTracks.value.length > 0 && filteredTracks.value.every(track => selected.value.has(track.id)))
 let requestId = 0
 let disposed = false
 
 // Reset only view state: classification never changes the stored local library.
-watch(query, () => { page.value = 1; groupLimit.value = GROUP_PAGE_SIZE; selected.value = new Set() })
-watch(pages, count => { page.value = Math.min(page.value, count) })
-function chooseCategory(value: LocalLibraryCategory) { category.value = value; groupId.value = null; page.value = 1; groupLimit.value = GROUP_PAGE_SIZE; selected.value = new Set() }
-function chooseGroup(id: string | null) { groupId.value = id; page.value = 1; selected.value = new Set() }
+watch(query, () => { groupLimit.value = GROUP_PAGE_SIZE; selected.value = new Set() })
+function chooseCategory(value: LocalLibraryCategory) { category.value = value; groupId.value = null; groupLimit.value = GROUP_PAGE_SIZE; selected.value = new Set() }
+function chooseGroup(id: string | null) { groupId.value = id; selected.value = new Set() }
 function tabKeydown(event: KeyboardEvent, id: LocalLibraryCategory) {
   const index = categories.findIndex(tab => tab.id === id)
   let next: number
@@ -141,7 +134,6 @@ async function loadTracks(background = false) {
     tracks.value = data.filter((track): track is LX.Music.MusicInfoLocal => track.source === 'local')
     selected.value = new Set([...selected.value].filter(id => trackById.value.has(id)))
     if (groupId.value && !groups.value.some(group => group.id === groupId.value)) groupId.value = null
-    page.value = Math.min(page.value, pages.value)
   } catch (err) { if (!disposed && request === requestId) error.value = err instanceof Error ? err.message : '本地曲库加载失败，请重试。' } finally { if (!disposed && request === requestId) loading.value = false }
 }
 function handleListUpdate(ids: string[]) { if (!importing.value && ids.includes(LOCAL_LIBRARY_ID)) void loadTracks(true) }
@@ -162,7 +154,7 @@ async function playTrack(track?: LX.Music.MusicInfoLocal) {
   playing.value = false
 }
 function toggleSelected(id: string) { const next = new Set(selected.value); if (next.has(id)) next.delete(id); else next.add(id); selected.value = next }
-function selectPage() { const next = new Set(selected.value); const remove = pageAllSelected.value; for (const track of pageTracks.value) { if (remove) next.delete(track.id); else next.add(track.id) }; selected.value = next }
+function selectAll() { const next = new Set(selected.value); const remove = allSelected.value; for (const track of filteredTracks.value) { if (remove) next.delete(track.id); else next.add(track.id) }; selected.value = next }
 function addTracks(list: LX.Music.MusicInfoLocal[]) { if (!list.length) return; actionTracks.value = [...list]; addOpen.value = true }
 function addTrack(track: LX.Music.MusicInfoLocal) { addTracks([track]) }
 function removeTrack(track: LX.Music.MusicInfoLocal) { requestRemove([track]) }

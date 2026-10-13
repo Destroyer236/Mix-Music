@@ -1,11 +1,12 @@
 <template>
-  <div class="ui-explore ui-discovery-page" @keyup.space.stop>
-    <header class="ui-discovery-heading"><div><span class="ui-eyebrow">MADE FOR THE MOMENT</span><h1>找到此刻的旋律</h1><p>从精选歌单里，遇见熟悉的声音与新的惊喜。</p></div><span class="ui-heading-glyph" aria-hidden="true"><UiIcon name="music" /></span></header>
-    <div class="ui-source-pills" role="group" aria-label="歌单平台"><button v-for="item in sources" :key="item" type="button" :class="{ active: item === source }" @click="selectSource(item)">{{ sourceNames[item] }}</button></div>
-    <section class="ui-explore-filter-panel"><div class="ui-section-heading"><h2>选择一种氛围</h2><UiSelect :model-value="sortId" :options="sortOptions" aria-label="歌单排序" @change="selectSort" /></div><div class="ui-explore-tags"><button type="button" :class="{ active: !tagId }" @click="selectTag('')">全部</button><button v-for="tag in hotTags" :key="tag.id" type="button" :class="{ active: tagId === tag.id }" @click="selectTag(tag.id)">{{ tag.name }}</button><UiSelect v-if="tagGroups.length" :model-value="tagId" :options="tagOptions" aria-label="更多歌单分类" @change="selectMoreTag" /></div><p v-if="tagError" class="ui-discovery-note">分类暂时不可用。<button type="button" @click="loadTags">重新加载</button></p></section>
-    <details class="ui-explore-open"><summary>打开已有的歌单链接或 ID <span aria-hidden="true"><UiIcon name="arrowUpRight" /></span></summary><form @submit.prevent="openById"><input v-model="playlistInput" :placeholder="`粘贴${sourceNames[source]}歌单链接或 ID`" aria-label="歌单链接或 ID"><button type="submit" class="ui-solid-button" :disabled="!playlistInput.trim()">打开歌单</button></form></details>
-    <div class="ui-section-heading ui-explore-list-title"><h2>{{ selectedTagName || '精选歌单' }}<span v-if="!loading && !error"> · {{ total.toLocaleString() }} 份</span></h2><button type="button" :disabled="loading" @click="load">刷新<UiIcon name="refresh" /></button></div>
-    <UiEmpty v-if="loading || error || !list.length" :title="loading ? '正在发现好音乐…' : error ? '歌单暂时无法加载' : '这个分类还没有歌单'" :description="error || (loading ? '正在读取平台推荐的真实歌单。' : '换一个分类或音乐平台试试。')" :retry="Boolean(error)" @retry="load" />
+  <div ref="pageContainer" class="ui-explore ui-discovery-page ui-qq-browse ui-qq-catalog" @keyup.space.stop>
+    <header class="qq-browse-heading"><h1>精选歌单</h1><span>让喜欢的音乐，陪伴每一种心情</span></header>
+    <div class="ui-source-pills qq-browse-sources" role="group" aria-label="歌单平台"><button v-for="item in sources" :key="item" type="button" :class="{ active: item === source }" :aria-pressed="item === source" @click="selectSource(item)">{{ sourceNames[item] }}</button></div>
+    <section class="ui-explore-filter-panel" aria-label="歌单分类"><div class="qq-catalog-filters"><div class="ui-explore-tags"><RadialCategories v-if="tagGroups.length" :model-value="tagId" :source="source" :groups="tagGroups" @change="selectMoreTag" /><span v-else class="ui-category-selected">{{ tagError ? '分类暂不可用' : '正在加载分类…' }}</span></div><UiSelect :model-value="sortId" :options="sortOptions" aria-label="歌单排序" @change="selectSort" /></div><p v-if="tagError" class="ui-discovery-note">分类暂时不可用。<button type="button" @click="loadTags">重新加载</button></p></section>
+    <details class="ui-explore-open"><summary><UiIcon name="arrowUpRight" />打开已有的歌单链接或 ID<UiIcon name="chevronDown" /></summary><form @submit.prevent="openById"><input v-model="playlistInput" :placeholder="`粘贴${sourceNames[source]}歌单链接或 ID`" aria-label="歌单链接或 ID"><button type="submit" class="ui-solid-button" :disabled="!playlistInput.trim()">打开歌单</button></form></details>
+    <div class="ui-section-heading ui-explore-list-title"><h2>{{ selectedTagName || '为你精选' }}<span v-if="!loading && !error">{{ total.toLocaleString() }} 份歌单</span></h2><button type="button" :disabled="loading" @click="load"><UiIcon name="refresh" />刷新</button></div>
+    <div v-if="loading" class="qq-catalog-skeleton" role="status" aria-label="正在加载精选歌单" aria-busy="true"><article v-for="slot in 10" :key="slot" aria-hidden="true"><div class="qq-skeleton-block" /><div class="qq-skeleton-line" /><div class="qq-skeleton-line is-short" /></article></div>
+    <UiEmpty v-else-if="error || !list.length" :title="error ? '歌单暂时无法加载' : '这个分类还没有歌单'" :description="error || '换一个分类或音乐平台试试。'" :retry="Boolean(error)" @retry="load" />
     <PlaylistGrid v-else :list="list" @open="openPlaylist" @play="openPlaylist($event, true)" />
     <UiPagination v-if="!error" :page="page" :pages="pages" :loading="loading" @change="changePage" />
   </div>
@@ -24,6 +25,8 @@ import PlaylistGrid from '../components/PlaylistGrid.vue'
 import UiPagination from '../components/UiPagination.vue'
 import UiIcon from '../components/UiIcon.vue'
 import UiSelect from '../components/UiSelect.vue'
+import RadialCategories from '../components/RadialCategories.vue'
+import { usePaginationScroll } from '../usePaginationScroll'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,6 +36,7 @@ const sortOptions = computed(() => availableSorts.value.map(sort => ({ value: so
 const sortId = ref(sortList[source.value]?.[0]?.id ?? '')
 const tagId = ref('')
 const page = ref(1)
+const pageContainer = usePaginationScroll([page])
 const limit = ref(30)
 const total = ref(0)
 const list = ref<ListInfoItem[]>([])
@@ -43,9 +47,7 @@ const playlistInput = ref('')
 const loading = ref(false)
 const error = ref('')
 const pages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
-const hotTags = computed(() => tagInfo.value?.hotTag.slice(0, 11) ?? [])
 const tagGroups = computed(() => tagInfo.value?.tags ?? [])
-const tagOptions = computed(() => [{ value: '', label: '更多分类' }, ...tagGroups.value.flatMap(group => group.list.map(tag => ({ value: tag.id, label: tag.name, group: group.name })))])
 const selectedTagName = computed(() => tagInfo.value?.tags.flatMap(group => group.list).find(tag => tag.id === tagId.value)?.name ?? tagInfo.value?.hotTag.find(tag => tag.id === tagId.value)?.name)
 let requestId = 0
 let ready = false
