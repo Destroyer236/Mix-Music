@@ -8,19 +8,23 @@ export interface Appearance {
   accent: string
   radius: number
   panelGap: number
+  showShadows: boolean
+  showScrollbars: boolean
   density: 'comfortable' | 'compact'
   showExplore: boolean
 }
 
 const STORAGE_KEY = 'lx-modern-appearance-v1'
-// Visual defaults for the LinkLine "vivid green" design language. Saved user
+// Visual defaults for LinkLine. Saved user
 // preferences are validated against these and always win.
 const defaults: Appearance = {
   mode: 'light',
   customTone: 'auto',
-  accent: '#00cc66',
-  radius: 14,
-  panelGap: 14,
+  accent: '#00eb81',
+  radius: 8,
+  panelGap: 8,
+  showShadows: false,
+  showScrollbars: false,
   density: 'comfortable',
   showExplore: true,
 }
@@ -32,8 +36,10 @@ export function validateAppearance(value: unknown): Appearance {
     mode: input.mode === 'dark' || input.mode === 'system' || input.mode === 'custom' ? input.mode : 'light',
     customTone: input.customTone === 'dark' || input.customTone === 'light' ? input.customTone : 'auto',
     accent: typeof input.accent === 'string' && /^#[\da-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : defaults.accent,
-    radius: typeof input.radius === 'number' && Number.isFinite(input.radius) ? Math.min(28, Math.max(8, Math.round(input.radius))) : defaults.radius,
-    panelGap: typeof input.panelGap === 'number' && Number.isFinite(input.panelGap) ? Math.min(32, Math.max(4, Math.round(input.panelGap))) : defaults.panelGap,
+    radius: typeof input.radius === 'number' && Number.isFinite(input.radius) ? Math.min(32, Math.max(0, Math.round(input.radius))) : defaults.radius,
+    panelGap: typeof input.panelGap === 'number' && Number.isFinite(input.panelGap) ? Math.min(32, Math.max(0, Math.round(input.panelGap))) : defaults.panelGap,
+    showShadows: typeof input.showShadows === 'boolean' ? input.showShadows : defaults.showShadows,
+    showScrollbars: typeof input.showScrollbars === 'boolean' ? input.showScrollbars : defaults.showScrollbars,
     density: input.density === 'compact' ? 'compact' : 'comfortable',
     showExplore: typeof input.showExplore === 'boolean' ? input.showExplore : defaults.showExplore,
   }
@@ -82,8 +88,8 @@ function applyAppearance() {
   const root = document.documentElement
   const dark = resolvedAppearanceMode.value === 'dark'
   const custom = appearance.mode === 'custom' && wallpaper.value && wallpaperUrl.value ? wallpaperColors(wallpaper.value.palette, dark) : null
-  const bg = custom?.bg ?? rgb(dark ? '#17191e' : '#e9ebf0')
-  const panel = custom?.panel ?? rgb(dark ? '#22252c' : '#f8f9fc')
+  const bg = custom?.bg ?? rgb(dark ? '#17191e' : '#f0f0f0')
+  const panel = custom?.panel ?? rgb(dark ? '#22252c' : '#f6f6f6')
   const sidebar = custom?.sidebar ?? (dark ? rgb('#1c1f26') : panel)
   const text = custom?.text ?? rgb(dark ? '#eceef3' : '#252832')
   const muted = custom?.muted ?? rgb(dark ? '#adb3c1' : '#626b7a')
@@ -111,7 +117,7 @@ function applyAppearance() {
     '--modern-radius': `${appearance.radius}px`,
     '--modern-radius-small': `${Math.round(appearance.radius * 0.6)}px`,
     '--modern-panel-gap': `${appearance.panelGap}px`,
-    '--modern-shadow': dark ? '0 8px 32px rgba(0, 0, 0, 0.18)' : '0 4px 24px rgba(28, 42, 34, 0.04)',
+    '--modern-shadow': appearance.showShadows ? (dark ? '0 8px 32px rgba(0, 0, 0, 0.18)' : '0 4px 24px rgba(28, 42, 34, 0.04)') : 'none',
     '--modern-row-height': appearance.density === 'compact' ? '36px' : '46px',
     '--modern-gap': appearance.density === 'compact' ? '10px' : '16px',
     '--modern-overlay': dark ? 'rgba(0, 0, 0, 0.46)' : 'rgba(34, 42, 38, 0.18)',
@@ -161,6 +167,9 @@ function applyAppearance() {
   root.dataset.modernTheme = resolvedAppearanceMode.value
   root.dataset.modernWallpaper = custom ? 'true' : 'false'
   root.dataset.modernDensity = appearance.density
+  root.dataset.modernShadows = String(appearance.showShadows)
+  root.dataset.modernScrollbars = String(appearance.showScrollbars)
+  root.dataset.modernJoinedPanels = String(appearance.panelGap === 0)
   root.style.colorScheme = resolvedAppearanceMode.value
 }
 

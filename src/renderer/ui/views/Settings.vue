@@ -16,7 +16,7 @@
           <template v-if="mountedSections.has(category.id) || keyword">
 
           <div v-if="category.id === 'general'" class="studio-settings-feature">
-            <div><h3>你的音乐，你的风格</h3><p>浅色与深色、点缀色、圆角、间距与发现页内容，即刻调整。</p></div>
+            <div><h3>你的音乐，你的风格</h3><p>浅色与深色、点缀色、面板圆角、间距、阴影与滚动条，即刻调整。</p></div>
             <button type="button" class="studio-settings-button primary" @click="appearancePanelOpen = true">外观定制 <UiIcon name="arrowUpRight" /></button>
           </div>
 

@@ -2,23 +2,25 @@
   <div class="ui-shell">
     <aside class="ui-sidebar">
       <router-link class="ui-brand" to="/discover"><span class="ui-brand-mark"><img :src="linklineLogo" alt="LinkLine 标志"></span><span>LinkLine</span></router-link>
-      <nav aria-label="主导航"><router-link v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="item.label" :class="{ 'ui-nav-active': route.path.startsWith(item.path) }"><UiIcon :name="item.icon" /><span>{{ item.label }}</span></router-link></nav>
-      <div class="ui-personal-section">
-        <div class="ui-nav-label">我的音乐</div>
-        <div class="ui-personal-links">
-          <router-link to="/list?id=love" :aria-label="`喜欢·${favoriteTracks.length}`" :title="`喜欢 · ${favoriteTracks.length} 首`" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === 'love' && route.query.view !== 'recent' }"><UiIcon name="heart" /><span>喜欢<span class="ui-recent-count">·{{ favoriteTracks.length }}</span></span></router-link>
-          <router-link :to="{ path: '/list', query: { view: 'recent' } }" :aria-label="`最近播放·${recentTracks.length}`" title="最近播放" :class="{ 'ui-nav-active': recentVisible }"><UiIcon name="clock" /><span>最近播放<span class="ui-recent-count">·{{ recentTracks.length }}</span></span></router-link>
-          <router-link to="/local" :aria-label="`本地下载·${deviceMusicCount}`" :title="`本地下载 · ${deviceMusicCount} 首`" :class="{ 'ui-nav-active': route.path === '/local' || route.path === '/download' }"><UiIcon name="download" /><span>本地下载<span class="ui-recent-count">·{{ deviceMusicCount }}</span></span></router-link>
+      <div class="ui-sidebar-body scroll">
+        <nav aria-label="主导航"><router-link v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="item.label" :class="{ 'ui-nav-active': route.path.startsWith(item.path) }"><UiIcon :name="item.icon" /><span>{{ item.label }}</span></router-link></nav>
+        <div class="ui-personal-section">
+          <div class="ui-nav-label">我的音乐</div>
+          <div class="ui-personal-links">
+            <router-link to="/list?id=love" :aria-label="`喜欢·${favoriteTracks.length}`" :title="`喜欢 · ${favoriteTracks.length} 首`" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === 'love' && route.query.view !== 'recent' }"><UiIcon name="heart" /><span>喜欢<span class="ui-recent-count">·{{ favoriteTracks.length }}</span></span></router-link>
+            <router-link :to="{ path: '/list', query: { view: 'recent' } }" :aria-label="`最近播放·${recentTracks.length}`" title="最近播放" :class="{ 'ui-nav-active': recentVisible }"><UiIcon name="clock" /><span>最近播放<span class="ui-recent-count">·{{ recentTracks.length }}</span></span></router-link>
+            <router-link to="/local" :aria-label="`本地下载·${deviceMusicCount}`" :title="`本地下载 · ${deviceMusicCount} 首`" :class="{ 'ui-nav-active': route.path === '/local' || route.path === '/download' }"><UiIcon name="download" /><span>本地下载<span class="ui-recent-count">·{{ deviceMusicCount }}</span></span></router-link>
+          </div>
         </div>
+        <section class="ui-playlist-section" aria-label="我的歌单">
+          <button ref="playlistGroupTrigger" type="button" class="ui-playlist-compact-entry" aria-label="歌单分组与创建" title="我的歌单" aria-haspopup="menu" :aria-expanded="playlistGroupOpen" popovertarget="sidebar-playlist-group-menu" @click="positionPlaylistGroup"><UiIcon :name="playlistTab === 'created' ? 'list' : 'heart'" /></button>
+          <div class="ui-playlist-tabs"><div role="tablist" aria-label="歌单分组"><button id="sidebar-created-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'created'" aria-label="自建歌单" @click="playlistTab = 'created'"><UiIcon name="list" /><span>自建歌单</span></button><span aria-hidden="true">|</span><button id="sidebar-collected-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'collected'" aria-label="收藏歌单" @click="playlistTab = 'collected'"><UiIcon name="heart" /><span>收藏歌单</span></button></div><button type="button" class="ui-create-playlist" aria-label="创建歌单" title="创建歌单" @click="playlistOpen = true"><UiIcon name="plus" /></button></div>
+          <div id="sidebar-playlists" class="ui-sidebar-lists scroll" role="tabpanel" :aria-labelledby="playlistTab === 'created' ? 'sidebar-created-tab' : 'sidebar-collected-tab'">
+            <router-link v-for="list in sidebarLists" :key="list.id" :aria-label="list.name" :title="list.name" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === list.id }" :to="{ path: '/list', query: { id: list.id } }" @contextmenu.prevent="openPlaylistMenu($event, list)" @keydown="playlistKey($event, list)"><UiIcon name="list" /><span>{{ list.name }}</span></router-link>
+            <p v-if="playlistTab === 'collected' && !sidebarLists.length" class="ui-playlist-empty">还没有收藏的歌单</p>
+          </div>
+        </section>
       </div>
-      <section class="ui-playlist-section" aria-label="我的歌单">
-        <button ref="playlistGroupTrigger" type="button" class="ui-playlist-compact-entry" aria-label="歌单分组与创建" title="我的歌单" aria-haspopup="menu" :aria-expanded="playlistGroupOpen" popovertarget="sidebar-playlist-group-menu" @click="positionPlaylistGroup"><UiIcon :name="playlistTab === 'created' ? 'list' : 'heart'" /></button>
-        <div class="ui-playlist-tabs"><div role="tablist" aria-label="歌单分组"><button id="sidebar-created-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'created'" aria-label="自建歌单" @click="playlistTab = 'created'"><UiIcon name="list" /><span>自建歌单</span></button><span aria-hidden="true">|</span><button id="sidebar-collected-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'collected'" aria-label="收藏歌单" @click="playlistTab = 'collected'"><UiIcon name="heart" /><span>收藏歌单</span></button></div><button type="button" class="ui-create-playlist" aria-label="创建歌单" title="创建歌单" @click="playlistOpen = true"><UiIcon name="plus" /></button></div>
-        <div id="sidebar-playlists" class="ui-sidebar-lists scroll" role="tabpanel" :aria-labelledby="playlistTab === 'created' ? 'sidebar-created-tab' : 'sidebar-collected-tab'">
-          <router-link v-for="list in sidebarLists" :key="list.id" :aria-label="list.name" :title="list.name" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === list.id }" :to="{ path: '/list', query: { id: list.id } }" @contextmenu.prevent="openPlaylistMenu($event, list)" @keydown="playlistKey($event, list)"><UiIcon name="list" /><span>{{ list.name }}</span></router-link>
-          <p v-if="playlistTab === 'collected' && !sidebarLists.length" class="ui-playlist-empty">还没有收藏的歌单</p>
-        </div>
-      </section>
     </aside>
     <div class="ui-workspace">
       <header class="ui-topbar"><div class="ui-breadcrumb"><button type="button" class="ui-icon-button" aria-label="返回上一页" @click="router.back()"><UiIcon name="back" /></button></div><SearchBox v-model="query" @submit="search" /><router-link to="/setting" class="ui-icon-button ui-settings-entry" aria-label="设置与偏好" title="设置与偏好" :class="{ 'ui-active': route.path === '/setting' }"><UiIcon name="gear" /></router-link><button type="button" class="ui-icon-button" aria-label="外观定制" title="外观定制" @click="appearancePanelOpen = true"><UiIcon name="palette" /></button><button type="button" class="ui-icon-button" :aria-label="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" :title="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" @click="toggleAppearanceMode"><UiIcon :name="resolvedAppearanceMode === 'light' ? 'moon' : 'sun'" /></button><button type="button" class="ui-icon-button linkline-update-topbar" :class="{ 'ui-active': updateAvailable, spinning: updateChecking }" :title="updateButtonLabel" :aria-label="updateButtonLabel" :aria-busy="updateChecking" @click="openUpdateCenter"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" /><span v-if="updateAvailable" class="linkline-update-dot" aria-hidden="true" /></button><WindowControls /></header>

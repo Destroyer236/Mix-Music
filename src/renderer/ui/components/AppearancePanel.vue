@@ -50,16 +50,28 @@
               </div>
             </fieldset>
 
+            <div class="appearance-section appearance-toggle-row">
+              <div><label id="appearance-shadows-label">显示阴影</label><p>为浮动面板、卡片和弹出菜单添加阴影，默认关闭</p></div>
+              <button type="button" class="appearance-toggle" role="switch" :aria-checked="appearance.showShadows" aria-labelledby="appearance-shadows-label" @click="appearance.showShadows = !appearance.showShadows"><span /></button>
+            </div>
+
             <div class="appearance-section">
-              <label class="appearance-label" for="appearance-radius">面板圆角 <span class="appearance-value">{{ appearance.radius }} px</span></label>
-              <input id="appearance-radius" :value="appearance.radius" class="appearance-range" type="range" min="8" max="28" step="1" @input="handleRadiusInput">
+              <label class="appearance-label" for="appearance-radius">浮动面板圆角 <span class="appearance-value">{{ appearance.radius }} px</span></label>
+              <input id="appearance-radius" :value="appearance.radius" class="appearance-range" type="range" min="0" max="32" step="1" @input="handleRadiusInput">
               <div class="appearance-range-labels"><span>利落</span><span>柔和</span></div>
+              <p class="appearance-control-hint">默认 8 px，可调范围 0–32 px</p>
             </div>
 
             <div class="appearance-section">
               <label class="appearance-label" for="appearance-panel-gap">浮动面板间距 <span class="appearance-value">{{ appearance.panelGap }} px</span></label>
-              <input id="appearance-panel-gap" :value="appearance.panelGap" class="appearance-range" type="range" min="4" max="32" step="1" @input="handlePanelGapInput">
+              <input id="appearance-panel-gap" :value="appearance.panelGap" class="appearance-range" type="range" min="0" max="32" step="1" @input="handlePanelGapInput">
               <div class="appearance-range-labels"><span>紧密</span><span>宽松</span></div>
+              <p class="appearance-control-hint">默认 8 px；0 px 时面板无缝衔接</p>
+            </div>
+
+            <div class="appearance-section appearance-toggle-row">
+              <div><label id="appearance-scrollbars-label">显示滚动条</label><p>默认隐藏，仍可使用滚轮、触控板和键盘滚动</p></div>
+              <button type="button" class="appearance-toggle" role="switch" :aria-checked="appearance.showScrollbars" aria-labelledby="appearance-scrollbars-label" @click="appearance.showScrollbars = !appearance.showScrollbars"><span /></button>
             </div>
 
             <fieldset class="appearance-section">
@@ -111,6 +123,7 @@ async function chooseMode(mode: Appearance['mode']) {
   else appearance.mode = mode
 }
 const swatches = [
+  { color: '#00eb81', label: 'LinkLine 绿（默认）' },
   { color: '#638575', label: '鼠尾草绿' },
   { color: '#6287b5', label: '雾霭蓝' },
   { color: '#9181b3', label: '柔和紫' },
@@ -129,11 +142,11 @@ function handleAccentInput(event: Event) {
 }
 function handleRadiusInput(event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
-  if (Number.isFinite(value)) appearance.radius = Math.max(8, Math.min(28, value))
+  if (Number.isFinite(value)) appearance.radius = Math.max(0, Math.min(32, Math.round(value)))
 }
 function handlePanelGapInput(event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
-  if (Number.isFinite(value)) appearance.panelGap = Math.max(4, Math.min(32, Math.round(value)))
+  if (Number.isFinite(value)) appearance.panelGap = Math.max(0, Math.min(32, Math.round(value)))
 }
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
@@ -287,6 +300,7 @@ onBeforeUnmount(() => { previousFocus?.focus() })
 }
 .appearance-range { width: 100%; margin: 0; height: 18px; cursor: pointer; accent-color: var(--modern-accent); }
 .appearance-range-labels { display: flex; justify-content: space-between; margin-top: 4px; color: var(--modern-muted); font-size: 10px; }
+.appearance-control-hint { margin-top: 8px; color: var(--modern-muted); font-size: 10px; }
 .appearance-density {
   display: flex;
   gap: 4px;
