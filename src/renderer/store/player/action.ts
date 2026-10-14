@@ -20,6 +20,7 @@ import { playNext } from '@renderer/core/player'
 import { LIST_IDS } from '@common/constants'
 import { toRaw } from '@common/utils/vueTools'
 import { arrPush, arrUnshift } from '@common/utils/common'
+import { samePlayTrack } from '@common/platformMatching'
 
 
 type PlayerMusicInfoKeys = keyof typeof musicInfo
@@ -107,8 +108,7 @@ export const getPlayIndex = (listId: string | null, musicInfo: LX.Download.ListI
 
   const list = getList(listId)
   if (list.length && musicInfo) {
-    const currentId = musicInfo.id
-    playIndex = list.findIndex(m => m.id == currentId)
+    playIndex = list.findIndex(m => samePlayTrack(m, musicInfo))
     if (!isTempPlay) {
       if (playIndex < 0) {
         playerPlayIndex = playerPlayIndex < 1 ? (list.length - 1) : (playerPlayIndex - 1)
@@ -202,8 +202,7 @@ export const setPlayMusicInfo = (listId: string | null, musicInfo: LX.Download.L
  * @param playMusicInfo playMusicInfo对象
  */
 export const addPlayedList = (playMusicInfo: LX.Player.PlayMusicInfo) => {
-  const id = playMusicInfo.musicInfo.id
-  if (playedList.some(m => m.musicInfo.id === id)) return
+  if (playedList.some(m => samePlayTrack(m.musicInfo, playMusicInfo.musicInfo))) return
   playedList.push(playMusicInfo)
 }
 /**

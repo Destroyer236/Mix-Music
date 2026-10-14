@@ -49,7 +49,7 @@ import SearchArtists from '../components/SearchArtists.vue'
 import { matchArtists } from '../artistResults'
 import { usePaginationScroll } from '../usePaginationScroll'
 import { getCatalogSources, searchMusicCatalog, readCatalogTracks, type CatalogEntry } from '../services/catalogSearch'
-import { playTrack, playTracks } from '../services/music'
+import { playTracks } from '../services/music'
 import music from '@renderer/utils/musicSdk'
 import { deduplicationList, toNewMusicInfo } from '@renderer/utils'
 import { sources as musicSources } from '@renderer/store/search/music/state'
@@ -190,7 +190,7 @@ function submit(text = input.value, selectedKind = kind.value) {
 function changeKind(value: SearchKind) { const selected = sourcesFor(value); navigate(input.value.trim() || keyword.value, value, selected.includes(source.value as LX.OnlineSource) ? source.value : 'all') }
 function changeSource(value: string | number) { navigate(input.value.trim() || keyword.value, kind.value, String(value) as SearchSource) }
 function changePage(value: number) { navigate(keyword.value, kind.value, source.value, value) }
-async function playOne(track: LX.Music.MusicInfo) { try { await playTrack(track) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放。' } }
+async function playOne(track: LX.Music.MusicInfo) { try { const queue = selectedEntity.value ? entityTracks.value : tracks.value; await playTracks(queue, queue.findIndex(item => item.source === track.source && item.id === track.id)) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放。' } }
 async function playPage() { try { await playTracks(tracks.value) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放。' } }
 function openAction(track: LX.Music.MusicInfo, value: 'add' | 'download') { actionTracks.value = [track]; action.value = value; actionOpen.value = true }
 function openPlaylist(item: ListInfoItem, play = false) { void router.push({ path: '/songList/detail', query: { source: item.source, id: item.id, name: item.name, picUrl: item.img, play: play ? 'true' : undefined } }) }

@@ -5,8 +5,8 @@
     <section class="qq-recommend-selection" aria-label="今日音乐推荐">
       <div ref="selection" class="qq-recommend-rail">
         <article class="qq-personal-card">
-          <div class="qq-personal-art"><div class="qq-personal-copy"><h2>{{ greeting }}</h2><p>{{ selectedArtist ? '熟悉的声音，' : '给此刻一点音乐，' }}<br>{{ selectedArtist ? '也有新的心动。' : '让心情慢慢放松。' }}</p><button type="button" class="qq-green-play" :disabled="!featured" :aria-label="featured ? '播放推荐歌曲 ' + featured.name : '推荐歌曲加载中'" @click="playOne(featured, featuredList)"><UiIcon name="play" filled /></button></div><div class="qq-personal-record"><span aria-hidden="true" /><TrackArtwork :track="featured" :alt="featured?.name || '推荐歌曲封面'" /></div></div>
-          <button type="button" class="qq-card-title" :disabled="!featured" @click="playOne(featured, featuredList)">{{ featured ? featured.name + ' · ' + featured.singer : '正在寻找好音乐…' }}</button><p class="qq-card-caption">{{ source === 'all' ? '猜你喜欢 · 全平台随机推荐' : discoveries.length ? '猜你喜欢 · 发现熟悉与新的声音' : '猜你喜欢 · 今日热播' }}</p>
+          <div class="qq-personal-art"><div class="qq-personal-copy"><h2>{{ greeting }}</h2><p>{{ selectedArtist ? '熟悉的声音，' : '给此刻一点音乐，' }}<br>{{ selectedArtist ? '也有新的心动。' : '让心情慢慢放松。' }}</p><button type="button" class="qq-green-play" :disabled="!featured" :aria-label="featured ? (featuredPlaying ? '暂停 ' : '播放 ') + featured.name : '推荐歌曲加载中'" @click="toggleFeatured"><UiIcon :name="featuredPlaying ? 'pause' : 'play'" filled /></button></div><div class="qq-personal-record"><span aria-hidden="true" /><TrackArtwork :track="featured" :alt="featured?.name || '推荐歌曲封面'" /></div></div>
+          <button type="button" class="qq-card-title" :disabled="!featured" @click="toggleFeatured">{{ featured ? featured.name + ' · ' + featured.singer : '正在寻找好音乐…' }}</button><p class="qq-card-caption">{{ source === 'all' ? '猜你喜欢 · 全平台推荐' : discoveries.length ? '猜你喜欢 · 发现熟悉与新的声音' : '猜你喜欢 · 今日热播' }}</p>
         </article>
         <article v-for="(item, index) in playlists.slice(0, favoriteTracks.length ? 2 : 3)" :key="item.source + ':' + item.id" class="qq-square-card">
           <div class="qq-square-art"><button type="button" class="qq-card-open" :aria-label="'查看歌单 ' + item.name" @click="openPlaylist(item)"><TrackArtwork :src="item.img" :alt="item.name" /><span class="qq-card-ribbon" :class="'tone-' + index">{{ ['Daily picks', 'Discover', 'For you'][index] }}</span></button><button type="button" class="qq-card-play" :aria-label="'播放歌单 ' + item.name" @click="openPlaylist(item, true)"><UiIcon name="play" filled /></button></div>
@@ -38,7 +38,9 @@ import { sourceNames } from '@renderer/store'
 import type { ListInfoItem } from '@renderer/store/songList/state'
 import { useRecommendations } from '../useRecommendations'
 import { useTimeGreeting } from '../useTimeGreeting'
-import { playTracks } from '../services/music'
+import { playTracks, sameTrack } from '../services/music'
+import { isPlay, playMusicInfo } from '@renderer/store/player/state'
+import { togglePlay } from '@renderer/core/player'
 import { favoriteTracks } from '../services/platformAccounts'
 import UiIcon from '../components/UiIcon.vue'
 import TrackArtwork from '../components/TrackArtwork.vue'
@@ -46,14 +48,16 @@ import RecommendationState from '../components/RecommendationState.vue'
 import RecommendationTracks from '../components/RecommendationTracks.vue'
 const router = useRouter()
 const { loadSongs, recommendationLoading, recommendationError, sources, source, playlists, discoveries, recommended, boardId, selectedArtist, playlistLoading, playlistError, trendingError, discoveryError, selectSource, nextPlaylists, loadPlaylists } = useRecommendations()
-const featuredList = recommended
-const featured = computed(() => featuredList.value[0] ?? null)
+const currentTrack = computed(() => { const track = playMusicInfo.musicInfo; return track && 'metadata' in track ? track.metadata.musicInfo : track })
+const featured = computed(() => currentTrack.value ?? recommended.value[0] ?? null)
+const featuredPlaying = computed(() => isPlay.value && sameTrack(featured.value, currentTrack.value))
 const favorites = computed(() => favoriteTracks.value.slice(0, 9))
 const greeting = useTimeGreeting()
 const message = ref('')
 const selection = ref<HTMLElement | null>(null)
 function openPlaylist(item: ListInfoItem, play = false) { void router.push({ path: '/songList/detail', query: { source: item.source, id: item.id, name: item.name, picUrl: item.img, play: play ? 'true' : undefined } }) }
-async function playOne(track: LX.Music.MusicInfo | null | undefined, list: LX.Music.MusicInfo[]) { if (!track) return; try { await playTracks(list, list.findIndex(item => item.id === track.id)) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放，请稍后再试。' } }
+async function playOne(track: LX.Music.MusicInfo | null | undefined, list: LX.Music.MusicInfo[]) { if (!track) return; message.value = ''; try { await playTracks(list, list.findIndex(item => sameTrack(item, track))) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放，请稍后再试。' } }
+function toggleFeatured() { if (currentTrack.value) togglePlay(); else void playOne(featured.value, recommended.value) }
 function advanceSelection() { const rail = selection.value; if (rail && rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2) rail.scrollBy({ left: rail.clientWidth * 0.75, behavior: 'smooth' }); else { rail?.scrollTo({ left: 0 }); nextPlaylists() } }
 function retrySongs() { void loadSongs() }
 </script>

@@ -4,6 +4,7 @@ import { SPLIT_CHAR } from '@common/constants'
 import { filterFileName, sortInsert, similar, arrPushByPosition, arrShuffle } from '@common/utils/common'
 import { joinPath, saveStrToFile } from '@common/utils/nodejs'
 import { createLocalMusicInfo } from '@renderer/utils/music'
+import { samePlayTrack } from '@common/platformMatching'
 
 
 /**
@@ -55,13 +56,13 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
     if ('progress' in s) {
       if (!s.isComplate) return false
     } else if (hasDislike(s)) {
-      if (s.id != playerMusicInfo?.id) return false
+      if (!playerMusicInfo || !samePlayTrack(s, playerMusicInfo)) return false
       isDislike = true
     }
 
     canPlayList.push(s)
 
-    let index = filteredPlayedList.findIndex(m => m.id == s.id)
+    let index = filteredPlayedList.findIndex(m => samePlayTrack(m, s))
     if (index > -1) {
       filteredPlayedList.splice(index, 1)
       return false
@@ -73,7 +74,7 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
       if (filteredList.length <= 1) {
         filteredList.splice(0, 1)
         if (canPlayList.length > 1) {
-          let currentMusicIndex = canPlayList.findIndex(m => m.id == playerMusicInfo.id)
+          let currentMusicIndex = canPlayList.findIndex(m => samePlayTrack(m, playerMusicInfo))
           if (isNext) {
             playerIndex = currentMusicIndex - 1
             if (playerIndex < 0 && canPlayList.length > 1) playerIndex = canPlayList.length - 2
@@ -84,7 +85,7 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
           canPlayList.splice(currentMusicIndex, 1)
         } else canPlayList.splice(0, 1)
       } else {
-        let currentMusicIndex = filteredList.findIndex(m => m.id == playerMusicInfo.id)
+        let currentMusicIndex = filteredList.findIndex(m => samePlayTrack(m, playerMusicInfo))
         if (isNext) {
           playerIndex = currentMusicIndex - 1
           if (playerIndex < 0 && filteredList.length > 1) playerIndex = filteredList.length - 2
@@ -95,7 +96,7 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
         filteredList.splice(currentMusicIndex, 1)
       }
     } else {
-      playerIndex = (filteredList.length ? filteredList : canPlayList).findIndex(m => m.id == playerMusicInfo.id)
+      playerIndex = (filteredList.length ? filteredList : canPlayList).findIndex(m => samePlayTrack(m, playerMusicInfo))
     }
   }
   return {

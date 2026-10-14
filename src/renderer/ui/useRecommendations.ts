@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, effectScope, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import music from '@renderer/utils/musicSdk'
 import { toNewMusicInfo } from '@renderer/utils'
 import { sameRecording } from '@common/platformMatching'
@@ -7,15 +7,17 @@ import { getListDetail as getPlaylistDetail, getTags } from '@renderer/store/son
 import { getBoardsList, getListDetail } from '@renderer/store/leaderboard/action'
 import { getSongListSetting } from '@renderer/utils/data'
 import { favoriteTracks } from './services/platformAccounts'
-import { freshRecommendations, randomMix, recommendationArtists, recommendationKey } from './recommendationMix'
+import { freshRecommendations, randomMix, recommendationArtists, recommendationKey, recommendationPreferences, normalizeRecommendationArtist } from './recommendationMix'
 import { getRecommendationHistory } from './recommendationHistory'
 import { RecommendationBuffer, type RecommendationBatch } from './recommendationBuffer'
+import { musicLinksFile } from './useMusicLinks'
+import { isPlay, playMusicInfo } from '@renderer/store/player/state'
 
 export type RecommendationSource = LX.OnlineSource | 'all'
 
 // Two platform jobs at a time; only bounded display candidates are retained.
-export function useRecommendations(initialSource: RecommendationSource = 'all') {
-  const source = ref<RecommendationSource>(initialSource)
+function createRecommendations() {
+  const source = ref<RecommendationSource>('all')
   const playlists = shallowRef<ListInfoItem[]>([])
   const trending = shallowRef<LX.Music.MusicInfo[]>([])
   const discoveries = shallowRef<LX.Music.MusicInfo[]>([])
@@ -35,21 +37,22 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
   let playlistVersion = 0
   let tagVersion = 0
   let ready = false
-  let active = true
+  let viewers = 0
+  let fastAvailable = true
   let running = 0
-  const jobs: Array<{ run: () => Promise<void>, background: boolean, owner: RecommendationSource }> = []
+  const jobs: Array<{ run: () => Promise<void>, background: boolean, owner: RecommendationSource, priority: number }> = []
   let backgroundRunning = 0
-  const deadlines = new Map<ReturnType<typeof setTimeout>, () => void>()
-  const artists = computed(() => {
-    const counts = new Map<string, number>()
-    for (const track of favoriteTracks.value.slice(-200)) {
-      for (const name of track.singer.split(/[、&,，;；/|]/).map(value => value.trim()).filter(Boolean)) {
-        if (name === '未知歌手') continue
-        counts.set(name, (counts.get(name) ?? 0) + 1)
-      }
-    }
-    return [...counts].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name)
+  const recent = shallowRef<Array<{ name: string, singer: string }>>([])
+  void musicLinksFile.ready.then(data => { recent.value = data.recent }, () => {})
+  watch(() => [isPlay.value, playMusicInfo.musicInfo] as const, ([playing, original]) => {
+    if (!playing || !original) return
+    const track = 'metadata' in original ? original.metadata.musicInfo : original
+    recent.value = [track, ...recent.value.filter(item => recommendationKey(item) !== recommendationKey(track))].slice(0, 100)
   })
+  const preferences = computed(() => recommendationPreferences(favoriteTracks.value, recent.value))
+  const artists = computed(() => preferences.value.seeds)
+  const affinity = new Map<string, number>()
+  const score = (track: LX.Music.MusicInfo) => preferences.value.score(track) + (affinity.get(recommendationKey(track)) ?? 0)
   const recommended = shallowRef<LX.Music.MusicInfo[]>([])
   const recommendationLoading = ref(true)
   const recommendationError = ref('')
@@ -95,18 +98,48 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
         history: () => history.current.keys,
         prepare: async(excluded, valid, background) => prepareSongs(context, excluded, valid, background),
         commit: async batch => {
-          if (!active || context.source !== source.value) throw new Error('已切换推荐平台。')
-          context.tracks = batch.tracks; showContext(context)
-          await history.record(batch.tracks, batch.round)
+          const version = context.version
+          await history.record(batch.tracks, batch.round, false, () => {
+            if (!viewers || version !== context.version || context.source !== source.value || !usable(context, batch)) return false
+            context.tracks = batch.tracks; context.first = false; showContext(context)
+            return true
+          })
         },
-        usable: batch => !batch.tracks.some(track => history.current.keys.includes(recommendationKey(track)) || favoriteTracks.value.some(saved => sameRecording(track, saved))),
+        usable: batch => usable(context, batch),
+        repair: (batch, excluded) => {
+          const cached = new Set(batch.tracks.map(recommendationKey))
+          const tracks = freshRecommendations([...batch.tracks, ...context.candidates], favoriteTracks.value, [...excluded, ...reserved(context)], 9, track => score(track) + (cached.has(recommendationKey(track)) ? 10 : 0))
+          return tracks.length ? { tracks, round: batch.round } : null
+        },
       }),
     }
     contexts.set(platform, context)
   }
   const currentContext = () => contexts.get(source.value)!
+  function reserved(context: SourceContext) {
+    return [...contexts.values()].flatMap(other => [
+      ...other.tracks.map(recommendationKey),
+      ...(other.preview?.tracks.map(recommendationKey) ?? []),
+      ...(other === context ? [] : other.buffer.reserved),
+    ])
+  }
+  function usable(context: SourceContext, batch: RecommendationBatch) {
+    const blocked = new Set([...history.current.keys, ...reserved(context), ...favoriteTracks.value.map(recommendationKey)])
+    const familiar = new Set(favoriteTracks.value.flatMap(recommendationArtists))
+    const names = new Set<string>()
+    const songs = new Set<string>()
+    let outside = 0
+    for (const track of batch.tracks) {
+      const key = recommendationKey(track)
+      const artists = recommendationArtists(track)
+      if (blocked.has(key) || songs.has(key) || !artists.length || artists.some(name => names.has(name))) return false
+      songs.add(key); artists.forEach(name => names.add(name))
+      if (artists.every(name => !familiar.has(name))) outside++
+    }
+    return outside >= Math.ceil(batch.tracks.length * 0.2)
+  }
   function showContext(context: SourceContext) {
-    if (!active || context.source !== source.value) return
+    if (context.source !== source.value) return
     recommended.value = context.tracks
     recommendationLoading.value = context.loading
     recommendationError.value = context.error
@@ -124,35 +157,40 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
     warmTimer = setTimeout(() => { void warmSources() }, 150)
   }
   async function warmSources() {
-    if (!active || warming) return
+    if (warming) return
     warming = true
     warmRequested = false
     try {
-      // Prepare the visible tab first, then each other tab with its own pool.
-      const ordered = [currentContext(), ...[...contexts.values()].filter(context => context.source !== source.value)]
-      for (const context of ordered) {
-        if (!active) break
-        if (context.loading) continue
-        if (context.first && !context.preview) await firstSongs(context, true)
-        if (active) await context.buffer.warm()
+      // Give every tab one batch before filling second and third slots. Re-read
+      // the visible source between jobs so switching tabs changes priority.
+      for (let target = 1; target <= 3; target++) {
+        const pending = new Set(contexts.values())
+        while (pending.size) {
+          const context = pending.has(currentContext()) ? currentContext() : [...pending].sort((a, b) => a.buffer.size - b.buffer.size)[0]
+          pending.delete(context)
+          if (!context.loading) await context.buffer.warm(target)
+        }
       }
-    } finally { warming = false; if (active && warmRequested) warmSongs() }
+    } finally { warming = false; if (warmRequested) warmSongs() }
   }
   watch(artists, names => {
     if (names.includes(selectedArtist.value)) return
     selectedArtist.value = names[0] ?? ''
   }, { immediate: true })
   watch(() => favoriteTracks.value.map(recommendationKey).sort().join('\n'), () => {
-    for (const context of contexts.values()) context.buffer.reset()
+    for (const context of contexts.values()) context.buffer.refresh()
     if (!ready) return
     warmSongs()
   })
 
   function pump() {
     while (running < 2 && jobs.length) {
-      const index = jobs.findIndex(job => !job.background || job.owner === source.value)
-      if (index < 0 && backgroundRunning) return
-      const job = jobs.splice(index < 0 ? 0 : index, 1)[0]
+      const urgent = (job: typeof jobs[number]) => Boolean(contexts.get(job.owner)?.loading) && job.owner === source.value
+      const eligible = jobs.filter(job => !job.background || urgent(job) || backgroundRunning === 0)
+      if (!eligible.length) return
+      eligible.sort((a, b) => (urgent(a) ? 0 : a.priority) - (urgent(b) ? 0 : b.priority) || Number(b.owner === source.value) - Number(a.owner === source.value))
+      const job = eligible[0]
+      jobs.splice(jobs.indexOf(job), 1)
       running++
       if (job.background) backgroundRunning++
       void job.run().finally(() => { running--; if (job.background) backgroundRunning--; pump() })
@@ -160,31 +198,36 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
   }
   async function bounded<T>(task: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
-      const cancel = () => { deadlines.delete(timer); reject(new Error('平台响应超时或页面已离开。')) }
-      const timer = setTimeout(cancel, 12000)
-      deadlines.set(timer, cancel)
-      void Promise.resolve().then(task).then(resolve, reject).finally(() => { clearTimeout(timer); deadlines.delete(timer) })
+      const cancel = () => { reject(new Error('平台响应超时。')) }
+      const timer = setTimeout(cancel, 8000)
+      void Promise.resolve().then(task).then(resolve, reject).finally(() => { clearTimeout(timer) })
     })
   }
-  async function collect<T>(owner: RecommendationSource, read: (platform: LX.OnlineSource) => Promise<T[]>, valid: () => boolean, update: (items: T[]) => void, background = false, onGroup?: (items: T[]) => void) {
+  async function collect<T>(owner: RecommendationSource, read: (platform: LX.OnlineSource) => Promise<T[]>, valid: () => boolean, update: (items: T[]) => void, background = false, onGroup?: (items: T[]) => void, enough?: () => boolean, priority = 0) {
     const platforms = owner === 'all' ? [...sources] : [owner]
     const groups = new Map<LX.OnlineSource, T[]>()
-    await Promise.allSettled(platforms.map(async platform => new Promise<void>(resolve => {
+    let finished = false
+    let finish: () => void
+    const completion = new Promise<void>(resolve => { finish = () => { if (!finished) { finished = true; resolve() } } })
+    void Promise.allSettled(platforms.map(async platform => new Promise<void>(resolve => {
       jobs.push({
         background,
         owner,
+        priority: background ? 2 : priority,
         run: async() => {
           try {
-            if (!valid()) return
+            if (!valid() || finished) return
             const result = await bounded(async() => read(platform))
-            if (!valid()) return
+            if (!valid() || finished) return
             groups.set(platform, result)
             onGroup?.(result)
+            if (enough?.()) finish()
           } catch {} finally { resolve() }
         },
       })
       pump()
-    })))
+    }))).then(() => { finish() })
+    await completion
     const result = [...groups.values()].flat()
     if (valid()) update(result)
     return result
@@ -194,7 +237,7 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
     const mixed = source.value === 'all'
     const selectedTag = tagId.value
     const selectedPage = page.value
-    const valid = () => active && version === playlistVersion
+    const valid = () => version === playlistVersion
     playlistLoading.value = true
     playlistError.value = ''
     hasNext.value = false
@@ -203,14 +246,14 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
       if (!result) throw new Error('这个平台暂时无法提供歌单。')
       if (valid()) hasNext.value ||= selectedPage * (result.limit || result.list.length || 30) < Number(result.total)
       return result.list.slice(0, 8)
-    }, valid, list => { playlists.value = mixed ? randomMix(list, 8, (a, b) => a.source === b.source && a.id === b.id) : list.slice(0, 8) })
+    }, valid, list => { playlists.value = mixed ? randomMix(list, 8, (a, b) => a.source === b.source && a.id === b.id) : list.slice(0, 8) }, false, undefined, undefined, 1)
     if (!valid()) return
     if (!items.length) playlistError.value = '歌单暂时无法加载，可以重试或切换平台。'
     playlistLoading.value = false
   }
   async function loadTrending(context = currentContext(), background = false, onGroup?: (items: LX.Music.MusicInfo[]) => void) {
     const version = context.version
-    const valid = () => active && version === context.version
+    const valid = () => version === context.version
     const round = context.round
     const items = await collect<LX.Music.MusicInfo>(context.source, async platform => {
       const boards = await getBoardsList(platform)
@@ -223,20 +266,35 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
     }, valid, list => { context.trending = list; showContext(context) }, background, onGroup)
     return items
   }
-  async function discoveryCandidates(platform: LX.OnlineSource, round: number) {
-    const artist = artists.value.length ? artists.value[round % artists.value.length] : ''
-    const related: LX.Music.MusicInfo[] = artist ? await music[platform]?.musicSearch.search(artist, 1 + round % 5, 30).then((result: { list: LX.Music.MusicInfo[] }) => result.list.map(track => toNewMusicInfo(track))).catch(() => []) ?? [] : []
-    const relatedArtist = related.filter(track => recommendationArtists(track).some(name => recommendationArtists({ ...track, singer: artist }).includes(name)))
-    const sorts = sortList[platform] ?? []
-    const playlists = await music[platform]?.songList.getList(sorts[round % (sorts.length || 1)]?.id ?? '', '', 1 + (round + sources.indexOf(platform) * 3) % 12).catch(() => null)
-    const choices = playlists?.list ?? []
-    const choice = choices.length ? choices[round % choices.length] : null
-    const broader = choice ? await getPlaylistDetail(choice.id, platform, 1).then(result => result.list.slice(0, 120)).catch(() => []) : []
-    return [...relatedArtist, ...broader].filter(track => !favoriteTracks.value.some(saved => sameRecording(track, saved)))
+  async function discoveryCandidates(platform: LX.OnlineSource, round: number): Promise<LX.Music.MusicInfo[]> {
+    const seeds = artists.value
+    const offset = (round * 2 + sources.indexOf(platform) * 3) % (seeds.length || 1)
+    const selected = [...new Set([seeds[offset], seeds[(offset + 1) % (seeds.length || 1)]].filter(Boolean))]
+    const searches: Array<Promise<LX.Music.MusicInfo[]>> = selected.map(async artist => {
+      const result: { list: LX.Music.MusicInfo[] } | null | undefined = await music[platform]?.musicSearch.search(artist, 1 + Math.floor(round / Math.max(1, seeds.length)) % 4, 30).catch(() => null)
+      const key = normalizeRecommendationArtist(artist)
+      return (result?.list ?? []).map((track: LX.Music.MusicInfo) => toNewMusicInfo(track)).filter((track: LX.Music.MusicInfo) => recommendationArtists(track).includes(key))
+    })
+    const broader = (async() => {
+      const sorts = sortList[platform] ?? []
+      const playlists = await music[platform]?.songList.getList(sorts[round % (sorts.length || 1)]?.id ?? '', '', 1 + (round + sources.indexOf(platform) * 3) % 12).catch(() => null)
+      const choices = playlists?.list ?? []
+      const choice = choices.length ? choices[round % choices.length] : null
+      const tracks = choice ? await getPlaylistDetail(choice.id, platform, 1).then(result => result.list.slice(0, 120)).catch(() => []) : []
+      const familiar = new Set(favoriteTracks.value.flatMap(recommendationArtists))
+      // Co-occurrence in a playlist is a weak taste signal for new artists,
+      // rather than treating every unfamiliar artist as equally relevant.
+      if (tracks.some(track => recommendationArtists(track).some(name => familiar.has(name)))) {
+        for (const track of tracks) affinity.set(recommendationKey(track), 1.5)
+        while (affinity.size > 3000) affinity.delete(affinity.keys().next().value!)
+      }
+      return tracks
+    })()
+    return (await Promise.all([...searches, broader])).flat().filter(track => !favoriteTracks.value.some(saved => sameRecording(track, saved)))
   }
   async function loadDiscoveries(context = currentContext(), background = false, onGroup?: (items: LX.Music.MusicInfo[]) => void) {
     const version = context.version
-    const valid = () => active && version === context.version
+    const valid = () => version === context.version
     const round = context.round
     return collect<LX.Music.MusicInfo>(context.source, async platform => discoveryCandidates(platform, round), valid, list => { context.discoveries = list; showContext(context) }, background, onGroup)
   }
@@ -251,7 +309,7 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
     if (context.preview) return context.preview
     if (context.initial) return context.initial
     const version = context.version
-    const valid = () => active && version === context.version
+    const valid = () => version === context.version
     const round = ++context.round
     const task = new Promise<RecommendationBatch | null>(resolve => {
       let displayed = false
@@ -267,7 +325,9 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
         }
         if (displayed || !items.length) return
         displayed = true
-        context.preview = { tracks: randomMix(context.candidates, 9, (a, b) => a === b), round }
+        const favorites = new Set(favoriteTracks.value.map(recommendationKey))
+        context.preview = { tracks: randomMix(context.candidates.filter(track => !favorites.has(recommendationKey(track))), 9, (a, b) => recommendationKey(a) === recommendationKey(b)), round }
+        if (!context.preview.tracks.length) { displayed = false; context.preview = null; return }
         resolve(context.preview)
       }
       if (context.candidates.length) accept(context.candidates)
@@ -283,23 +343,27 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
   }
   async function prepareSongs(context: SourceContext, excluded: string[], current: () => boolean, background: boolean) {
     const version = context.version
-    const valid = () => active && version === context.version && current()
+    const valid = () => version === context.version && current()
     await history.ready
     if (!valid()) return null
     context.round = Math.max(context.round, history.current.round) + 1
-    if (!context.candidates.length && !background) {
-      await Promise.all([loadTrending(context), loadDiscoveries(context)])
-      if (!valid()) return null
-      retainCandidates(context, [...context.discoveries, ...context.trending])
-    }
-    const blocked = () => [...excluded, ...history.current.keys, ...context.tracks.map(recommendationKey), ...(context.preview?.tracks.map(recommendationKey) ?? [])]
-    let selection = freshRecommendations(context.candidates, favoriteTracks.value, blocked())
+    if (context.source === 'all') retainCandidates(context, [...context.candidates, ...[...contexts.values()].flatMap(other => other.candidates)])
+    const blocked = () => [...excluded, ...history.current.keys, ...reserved(context)]
+    let selection = freshRecommendations(context.candidates, favoriteTracks.value, blocked(), 9, score)
     for (let attempt = 0; selection.length < 9 && attempt < 2; attempt++) {
       const round = ++context.round
-      const extra = await collect<LX.Music.MusicInfo>(context.source, async platform => discoveryCandidates(platform, round), valid, () => {}, background)
+      const accept = (items: LX.Music.MusicInfo[]) => {
+        retainCandidates(context, [...items, ...context.candidates])
+        selection = freshRecommendations(context.candidates, favoriteTracks.value, blocked(), 9, score)
+      }
+      await collect<LX.Music.MusicInfo>(context.source, async platform => {
+        const items = await discoveryCandidates(platform, round)
+        if (items.length || context.candidates.length) return items
+        const boards = await getBoardsList(platform)
+        const board = boards?.list[round % (boards.list.length || 1)]
+        return board ? (await getListDetail(board.id, 1)).list.slice(0, 120) : []
+      }, valid, () => {}, background, accept, () => selection.length === 9)
       if (!valid()) return null
-      retainCandidates(context, [...extra, ...context.candidates])
-      selection = freshRecommendations(context.candidates, favoriteTracks.value, blocked())
     }
     return selection.length && valid() ? { tracks: selection, round: context.round } : null
   }
@@ -307,21 +371,26 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
     const context = currentContext()
     if (context.loadingTask) return context.loadingTask
     const version = context.version
-    const valid = () => active && version === context.version
+    const valid = () => version === context.version
     context.loading = true; context.error = ''; showContext(context)
     clearTimeout(warmTimer)
     const task = (async() => {
       try {
-        const initial = context.first
+        const initial = context.first && fastAvailable
+        if (initial) fastAvailable = false
         const batch = initial ? await firstSongs(context) : await context.buffer.next()
         if (!valid()) return
         if (!batch) throw new Error('这一批暂时没有新的推荐，换个平台或稍后再试。')
-        if (initial && context.source !== source.value) return
-        context.tracks = batch.tracks
-        if (initial) { context.first = false; context.preview = null; showContext(context); await history.record(batch.tracks, batch.round, true) }
+        if (initial && context.source !== source.value) { context.preview = null; return }
+        if (initial) {
+          await history.record(batch.tracks, batch.round, true, () => {
+            if (!viewers || !valid() || context.source !== source.value) { context.preview = null; return false }
+            context.tracks = batch.tracks; context.first = false; context.preview = null; showContext(context)
+            return true
+          })
+        }
       } catch (error) { if (valid() && context.source === source.value) context.error = error instanceof Error ? error.message : '推荐暂时无法加载，请稍后重试。' } finally {
-        context.loading = false
-        showContext(context)
+        if (valid()) { context.loading = false; showContext(context) }
         if (valid()) warmSongs()
       }
     })().finally(() => { if (context.loadingTask === task) context.loadingTask = null })
@@ -334,8 +403,8 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
     if (platform === 'all') { tags.value = []; return }
     try {
       const result = await getTags(platform)
-      if (active && version === tagVersion) tags.value = result.hotTag.slice(0, 6)
-    } catch { if (active && version === tagVersion) tags.value = [] }
+      if (version === tagVersion) tags.value = result.hotTag.slice(0, 6)
+    } catch { if (version === tagVersion) tags.value = [] }
   }
   function loadAll() {
     clearTimeout(warmTimer)
@@ -349,25 +418,45 @@ export function useRecommendations(initialSource: RecommendationSource = 'all') 
   }
   function selectSource(value: RecommendationSource) {
     if (value === source.value) return
+    cancelForeground(currentContext())
     source.value = value; tagId.value = ''; page.value = 1; loadAll()
   }
   function selectTag(value: string) { tagId.value = value; page.value = 1; void loadPlaylists() }
   function nextPlaylists() { page.value = hasNext.value ? page.value + 1 : 1; void loadPlaylists() }
-  onMounted(async() => {
-    if (initialSource !== 'all') {
+  function cancelForeground(context: SourceContext) {
+    if (!context.loading) return
+    context.version++; context.buffer.cancel()
+    context.loading = false; context.loadingTask = null; context.initial = null; context.preview = null
+  }
+  function attach(initialSource: RecommendationSource) { viewers++; void start(initialSource) }
+  function detach() {
+    viewers = Math.max(0, viewers - 1)
+    if (!viewers) for (const context of contexts.values()) cancelForeground(context)
+  }
+  async function start(initialSource: RecommendationSource) {
+    if (!ready && initialSource !== 'all') {
       const saved = await getSongListSetting().catch(() => null)
-      if (!active) return
       if (saved?.source && sources.includes(saved.source as LX.OnlineSource)) source.value = saved.source as LX.OnlineSource
+    }
+    if (ready) {
+      const context = currentContext()
+      showContext(context)
+      if (!context.tracks.length) void loadSongs()
+      else warmSongs()
+      return
     }
     ready = true
     loadAll()
-  })
-  onUnmounted(() => {
-    active = false; playlistVersion++; tagVersion++
-    for (const context of contexts.values()) { context.version++; context.buffer.reset(); context.candidates = []; context.preview = null }
-    clearTimeout(warmTimer)
-    for (const [timer, cancel] of deadlines) { clearTimeout(timer); cancel() }
-    deadlines.clear()
-  })
-  return { loadSongs, recommendationLoading, recommendationError, sources, source, playlists, trending, discoveries, recommended, tags, tagId, boardId, boardName, selectedArtist, playlistLoading, trendingLoading, discoveryLoading, playlistError, trendingError, discoveryError, selectSource, selectTag, nextPlaylists, loadPlaylists, loadTrending, loadDiscoveries }
+  }
+  return { attach, detach, loadSongs, recommendationLoading, recommendationError, sources, source, playlists, trending, discoveries, recommended, tags, tagId, boardId, boardName, selectedArtist, playlistLoading, trendingLoading, discoveryLoading, playlistError, trendingError, discoveryError, selectSource, selectTag, nextPlaylists, loadPlaylists, loadTrending, loadDiscoveries }
+}
+
+// The six bounded pools and their prepared batches live for this app session,
+// independently of router view mounts. Only the first display gets the fast path.
+let sharedRecommendations: ReturnType<typeof createRecommendations> | undefined
+export function useRecommendations(initialSource: RecommendationSource = 'all') {
+  const state = sharedRecommendations ??= effectScope(true).run(createRecommendations)!
+  onMounted(() => { state.attach(initialSource) })
+  onUnmounted(state.detach)
+  return state
 }
