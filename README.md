@@ -1,117 +1,140 @@
 <p align="center">
-  <img src="resources/icons/linkline.svg" width="100" alt="LinkLine Logo">
+  <img src="resources/icons/linkline.svg" width="88" height="88" alt="LinkLine Logo">
 </p>
 
-# LinkLine
+<h1 align="center">LinkLine</h1>
 
-把不同平台的音乐，连接到同一个音乐空间。
+<p align="center"><strong>把不同平台的音乐，连接到同一个音乐空间。</strong></p>
 
-LinkLine 是基于 LXMusic 开源项目再开发的桌面音乐应用。全新的界面采用圆角浮动面板、侧栏导航和长进度条播放器，支持浅色、深色与跟随系统主题。连接平台账号后，可以汇总红心歌曲与平台创建的歌单，也可以管理和播放本地音乐。
+<p align="center">
+  跨平台音乐库 · 本地音乐 · 桌面歌词 · 自定义外观
+</p>
 
-[项目源码](https://github.com/yaonikaixin999999/LinkLine) · [下载与版本记录](https://github.com/yaonikaixin999999/LinkLine/releases) · [完整功能与使用说明](docs/项目说明.md) · [反馈问题](https://github.com/yaonikaixin999999/LinkLine/issues)
+<p align="center">
+  <a href="https://github.com/yaonikaixin999999/LinkLine/releases/latest"><img src="https://img.shields.io/github/v/release/yaonikaixin999999/LinkLine?label=Release&color=14945a" alt="最新正式版本"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-14945a" alt="Windows 10 / 11 x64">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-14945a" alt="Apache License 2.0"></a>
+</p>
 
-当前推荐下载 **1.1.0**：更新推荐、搜索、歌单、排行榜、设置与播放详情界面，新增最近播放和图片主题配色。默认使用 `#00EB81` 点缀色与绿色 Logo、8 px 面板圆角和间距；浮动面板无外框描边，阴影与滚动条默认隐藏，左上角 Logo 固定显示。版本说明：[1.1.0](docs/releases/v1.1.0.md) · [1.0.6](docs/releases/v1.0.6.md) · [1.0.5](docs/releases/v1.0.5.md) · [完整更新日志](CHANGELOG.md)。
+<p align="center">
+  <a href="https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe"><strong>下载 Windows 版</strong></a> ·
+  <a href="https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe">国内加速下载</a> ·
+  <a href="docs/项目说明.md">使用手册</a> ·
+  <a href="https://github.com/yaonikaixin999999/LinkLine/issues">反馈问题</a>
+</p>
+
+LinkLine 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。连接平台账号，汇总喜欢的歌曲与自建歌单；导入本地音乐，按歌手、专辑和文件夹整理。用统一的播放器，听见分散在不同地方的音乐。
+
+<p align="center">
+  <a href="docs/images/readme/home-light.webp"><img src="docs/images/readme/home-light.webp" width="1000" alt="LinkLine 1.1.0 浅色主题推荐页，绿色点缀、浮动面板与底部播放器"></a>
+  <br>
+  <sub>浅色主题 · 推荐页 · 无描边浮动面板</sub>
+</p>
+
+## 看看 LinkLine
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <a href="docs/images/readme/home-dark.webp"><img src="docs/images/readme/home-dark.webp" alt="LinkLine 深色主题推荐页" width="500"></a>
+      <br><strong>深色主题</strong><br><sub>在浅色与深色之间自由切换</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="docs/images/readme/playlists.webp"><img src="docs/images/readme/playlists.webp" alt="LinkLine 精选歌单页面" width="500"></a>
+      <br><strong>精选歌单</strong><br><sub>按平台与分类，发现下一首喜欢的歌</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <a href="docs/images/readme/local-library.webp"><img src="docs/images/readme/local-library.webp" alt="LinkLine 本地音乐分类与导入页面" width="500"></a>
+      <br><strong>本地音乐</strong><br><sub>歌曲、歌手、专辑、文件夹，四种整理方式</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="docs/images/readme/appearance.webp"><img src="docs/images/readme/appearance.webp" alt="LinkLine 外观定制面板" width="500"></a>
+      <br><strong>你的外观</strong><br><sub>配色、圆角、间距与图片主题，自由调整</sub>
+    </td>
+  </tr>
+</table>
+
+*截图来自 LinkLine 1.1.0；点击图片可查看大图。*
+
+## 为听歌而设计
+
+| | 你可以做什么 |
+| --- | --- |
+| **把喜欢的音乐放在一起** | 汇总已连接平台的红心歌曲，同步平台创建的歌单；主动收藏时，在支持写入的平台查找同版本歌曲并分别操作。 |
+| **找到想听的内容** | 搜索歌曲、歌手、专辑与歌单；浏览推荐、精选歌单和排行榜，查看最近播放，点击歌手或专辑进入相关作品。 |
+| **选择合适的音质** | 默认使用账号最高可用音质，支持标准、无损、Hi-Res 等平台音质；原平台无法播放时，尝试其他平台的同版本歌曲。 |
+| **整理本地音乐** | 导入文件或递归扫描文件夹，不设导入数量上限；按歌曲、歌手、专辑和文件夹分类，支持搜索与批量操作。 |
+| **让歌词陪着你** | 滚动歌词、翻译与罗马音，独立桌面歌词窗口；可调整歌词偏移、桌面歌词背景透明度及锁定状态。 |
+| **用你喜欢的样子听歌** | 浅色、深色与自定义图片主题；调整点缀色、面板圆角和间距，选择显示阴影或滚动条。 |
+| **留在后台，继续播放** | 关闭窗口可最小化到托盘，支持播放队列、定时停止、下载管理、均衡器与快捷键。 |
+| **在应用内完成升级** | 启动时检查新版本，更新页面展示下载进度，完成后点击安装；支持官方和国内加速入口。 |
+
+在线播放、音质和下载取决于歌曲版权、平台接口、账号权限与网络。跨平台换源会查找同版本歌曲，不会绕过会员或版权限制。更多细节见[完整功能与使用手册](docs/项目说明.md)。
 
 ## 下载与安装
 
-**1.1.0 发行版：Windows 10 / 11，64 位（x64）。**
+当前版本 **1.1.0**，支持 **Windows 10 / 11，64 位（x64）**。
 
 | 下载入口 | 链接 |
 | --- | --- |
-| GitHub 官方安装包 | [LinkLine-v1.1.0-x64-Setup.exe](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe) |
-| 国内加速下载 | [通过 gh-proxy.com 下载](https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe) |
-| 国内备用入口 | [通过 ghfast.top 下载](https://ghfast.top/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe) |
-| 文件校验 | [SHA256SUMS.txt](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/SHA256SUMS.txt) |
-| 所有正式版本 | [GitHub Releases](https://github.com/yaonikaixin999999/LinkLine/releases) |
+| GitHub 官方 | [下载 LinkLine-v1.1.0-x64-Setup.exe](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe) |
+| 国内加速 | [gh-proxy.com](https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe) · [备用 ghfast.top](https://ghfast.top/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/LinkLine-v1.1.0-x64-Setup.exe) |
+| 版本与校验 | [所有正式版本](https://github.com/yaonikaixin999999/LinkLine/releases) · [SHA-256 校验文件](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.1.0/SHA256SUMS.txt) |
 
-下载后运行安装程序，按提示安装并启动 LinkLine。国内加速入口由第三方提供，用于转发本仓库的官方文件；可用性取决于服务和网络，不能保证所有地区都能访问。无法连接时可切换备用入口或 GitHub 官方源。
+下载后运行安装程序，按提示完成安装。国内入口由第三方服务转发官方文件，连接失败时可切换官方或备用入口。已有用户可在应用内的「检查更新」下载安装包，升级前可导出备份。
 
-## 开始使用
+### 三步开始听歌
 
-1. 首次启动阅读使用协议，随后按引导进入「设置与偏好 → 平台账号与红心」。
-2. 打开需要连接的平台，在平台的官方网页完成登录。扫码、密码或短信登录方式以平台当时展示的选项为准。
-3. 点击「同步音乐库」或「同步全部」，在侧栏「喜欢」查看合并红心，在「自建歌单」分组查看平台创建的歌单。
-4. 从搜索、精选歌单、排行榜或音乐库中选择歌曲播放。在线播放仍由歌曲版权、平台权限、账号状态与网络决定。
+1. **连接账号**：首次启动后，打开「设置与偏好 → 平台账号与红心」，在平台官方网页完成登录。
+2. **同步音乐库**：点击「同步音乐库」或「同步全部」，在侧栏「喜欢」查看聚合红心，在「自建歌单」查看已同步歌单。
+3. **选择歌曲播放**：从音乐库、搜索或精选内容中播放；也可进入「本地下载 → 本地音乐」，导入自己的音频文件。
 
-不登录也可以从左侧「本地下载 → 本地音乐」进入独立页面，导入文件或递归扫描文件夹。需要自定义音乐接口时，在「音源管理」导入自己准备的兼容音源脚本；项目不内置此类脚本。
-
-## 功能概览
-
-| 功能 | 内容 |
-| --- | --- |
-| 推荐与搜索 | 真实平台歌单与歌曲推荐、换一批及平台筛选；歌曲、歌单、专辑和歌手搜索、输入联想、搜索历史、精选分类、榜单、歌单链接 / ID |
-| 平台音乐库 | 多平台账号、红心聚合、保守去重、平台创建歌单同步、每个平台的独立结果与错误提示 |
-| 红心联动 | 主动收藏或取消收藏时，在已连接且支持写入的平台查找同版本歌曲，检查权限并逐个平台操作 |
-| 播放 | 单曲 / 整个列表、最近播放、播放队列、循环 / 随机 / 顺序、长进度条、音量浮层、播放进度恢复、定时停止 |
-| 音质与换源 | 默认使用账号最高音质，支持标准至无损 / Hi-Res、平台特殊音质；原平台无法播放时尝试其他平台的同版本歌曲 |
-| 本地音乐库 | 独立页面，全部歌曲 / 歌手 / 专辑 / 文件夹分类、文件与文件夹导入、子目录递归扫描、无导入数量上限、重复文件跳过、进度与停止、分类播放、本地搜索、批量操作与资料编辑 |
-| 下载中心 | 音质选择、任务进度、暂停 / 继续 / 重试、下载目录、完成文件播放、歌词与封面选项 |
-| 歌词与详情 | 唱片式播放详情、封面取色、滚动歌词、默认开启翻译、罗马音、歌词偏移、歌手 / 专辑链接、连续加载平台评论、独立桌面歌词窗口 |
-| 后台播放 | 默认启用托盘、关闭窗口时询问、取消 / 退出 / 最小化到托盘、记住选择与设置调整 |
-| 外观 | 浅 / 深 / 自定义图片主题、默认 #00EB81 点缀色、8 px 圆角与间距、无描边面板、阴影和滚动条显示开关、列表密度、发现页内容开关 |
-| 声音与设备 | 输出设备、播放速率、均衡器及预设、环境音效、环绕与音高选项 |
-| 数据与服务 | 备份恢复、缓存清理、屏蔽规则、设备同步、本地开放 API、应用内 / 全局快捷键 |
-| 运行资源 | 硬件加速默认开启，可关闭并保存后重启；按需加载服务与 Worker，限制歌单和封面地址缓存、V8 旧生代预算 |
-| 更新中心 | 每次启动检查并提示新版本、顶部与设置入口、更新日志、历史版本、国内加速与官方源、应用内下载进度与安装按钮 |
-
-音质菜单会根据当前歌曲和平台展示可用选项。默认使用「账号最高音质」，在当前账号和歌曲权限内选择最高档，并不代表自动获得会员或版权权限。设置与播放栏使用同一份音质偏好。
-
-浅色主题主窗口背景为 `#F0F0F0`，浮动面板为 `#F6F6F6`。面板圆角与间距支持 0–32 px，间距设为 0 px 时无缝衔接；「外观定制」可分别开启阴影和滚动条。升级保留已保存的配色、圆角与间距，需要使用新版默认值时点击「恢复默认」。
-
-「设置 → 常规与外观 → 关闭硬件加速」修改后先保存，再提示「修改已保存，是否立即重启 LinkLine 以生效？」。「512 MiB」是单个 V8 旧生代预算，不是软件总内存上限；关闭加速的实际效果取决于设备。详见[性能优化说明](docs/性能优化说明.md)。
+扫码、密码或短信登录以平台官网展示的方式为准。使用自定义音乐接口时，可在「音源管理」导入自己准备的兼容音源脚本；项目不内置此类脚本。
 
 ## 平台支持
 
-| 平台 | 官方网页登录 | 红心 / 收藏同步 | 创建歌单 / 收藏夹同步 | 跨平台红心操作 |
+| 平台 | 官方网页登录 | 红心 / 收藏同步 | 自建歌单 / 收藏夹同步 | 跨平台收藏操作 |
 | --- | --- | --- | --- | --- |
 | QQ 音乐 | 支持 | 支持 | 支持 | 支持 |
 | 网易云音乐 | 支持 | 支持 | 支持 | 支持 |
 | 咪咕音乐 | 支持 | 支持 | 支持 | 支持 |
 | 哔哩哔哩 | 支持 | 默认收藏夹聚合 | 自建收藏夹 | 收藏操作 |
-| 酷狗音乐 | 支持，可验证网页登录 | 暂不支持 | 暂不支持 | 暂不支持 |
-| 酷我音乐 | 官方网页入口，暂不能验证账号连接 | 暂不支持 | 暂不支持 | 暂不支持 |
+| 酷狗音乐 | 支持，可验证账号 | 暂不支持 | 暂不支持 | 暂不支持 |
+| 酷我音乐 | 官网入口，暂不能验证账号 | 暂不支持 | 暂不支持 | 暂不支持 |
 
-已接入这些平台的播放能力，但平台接口可能变更；登录成功或同步出歌曲不等于获得这首歌的播放、下载权限。酷狗和酷我当前主要提供官方登录入口与公开播放能力，不支持把客户端的云收藏当作已同步。哔哩哔哩的内容按视频 / 音轨和收藏夹处理，与音乐平台的红心体系不同。
+酷狗与酷我目前提供公开播放能力和官方登录入口，尚不支持云收藏同步。哔哩哔哩按视频 / 音轨和收藏夹处理。平台接口可能变化；登录或同步成功不代表获得所有歌曲的播放权限。
 
-## 更新
+## 1.1.0 有什么新变化
 
-每次启动会在后台检查本项目的正式版本，检测到新版本时自动打开更新中心。点击顶部云下载图标，或打开「设置与偏好 → 检查更新」，可查看当前版本、最新版本、更新时间、发布说明和历史版本，并选择下载源。
+- 推荐、搜索、歌单、排行榜、设置与播放详情采用统一的新界面，增加最近播放和图片主题配色。
+- 默认点缀色与 Logo 为 `#00EB81`，面板圆角、间距均为 8 px；取消浮动面板描边，阴影和滚动条默认隐藏。
+- 固定侧栏 Logo，下方内容独立滚动；面板间距设为 0 px 时无缝衔接。
 
-国内检查源读取本仓库的 [`updates/stable-linkline.json`](updates/stable-linkline.json)，通过 gh-proxy.com 加速；失败后尝试 ghfast.top，再回退 GitHub 官方。国内下载使用同样的第三方加速入口。可切换到官方源，网络异常时可重试。
+升级会保留已保存的外观偏好。想使用新默认值，可在顶部「外观定制」点击「恢复默认」。
 
-仓库改名后，已发布的 1.0.0 / 1.0.1 仍读取兼容清单 `updates/stable.json`；旧仓库地址由 GitHub 重定向。发布脚本同时生成两份清单，后续发布时一起提交，保证旧版国内更新入口继续可用。旧版的官方更新检查可能无法识别改名后的地址，可使用国内更新源，或直接从上方下载 1.1.0 安装包升级。
+[完整发行说明](docs/releases/v1.1.0.md) · [更新日志](CHANGELOG.md) · [性能优化说明](docs/性能优化说明.md)
 
-发布清单提供安装包校验信息时，可在更新中心展开「查看 SHA-256 校验值」，与下载文件的 SHA-256 比较，确认文件完整。
+## 开发与资料
 
-从 1.0.4 起，更新中心可以直接下载完整 Windows x64 安装包，显示进度、速度与校验结果，无需跳转浏览器。下载完成后点击「安装更新」，LinkLine 会退出并启动安装程序；安装需由用户操作，不会在后台自动覆盖软件。也可以从发布页下载安装包，先从托盘退出旧版再运行。升级前可在「备份与数据」导出资料。
+[使用手册](docs/项目说明.md)涵盖歌词、下载、快捷键、账号同步、数据备份及常见问题。源码反馈请通过 [Issues](https://github.com/yaonikaixin999999/LinkLine/issues) 提交。
 
-## 数据与备份
+<details>
+<summary><strong>从源码运行与构建</strong></summary>
 
-正常安装启动的数据目录为 `%APPDATA%\LinkLine`，音乐资料位于其中的 `LxDatas`。登录会话、个人音乐库与设置保存在本机。正式安装启动与源码测试脚本默认使用不同的数据目录：`启动测试版.cmd` 沿用项目内的 `artifacts/user-test-data`。
-
-项目内的 `data/`、`artifacts/`、`dist/` 和 `node_modules/` 已由 Git 忽略，上传源码时不会包含个人歌曲链接、推荐历史、本地资料、构建输出或已安装依赖。生产构建不生成源码映射文件，开发模式仍保留调试能力。
-
-「设置与偏好 → 备份与数据」支持完整备份、音乐库或偏好设置的分别导入导出，以及歌单文本 / CSV 导出。支持兼容的 `.lxmc` 资料文件；备份不等于复制原始音频文件或平台登录会话。详见[完整说明](docs/项目说明.md#数据存储备份与迁移)。
-
-## 开发与构建
-
-需要 Node.js 22 或更新版本，以及 npm 8.5.2 或更新版本。安装依赖时会下载 Electron 并准备原生模块。
+需要 Node.js 22 或更新版本、npm 8.5.2 或更新版本。
 
 ```sh
 npm install
 npm run dev
 ```
 
-生产构建与桌面启动：
+生产构建、桌面启动与代码检查：
 
 ```sh
 npm run build
 npm start
-```
-
-代码检查：
-
-```sh
 npm run lint
 ```
 
@@ -122,27 +145,23 @@ npm run build
 npm run pack:win:setup:x64
 ```
 
-打包结果保存在 `build/`，文件名为 `LinkLine-v<版本>-x64-Setup.exe`。准备发布元数据：
+安装包输出到 `build/`。`npm run release:prepare` 根据安装包与发行说明生成更新清单和 SHA-256 文件，不会自动上传或发布。
 
-```sh
-npm run release:prepare
-```
+主要目录：`src/renderer/ui/` 为主界面，`src/renderer-lyric/ui/` 为桌面歌词，`src/main/` 为 Electron 与平台服务，`src/common/` 为共享类型与配置。
 
-该命令读取实际安装包和 `docs/releases/v<版本>.md`，生成 `updates/stable-linkline.json`、旧版兼容清单 `updates/stable.json` 及 `build/SHA256SUMS.txt`；不会上传、发布或运行安装程序。
+</details>
 
-主要目录：`src/renderer/ui/` 为主界面，`src/renderer-lyric/ui/` 为桌面歌词，`src/main/` 为 Electron 与平台服务，`src/common/` 为共享类型和配置，`build-config/` 为构建与打包配置。
+<details>
+<summary><strong>数据、备份与运行资源</strong></summary>
 
-## 维护正式版本
+正常安装的数据目录为 `%APPDATA%\LinkLine`，音乐资料位于其中的 `LxDatas`。登录会话、音乐库与设置保存在本机；源码测试脚本默认使用项目内的 `artifacts/user-test-data`，与正式安装分开。
 
-1. 将 `package.json` 与依赖锁文件的版本更新为更高的正式版本，并编写对应的 `docs/releases/v<版本>.md`。
-2. 完成测试和生产构建，生成 Windows x64 安装包，再运行 `npm run release:prepare`。
-3. 检查生成的安装包名称、下载地址、体积和 SHA-256；更新清单会保留最多 20 条不同版本的历史记录。
-4. 提交源代码和发行说明到本仓库，创建并推送对应 `v<版本>` 标签；新更新清单暂不推送。
-5. 在自己的 GitHub 仓库创建同标签的正式 Release，填写发布说明，上传安装包和 `SHA256SUMS.txt`，再发布。
-6. 正式发布后再提交并推送 `updates/stable-linkline.json` 和 `updates/stable.json`，验证官方与加速下载文件，以及应用内国内 / 官方更新源的检查结果。
+在「设置与偏好 → 备份与数据」导入导出音乐库与偏好设置。备份不会复制原始音频文件或平台登录会话，详见[数据存储、备份与迁移](docs/项目说明.md#数据存储备份与迁移)。
 
-客户端只从本仓库识别正式更新；不要将草稿、预发布或未经构建的文件写入正式更新清单。
+硬件加速默认开启，可在设置中关闭并重启生效。软件按需加载服务与 Worker，限制缓存和 V8 旧生代预算；预算不是应用总内存上限，实际占用取决于内容与设备，详见[性能优化说明](docs/性能优化说明.md)。
+
+</details>
 
 ## 许可与归属
 
-LinkLine 基于 [LXMusic 开源项目](https://github.com/lyswhut/lx-music-desktop)再开发，保留版权声明，遵循 [Apache License 2.0](LICENSE)，第三方组件保留[各自许可](licenses/)。音乐及平台内容的权利归各自权利人所有。
+LinkLine 基于 [LXMusic 开源项目](https://github.com/lyswhut/lx-music-desktop)再开发，保留原作者版权声明，遵循 [Apache License 2.0](LICENSE)。第三方组件保留[各自许可](licenses/)，音乐与平台内容的权利归各自权利人所有。
