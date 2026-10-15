@@ -17,6 +17,7 @@ import { LIST_IDS } from '@common/constants'
 import { getListMusics } from '@renderer/store/list/action'
 import { getDownloadList } from '@renderer/store/download/action'
 import { playList } from '@renderer/core/player'
+import { playTracks, sameTrack } from '../services/music'
 import type { RecentTrack } from '../useRecentPlayback'
 import UiIcon from './UiIcon.vue'
 import TrackTable from './TrackTable.vue'
@@ -89,6 +90,13 @@ async function play(track: RecentTrack) {
   busy.value = true
   error.value = ''
   try {
+    if (track.listId !== LIST_IDS.DOWNLOAD) {
+      const selected = artworkTracks.value.get(trackKey(track))
+      if (!selected) throw new Error('这首音乐已从原歌单中移除，请在音乐库中重新选择。')
+      const queue = filteredTracks.value.filter(record => record.listId !== LIST_IDS.DOWNLOAD).flatMap(record => artworkTracks.value.get(trackKey(record)) ?? [])
+      await playTracks(queue, queue.findIndex(item => sameTrack(item, selected)))
+      return
+    }
     const list = track.listId === LIST_IDS.DOWNLOAD ? await getDownloadList() : await getListMusics(track.listId)
     const index = list.findIndex(item => item.id === track.id)
     if (index < 0) throw new Error('这首音乐已从原歌单中移除，请在音乐库中重新选择。')

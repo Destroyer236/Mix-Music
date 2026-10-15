@@ -20,13 +20,16 @@ import { getRandom } from '@renderer/utils/index'
 import { requestFavorite } from '@renderer/ui/services/platformAccounts'
 import { activeStream, commitStream, preferredQuality } from '@renderer/ui/services/platformPlayback'
 import { addDislikeInfo } from '@renderer/core/dislikeList'
+import { samePlayTrack } from '@common/platformMatching'
+import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
 let gettingUrlId = ''
 let resourceGeneration = 0
+let navigationGeneration = 0
 const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem) => {
   const tInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.meta.toggleMusicInfo : musicInfo.meta.toggleMusicInfo
-  return `${musicInfo.id}_${tInfo?.id ?? ''}_${preferredQuality.value}`
+  return `${'progress' in musicInfo ? 'download' : musicInfo.source}:${musicInfo.id}_${tInfo?.id ?? ''}_${preferredQuality.value}`
 }
 const createDelayNextTimeout = (delay: number) => {
   let timeout: NodeJS.Timeout | null
@@ -61,7 +64,7 @@ const { addDelayNextTimeout: addLoadTimeout, clearDelayNextTimeout: clearLoadTim
  */
 const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.ListItem): boolean => {
   // return curMusicInfo !== playMusicInfo.musicInfo || isPlay.value
-  return gettingUrlId != createGettingUrlId(curMusicInfo) || curMusicInfo.id != playMusicInfo.musicInfo?.id || isPlay.value
+  return gettingUrlId != createGettingUrlId(curMusicInfo) || curMusicInfo !== playMusicInfo.musicInfo || isPlay.value
 }
 
 let cancelDelayRetry: (() => void) | null = null
@@ -181,20 +184,20 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
   activeStream.value = null
 
   setImmediate(() => {
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo !== playMusicInfo.musicInfo) return
     window.app_event.setProgress(appSetting['player.isSavePlayTime'] ? restorePlayInfo.time : 0, restorePlayInfo.maxTime)
     window.app_event.pause()
   })
 
 
   void getPicPath({ musicInfo, listId: playMusicInfo.listId }).then((url: string) => {
-    if (musicInfo.id != playMusicInfo.musicInfo?.id || url == _musicInfo.pic) return
+    if (musicInfo !== playMusicInfo.musicInfo || url == _musicInfo.pic) return
     setMusicInfo({ pic: url })
     window.app_event.picUpdated()
   }).catch(_ => _)
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo !== playMusicInfo.musicInfo) return
     setMusicInfo({
       lrc: lyricInfo.lyric,
       tlrc: lyricInfo.tlyric,
@@ -205,7 +208,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
     window.app_event.lyricUpdated()
   }).catch((err) => {
     console.log(err)
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo !== playMusicInfo.musicInfo) return
     setAllStatus(window.i18n.t('lyric__load_error'))
   })
 
@@ -227,6 +230,8 @@ const handlePlay = () => {
 
   if (!musicInfo) return
 
+  notifyQueueContinuation()
+
   setStop()
   window.app_event.pause()
 
@@ -239,13 +244,13 @@ const handlePlay = () => {
   setMusicUrl(musicInfo)
 
   void getPicPath({ musicInfo, listId: playMusicInfo.listId }).then((url: string) => {
-    if (musicInfo.id != playMusicInfo.musicInfo?.id || url == _musicInfo.pic) return
+    if (musicInfo !== playMusicInfo.musicInfo || url == _musicInfo.pic) return
     setMusicInfo({ pic: url })
     window.app_event.picUpdated()
   }).catch(_ => _)
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo !== playMusicInfo.musicInfo) return
     setMusicInfo({
       lrc: lyricInfo.lyric,
       tlrc: lyricInfo.tlyric,
@@ -256,7 +261,7 @@ const handlePlay = () => {
     window.app_event.lyricUpdated()
   }).catch((err) => {
     console.log(err)
-    if (musicInfo.id != playMusicInfo.musicInfo?.id) return
+    if (musicInfo !== playMusicInfo.musicInfo) return
     setAllStatus(window.i18n.t('lyric__load_error'))
   })
 }
@@ -267,11 +272,12 @@ const handlePlay = () => {
  * @param id 歌曲id
  */
 export const playListById = (listId: string, id: string) => {
+  const musicInfo = getList(listId).find(m => m.id == id)
+  if (!musicInfo) return
+  navigationGeneration++
   const prevListId = playInfo.playerListId
   setPlayListId(listId)
   // pause()
-  const musicInfo = getList(listId).find(m => m.id == id)
-  if (!musicInfo) return
   setPlayMusicInfo(listId, musicInfo)
   if (appSetting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
@@ -284,10 +290,13 @@ export const playListById = (listId: string, id: string) => {
  * @param index 播放的歌曲位置
  */
 export const playList = (listId: string, index: number) => {
+  const musicInfo = getList(listId)[index]
+  if (!musicInfo) return
+  navigationGeneration++
   const prevListId = playInfo.playerListId
   setPlayListId(listId)
   // pause()
-  setPlayMusicInfo(listId, getList(listId)[index])
+  setPlayMusicInfo(listId, musicInfo)
   if (appSetting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
   handlePlay()
@@ -295,8 +304,9 @@ export const playList = (listId: string, index: number) => {
 
 const handleToggleStop = () => {
   stop()
+  const generation = navigationGeneration
   setTimeout(() => {
-    setPlayMusicInfo(null, null)
+    if (generation === navigationGeneration) setPlayMusicInfo(null, null)
   })
 }
 
@@ -305,6 +315,7 @@ const randomNextMusicInfo = {
   // index: -1,
 }
 export const resetRandomNextMusicInfo = () => {
+  navigationGeneration++
   if (randomNextMusicInfo.info) {
     randomNextMusicInfo.info = null
     // randomNextMusicInfo.index = -1
@@ -312,12 +323,15 @@ export const resetRandomNextMusicInfo = () => {
 }
 
 export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | null> => {
+  const generation = navigationGeneration
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = tempPlayList[0]
     return playMusicInfo
   }
 
   if (playMusicInfo.musicInfo == null) return null
+
+  if (!await ensureQueueContinuation() || generation !== navigationGeneration) return null
 
   if (randomNextMusicInfo.info) return randomNextMusicInfo.info
 
@@ -327,19 +341,12 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
   const currentList = getList(currentListId)
 
   if (playedList.length) { // 移除已播放列表内不存在原列表的歌曲
-    let currentId: string
-    if (playMusicInfo.isTempPlay) {
-      const musicInfo = currentList[playInfo.playerPlayIndex]
-      if (musicInfo) currentId = musicInfo.id
-    } else {
-      currentId = playMusicInfo.musicInfo.id
-    }
+    const currentTrack = playMusicInfo.isTempPlay ? currentList[playInfo.playerPlayIndex] : playMusicInfo.musicInfo
     // 从已播放列表移除播放列表已删除的歌曲
     let index
-    for (index = playedList.findIndex(m => m.musicInfo.id === currentId) + 1; index < playedList.length; index++) {
+    for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) + 1; index < playedList.length; index++) {
       const playMusicInfo = playedList[index]
-      const currentId = playMusicInfo.musicInfo.id
-      if (playMusicInfo.listId == currentListId && !currentList.some(m => m.id === currentId)) {
+      if (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo))) {
         removePlayedList(index)
         continue
       }
@@ -355,12 +362,15 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     playedList,
     playerMusicInfo: currentList[playInfo.playerPlayIndex],
     isNext: true,
+    valid: () => generation === navigationGeneration,
   })
+  if (generation !== navigationGeneration) return null
+
+  filteredList = filterQueueContinuation(filteredList)
 
   if (!filteredList.length) return null
   // let currentIndex: number = filteredList.indexOf(currentList[playInfo.playerPlayIndex])
-  if (playerIndex == -1 && filteredList.length) playerIndex = 0
-  let nextIndex = playerIndex
+  let nextIndex = Math.max(0, playerIndex)
 
   let togglePlayMethod = appSetting['player.togglePlayMethod']
   switch (togglePlayMethod) {
@@ -404,6 +414,7 @@ const handlePlayNext = (playMusicInfo: LX.Player.PlayMusicInfo) => {
  * @returns
  */
 export const playNext = async(isAutoToggle = false): Promise<void> => {
+  const generation = ++navigationGeneration
   console.log('skip next', isAutoToggle)
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = tempPlayList[0]
@@ -426,22 +437,22 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     console.log('currentListId empty')
     return
   }
+  const canContinue = await ensureQueueContinuation(!isAutoToggle)
+  if (generation !== navigationGeneration) return
+  if (!canContinue) {
+    pause()
+    setAllStatus('新的推荐暂时无法加载，请稍后点击下一首重试。')
+    return
+  }
   const currentList = getList(currentListId)
 
   if (playedList.length) { // 移除已播放列表内不存在原列表的歌曲
-    let currentId: string
-    if (playMusicInfo.isTempPlay) {
-      const musicInfo = currentList[playInfo.playerPlayIndex]
-      if (musicInfo) currentId = musicInfo.id
-    } else {
-      currentId = playMusicInfo.musicInfo.id
-    }
+    const currentTrack = playMusicInfo.isTempPlay ? currentList[playInfo.playerPlayIndex] : playMusicInfo.musicInfo
     // 从已播放列表移除播放列表已删除的歌曲
     let index
-    for (index = playedList.findIndex(m => m.musicInfo.id === currentId) + 1; index < playedList.length; index++) {
+    for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) + 1; index < playedList.length; index++) {
       const playMusicInfo = playedList[index]
-      const currentId = playMusicInfo.musicInfo.id
-      if (playMusicInfo.listId == currentListId && !currentList.some(m => m.id === currentId)) {
+      if (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo))) {
         removePlayedList(index)
         continue
       }
@@ -465,7 +476,11 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     playedList,
     playerMusicInfo: currentList[playInfo.playerPlayIndex],
     isNext: true,
+    valid: () => generation === navigationGeneration,
   })
+  if (generation !== navigationGeneration) return
+
+  filteredList = filterQueueContinuation(filteredList)
 
   if (!filteredList.length) {
     handleToggleStop()
@@ -473,8 +488,7 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     return
   }
   // let currentIndex: number = filteredList.indexOf(currentList[playInfo.playerPlayIndex])
-  if (playerIndex == -1 && filteredList.length) playerIndex = 0
-  let nextIndex = playerIndex
+  let nextIndex = Math.max(0, playerIndex)
 
   let togglePlayMethod = appSetting['player.togglePlayMethod']
   if (!isAutoToggle) {
@@ -500,10 +514,12 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     default:
       nextIndex = -1
       console.log('stop toggle play', togglePlayMethod, isAutoToggle)
+      pause()
       return
   }
   if (nextIndex < 0) {
     console.log('next index empty')
+    pause()
     return
   }
 
@@ -518,6 +534,7 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
  * 上一曲
  */
 export const playPrev = async(isAutoToggle = false): Promise<void> => {
+  const generation = ++navigationGeneration
   if (playMusicInfo.musicInfo == null) {
     handleToggleStop()
     return
@@ -531,19 +548,12 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
   const currentList = getList(currentListId)
 
   if (playedList.length) {
-    let currentId: string
-    if (playMusicInfo.isTempPlay) {
-      const musicInfo = currentList[playInfo.playerPlayIndex]
-      if (musicInfo) currentId = musicInfo.id
-    } else {
-      currentId = playMusicInfo.musicInfo.id
-    }
+    const currentTrack = playMusicInfo.isTempPlay ? currentList[playInfo.playerPlayIndex] : playMusicInfo.musicInfo
     // 从已播放列表移除播放列表已删除的歌曲
     let index
-    for (index = playedList.findIndex(m => m.musicInfo.id === currentId) - 1; index > -1; index--) {
+    for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) - 1; index > -1; index--) {
       const playMusicInfo = playedList[index]
-      const currentId = playMusicInfo.musicInfo.id
-      if (playMusicInfo.listId == currentListId && !currentList.some(m => m.id === currentId)) {
+      if (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo))) {
         removePlayedList(index)
         continue
       }
@@ -563,15 +573,16 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
     playedList,
     playerMusicInfo: currentList[playInfo.playerPlayIndex],
     isNext: false,
+    valid: () => generation === navigationGeneration,
   })
+  if (generation !== navigationGeneration) return
   if (!filteredList.length) {
     handleToggleStop()
     return
   }
 
   // let currentIndex = filteredList.indexOf(currentList[playInfo.playerPlayIndex])
-  if (playerIndex == -1 && filteredList.length) playerIndex = 0
-  let nextIndex = playerIndex
+  let nextIndex = Math.max(0, playerIndex)
   if (!playMusicInfo.isTempPlay) {
     let togglePlayMethod = appSetting['player.togglePlayMethod']
     if (!isAutoToggle) {
@@ -588,7 +599,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
         break
       case 'listLoop':
       case 'list':
-        nextIndex = playerIndex === 0 ? filteredList.length - 1 : playerIndex - 1
+        nextIndex = playerIndex <= 0 ? filteredList.length - 1 : playerIndex - 1
         break
       case 'singleLoop':
         break
@@ -612,6 +623,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
 export const play = () => {
   window.lx.isPlayedStop &&= false
   if (playMusicInfo.musicInfo == null) return
+  notifyQueueContinuation()
   if (isEmpty()) {
     if (createGettingUrlId(playMusicInfo.musicInfo) != gettingUrlId) setMusicUrl(playMusicInfo.musicInfo)
     return
@@ -623,6 +635,7 @@ export const play = () => {
  * 暂停播放
  */
 export const pause = () => {
+  navigationGeneration++
   setPause()
 }
 
@@ -630,6 +643,7 @@ export const pause = () => {
  * 停止播放
  */
 export const stop = () => {
+  navigationGeneration++
   ++resourceGeneration
   gettingUrlId = ''
   cancelDelayRetry?.()

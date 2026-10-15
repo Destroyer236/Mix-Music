@@ -8,13 +8,13 @@
     </div>
     <div class="ui-player-center"><div class="ui-player-control-row"><button type="button" class="ui-icon-button ui-play-mode-button" :aria-label="modeLabel" :title="modeLabel" @click="cyclePlayMode"><UiIcon :name="currentMode.icon" /></button><div class="ui-transport"><button type="button" class="ui-icon-button" aria-label="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button><button type="button" class="ui-play-button" :aria-label="isPlay ? '暂停' : '播放'" @click="togglePlay"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button><button type="button" class="ui-icon-button" aria-label="下一首" @click="playNext()"><UiIcon name="next" filled /></button></div><VolumeControl /></div><div class="ui-seek"><span>{{ playProgress.nowPlayTimeStr }}</span><UiRange :model-value="seeking ?? playProgress.nowPlayTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div></div>
     <div class="ui-player-right-tools"><QualityControl :track="currentTrack" defer-load /><button type="button" class="ui-icon-button" :class="{ 'ui-active': appSetting['desktopLyric.enable'] }" :aria-pressed="appSetting['desktopLyric.enable']" aria-label="切换桌面歌词" title="桌面歌词" @click="toggleDesktopLyric"><UiIcon name="lyric" /></button><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
-    <PlayerPopover :show="queueOpen" title="播放列表" :subtitle="`${queue.length} 首歌曲`" :width="380" :trigger="queueTrigger" panel-class="ui-player-queue-panel" @close="queueOpen = false"><div v-if="!queue.length" class="ui-empty">选择歌曲后，播放队列会出现在这里。</div><button v-for="(item, index) in queue" :key="item.id" type="button" class="ui-queue-track" :class="{ 'ui-active': item.id === musicInfo.id }" @click="playList(playMusicInfo.listId, index)"><span>{{ String(index + 1).padStart(2, '0') }}</span><strong>{{ item.name }}</strong><small>{{ item.singer }}</small></button><template v-if="tempPlayList.length"><h3 class="ui-queue-heading">稍后播放</h3><div v-for="item in tempPlayList" :key="item.musicInfo.id" class="ui-queue-track">{{ item.musicInfo.name }} · {{ item.musicInfo.singer }}</div></template></PlayerPopover>
+    <PlayerPopover :show="queueOpen" title="播放列表" :subtitle="`${queue.length} 首歌曲`" :width="380" :trigger="queueTrigger" panel-class="ui-player-queue-panel" @close="queueOpen = false"><div v-if="!queue.length" class="ui-empty">选择歌曲后，播放队列会出现在这里。</div><button v-for="(item, index) in queue" :key="item.source + ':' + item.id" type="button" class="ui-queue-track" :class="{ 'ui-active': item.id === playMusicInfo.musicInfo?.id && item.source === currentTrack?.source }" @click="playList(playInfo.playerListId, index)"><span>{{ String(index + 1).padStart(2, '0') }}</span><strong>{{ item.name }}</strong><small>{{ item.singer }}</small></button><template v-if="tempPlayList.length"><h3 class="ui-queue-heading">稍后播放</h3><div v-for="item in tempPlayList" :key="item.musicInfo.id" class="ui-queue-track">{{ item.musicInfo.name }} · {{ item.musicInfo.singer }}</div></template></PlayerPopover>
   </section>
 </template>
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { musicInfo, isPlay, playMusicInfo, tempPlayList } from '@renderer/store/player/state'
+import { musicInfo, isPlay, playInfo, playMusicInfo, tempPlayList } from '@renderer/store/player/state'
 import { setShowPlayerDetail } from '@renderer/store/player/action'
 import { playProgress } from '@renderer/store/player/playProgress'
 import { appSetting, setTogglePlayMode } from '@renderer/store/setting'
@@ -57,5 +57,16 @@ const queueTrigger = ref(null)
 const queueOpen = ref(false)
 const queue = ref([])
 const seek = () => { window.app_event.setProgress(seeking.value ?? 0); seeking.value = null }
-watch(queueOpen, async show => { if (show) queue.value = playMusicInfo.listId === 'download' ? (await getDownloadList()).map(task => task.metadata.musicInfo) : playMusicInfo.listId ? await getListMusics(playMusicInfo.listId) : [] })
+let queueRequest = 0
+const refreshQueue = async() => {
+  const request = ++queueRequest
+  if (!queueOpen.value) return
+  const listId = playInfo.playerListId
+  const tracks = listId === 'download' ? (await getDownloadList()).map(task => ({ ...task.metadata.musicInfo, id: task.id })) : listId ? await getListMusics(listId) : []
+  if (request === queueRequest) queue.value = [...tracks]
+}
+watch(() => [queueOpen.value, playInfo.playerListId, playMusicInfo.musicInfo], refreshQueue)
+const onListUpdate = ids => { if (ids.includes(playInfo.playerListId)) void refreshQueue() }
+onMounted(() => { window.app_event.on('myListUpdate', onListUpdate) })
+onUnmounted(() => { queueRequest++; window.app_event.off('myListUpdate', onListUpdate) })
 </script>
