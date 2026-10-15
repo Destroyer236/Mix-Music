@@ -20,6 +20,8 @@ function current() {
 
 export function notifyQueueContinuation() { current()?.notify() }
 
+export function hasQueueContinuation() { return current() !== null }
+
 /** Ordinary lists always continue through the player's existing navigation. */
 export async function ensureQueueContinuation(manual = false) {
   return await current()?.ensure(manual) ?? true

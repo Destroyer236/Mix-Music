@@ -1,7 +1,9 @@
 import { LIST_IDS } from '@common/constants'
 import { getListMusics, setTempList } from '@renderer/store/list/action'
-import { playList } from '@renderer/core/player/action'
-import { setQueueContinuation } from '@renderer/core/player/queueContinuation'
+import { tempListMeta } from '@renderer/store/list/state'
+import { isPlay, playInfo, playMusicInfo } from '@renderer/store/player/state'
+import { playList, togglePlay } from '@renderer/core/player/action'
+import { hasQueueContinuation, setQueueContinuation } from '@renderer/core/player/queueContinuation'
 import { startRecommendationPlayback } from './recommendationPlayback'
 import type { RecommendationSource } from '../useRecommendations'
 
@@ -36,4 +38,18 @@ export const playTracks = async(tracks: LX.Music.MusicInfo[], index = 0, listId?
 
 export const playTrack = async(track: LX.Music.MusicInfo, listId?: string) => {
   await playTracks([track], 0, listId)
+}
+
+/** The featured card can resume a queue restored before recommendations mounted. */
+export const toggleRecommendationPlayback = async(tracks: LX.Music.MusicInfo[], source: RecommendationSource) => {
+  if (!playMusicInfo.musicInfo) {
+    await playTracks(tracks, 0, undefined, source)
+    return
+  }
+  if (!isPlay.value && playInfo.playerListId === LIST_IDS.TEMP && !playMusicInfo.isTempPlay && !hasQueueContinuation()) {
+    // Attach to the existing queue instead of rebuilding it: the card follows
+    // the current song even when the visible recommendations have changed.
+    startRecommendationPlayback(source, tempListMeta.id)
+  }
+  togglePlay()
 }

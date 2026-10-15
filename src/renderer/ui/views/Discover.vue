@@ -38,9 +38,8 @@ import { sourceNames } from '@renderer/store'
 import type { ListInfoItem } from '@renderer/store/songList/state'
 import { useRecommendations } from '../useRecommendations'
 import { useTimeGreeting } from '../useTimeGreeting'
-import { playTracks, sameTrack } from '../services/music'
+import { playTracks, sameTrack, toggleRecommendationPlayback } from '../services/music'
 import { isPlay, playMusicInfo } from '@renderer/store/player/state'
-import { togglePlay } from '@renderer/core/player'
 import { favoriteTracks } from '../services/platformAccounts'
 import UiIcon from '../components/UiIcon.vue'
 import TrackArtwork from '../components/TrackArtwork.vue'
@@ -57,7 +56,10 @@ const message = ref('')
 const selection = ref<HTMLElement | null>(null)
 function openPlaylist(item: ListInfoItem, play = false) { void router.push({ path: '/songList/detail', query: { source: item.source, id: item.id, name: item.name, picUrl: item.img, play: play ? 'true' : undefined } }) }
 async function playOne(track: LX.Music.MusicInfo | null | undefined, list: LX.Music.MusicInfo[], continuous = false) { if (!track) return; message.value = ''; try { await playTracks(list, list.findIndex(item => sameTrack(item, track)), undefined, continuous ? source.value : undefined) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放，请稍后再试。' } }
-function toggleFeatured() { if (currentTrack.value) togglePlay(); else void playOne(featured.value, recommended.value, true) }
+async function toggleFeatured() {
+  message.value = ''
+  try { await toggleRecommendationPlayback(recommended.value, source.value) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放，请稍后再试。' }
+}
 function advanceSelection() { const rail = selection.value; if (rail && rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2) rail.scrollBy({ left: rail.clientWidth * 0.75, behavior: 'smooth' }); else { rail?.scrollTo({ left: 0 }); nextPlaylists() } }
 function retrySongs() { void loadSongs() }
 </script>
