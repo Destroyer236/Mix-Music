@@ -89,9 +89,9 @@ const albumName = (track: LX.Music.MusicInfoLocal) => track.meta.albumName.trim(
 <style lang="less">
 .local-track-table { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: var(--modern-text); container-type: inline-size; > .ui-empty { flex: 1; } }
 .local-track-table__scroll { flex: 1; min-height: 0; overflow: auto; }
-.local-track-table__head, .local-track-table__row { display: grid; grid-template-columns: 30px minmax(140px, 1.7fr) minmax(90px, 1fr) 62px 50px 125px; align-items: center; column-gap: 12px; padding: 0 14px; }
-.local-track-table__head { position: sticky; top: 0; z-index: 1; min-height: 40px; border-bottom: 1px solid var(--modern-border); background: var(--modern-panel); color: var(--modern-muted); font-size: 10px; }
-.local-track-table__row { min-height: max(66px, calc(var(--modern-row-height) + 20px)); border-bottom: 1px solid var(--modern-border); font-size: 11px; transition: background .15s; &:hover, &:focus-within { background: var(--modern-hover); } &--active { .local-track-table__title, .local-track-table__index { color: var(--modern-accent-ink); } } &--selected { background: var(--modern-accent-soft); } }
+.local-track-table__head, .local-track-table__row { display: grid; grid-template-columns: 30px minmax(140px, 1.7fr) minmax(90px, 1fr) 62px 50px 125px; align-items: center; column-gap: 12px; padding: 0 14px; border-block: 0; }
+.local-track-table__head { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--modern-panel); color: var(--modern-muted); font-size: 10px; }
+.local-track-table__row { min-height: max(66px, calc(var(--modern-row-height) + 20px)); font-size: 11px; transition: background .15s; &:hover, &:focus-within { background: var(--modern-hover); } &--active { .local-track-table__title, .local-track-table__index { color: var(--modern-accent-ink); } } &--selected { background: var(--modern-accent-soft); } }
 .local-track-table__index { display: flex; align-items: center; justify-content: center; color: var(--modern-muted); font-size: 10px; font-variant-numeric: tabular-nums; svg { width: 16px; height: 16px; } }
 .local-track-table__song { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .local-track-table button { font: inherit; cursor: pointer; &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 2px; border-radius: 5px; } }

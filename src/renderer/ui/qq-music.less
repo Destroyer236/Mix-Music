@@ -796,11 +796,11 @@ html {
 }
 
 // -----------------------------------------------------------------------------
-// 8 · Track tables — unobtrusive row lines, strong title column
+// 8 · Track tables — borderless rows, strong title column
 // -----------------------------------------------------------------------------
 .ui-shell :is(.track-table__head, .local-track-table__head) {
   min-height: 40px;
-  border-bottom: var(--ui-hairline);
+  border-block: 0;
   background: color-mix(in srgb, var(--modern-text) 3%, var(--modern-panel));
   color: var(--modern-muted);
   font-size: 11.5px;
@@ -810,7 +810,7 @@ html {
 
 .ui-shell :is(.track-table__row, .local-track-table__row) {
   min-height: calc(var(--modern-row-height) + 14px);
-  border-bottom: 1px solid color-mix(in srgb, var(--modern-border) 55%, transparent);
+  border-block: 0;
   font-size: 13px;
 
   &:hover,
@@ -2324,7 +2324,7 @@ body .ui-track-create {
 .ui-shell .ui-queue-track {
   gap: var(--ui-space-4);
   padding: var(--ui-space-3) var(--ui-space-2);
-  border-bottom: 1px solid color-mix(in srgb, var(--modern-border) 55%, transparent);
+  border-block: 0;
 
   span,
   small {
@@ -3401,7 +3401,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
 }
 .qq-board-tabs-skeleton { display: flex; gap: 22px; margin: 25px 0; > span { width: 80px; height: 12px; border-radius: 4px; } }
 .qq-chart-skeleton-head { display: flex; gap: 24px; align-items: center; margin: 30px 0; > .qq-skeleton-block { width: 124px; height: 124px; border-radius: 4px; flex: none; } > div:last-child { width: 230px; } }
-.qq-chart-skeleton-row { display: grid; grid-template-columns: 42px minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; align-items: center; padding: 12px 20px; height: 65px; border-bottom: var(--ui-hairline); > .qq-skeleton-block { width: 40px; height: 40px; border-radius: 4px; } > .qq-skeleton-line { margin-top: 0; } }
+.qq-chart-skeleton-row { display: grid; grid-template-columns: 42px minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; align-items: center; padding: 12px 20px; height: 65px; border-block: 0; > .qq-skeleton-block { width: 40px; height: 40px; border-radius: 4px; } > .qq-skeleton-line { margin-top: 0; } }
 @media (max-width: 1100px) {
   .ui-shell .ui-qq-catalog .ui-playlist-grid, .ui-shell .ui-qq-catalog .qq-catalog-skeleton { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px 18px; }
   .ui-shell .ui-qq-charts .qq-board-navigation { align-items: flex-start; gap: 12px; }

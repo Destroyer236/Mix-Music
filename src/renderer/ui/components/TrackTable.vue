@@ -81,12 +81,12 @@ const searchMetadata = (type: 'album' | 'artist', text: string, track: LX.Music.
 <style lang="less">
 .track-table { display: flex; flex-direction: column; min-width: 0; min-height: 0; color: var(--modern-text); container-type: inline-size; }
 .track-table--removable { --track-actions-width: 202px; }
-.track-table__head, .track-table__row { display: grid; grid-template-columns: 36px minmax(150px, 1.7fr) minmax(80px, .9fr) 55px var(--track-actions-width, 92px); align-items: center; column-gap: 8px; padding: 0 12px; }
+.track-table__head, .track-table__row { display: grid; grid-template-columns: 36px minmax(150px, 1.7fr) minmax(80px, .9fr) 55px var(--track-actions-width, 92px); align-items: center; column-gap: 8px; padding: 0 12px; border-block: 0; }
 .track-table__head { flex: none; }
 .track-table__rows { flex: 1; min-height: 0; overflow: auto; }
 .ui-library-results .track-table { height: 100%; }
-.track-table__head { min-height: 38px; border-bottom: 1px solid var(--modern-border); color: var(--modern-muted); font-size: 10px; letter-spacing: .3px; }
-.track-table__row { min-height: calc(var(--modern-row-height) + 12px); border-bottom: 1px solid var(--modern-border); font-size: 11px; transition: background .15s; &:hover { background: var(--modern-hover); .track-table__actions { opacity: 1; } } }
+.track-table__head { min-height: 38px; color: var(--modern-muted); font-size: 10px; letter-spacing: .3px; }
+.track-table__row { min-height: calc(var(--modern-row-height) + 12px); font-size: 11px; transition: background .15s; &:hover { background: var(--modern-hover); .track-table__actions { opacity: 1; } } }
 .track-table__index { color: var(--modern-muted); font-size: 10px; font-variant-numeric: tabular-nums; text-align: center; }
 .track-table__name { display: flex; align-items: center; min-width: 0; gap: 10px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; font: inherit; cursor: pointer; outline: none; &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 3px; border-radius: 6px; } }
 .track-table__cover { display: grid; place-items: center; width: 34px; height: 34px; flex: none; overflow: hidden; border-radius: 9px; color: var(--modern-accent-ink); background: var(--modern-accent-soft); img { width: 100%; height: 100%; object-fit: cover; } svg { width: 19px; height: 19px; } }
