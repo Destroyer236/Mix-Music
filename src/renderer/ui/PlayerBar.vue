@@ -12,7 +12,7 @@
   </section>
 </template>
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { musicInfo, isPlay, playInfo, playMusicInfo, tempPlayList } from '@renderer/store/player/state'
 import { setShowPlayerDetail } from '@renderer/store/player/action'
@@ -58,10 +58,15 @@ const queueOpen = ref(false)
 const queue = ref([])
 const seek = () => { window.app_event.setProgress(seeking.value ?? 0); seeking.value = null }
 let queueRequest = 0
-watch(() => [queueOpen.value, playInfo.playerListId, playMusicInfo.musicInfo], async([show, listId]) => {
+const refreshQueue = async() => {
   const request = ++queueRequest
-  if (!show) return
+  if (!queueOpen.value) return
+  const listId = playInfo.playerListId
   const tracks = listId === 'download' ? (await getDownloadList()).map(task => ({ ...task.metadata.musicInfo, id: task.id })) : listId ? await getListMusics(listId) : []
   if (request === queueRequest) queue.value = [...tracks]
-})
+}
+watch(() => [queueOpen.value, playInfo.playerListId, playMusicInfo.musicInfo], refreshQueue)
+const onListUpdate = ids => { if (ids.includes(playInfo.playerListId)) void refreshQueue() }
+onMounted(() => { window.app_event.on('myListUpdate', onListUpdate) })
+onUnmounted(() => { queueRequest++; window.app_event.off('myListUpdate', onListUpdate) })
 </script>

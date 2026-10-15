@@ -21,6 +21,7 @@ import { requestFavorite } from '@renderer/ui/services/platformAccounts'
 import { activeStream, commitStream, preferredQuality } from '@renderer/ui/services/platformPlayback'
 import { addDislikeInfo } from '@renderer/core/dislikeList'
 import { samePlayTrack } from '@common/platformMatching'
+import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
 let gettingUrlId = ''
@@ -229,6 +230,8 @@ const handlePlay = () => {
 
   if (!musicInfo) return
 
+  notifyQueueContinuation()
+
   setStop()
   window.app_event.pause()
 
@@ -328,6 +331,8 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 
   if (playMusicInfo.musicInfo == null) return null
 
+  if (!await ensureQueueContinuation() || generation !== navigationGeneration) return null
+
   if (randomNextMusicInfo.info) return randomNextMusicInfo.info
 
   // console.log(playInfo.playerListId)
@@ -360,6 +365,8 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     valid: () => generation === navigationGeneration,
   })
   if (generation !== navigationGeneration) return null
+
+  filteredList = filterQueueContinuation(filteredList)
 
   if (!filteredList.length) return null
   // let currentIndex: number = filteredList.indexOf(currentList[playInfo.playerPlayIndex])
@@ -430,6 +437,13 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     console.log('currentListId empty')
     return
   }
+  const canContinue = await ensureQueueContinuation(!isAutoToggle)
+  if (generation !== navigationGeneration) return
+  if (!canContinue) {
+    pause()
+    setAllStatus('新的推荐暂时无法加载，请稍后点击下一首重试。')
+    return
+  }
   const currentList = getList(currentListId)
 
   if (playedList.length) { // 移除已播放列表内不存在原列表的歌曲
@@ -465,6 +479,8 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     valid: () => generation === navigationGeneration,
   })
   if (generation !== navigationGeneration) return
+
+  filteredList = filterQueueContinuation(filteredList)
 
   if (!filteredList.length) {
     handleToggleStop()
@@ -607,6 +623,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
 export const play = () => {
   window.lx.isPlayedStop &&= false
   if (playMusicInfo.musicInfo == null) return
+  notifyQueueContinuation()
   if (isEmpty()) {
     if (createGettingUrlId(playMusicInfo.musicInfo) != gettingUrlId) setMusicUrl(playMusicInfo.musicInfo)
     return

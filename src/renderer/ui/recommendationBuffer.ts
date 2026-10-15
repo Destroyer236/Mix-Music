@@ -50,10 +50,14 @@ export class RecommendationBuffer {
     return task
   }
 
-  async next() {
-    if (this.advancing) return this.advancing
+  async next(commit = this.options.commit) {
+    const previous = this.advancing
     const version = this.version
     const task = (async() => {
+      // Display refreshes and playback consume different batches. Sharing one
+      // result would let one consumer silently skip the other's commit.
+      await previous?.catch(() => {})
+      if (version !== this.version) return null
       for (let attempt = 0; attempt < 2; attempt++) {
         this.prune()
         if (!this.batches.length) await this.prepare(false)
@@ -63,7 +67,7 @@ export class RecommendationBuffer {
         if (!batch) continue
         this.claimed = batch
         try {
-          await this.options.commit(batch)
+          await commit(batch)
           return version === this.version ? batch : null
         } catch (error) {
           if (version === this.version) this.batches.unshift(batch)

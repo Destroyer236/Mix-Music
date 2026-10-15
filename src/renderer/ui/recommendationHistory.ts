@@ -25,16 +25,21 @@ export class RecommendationHistory {
     }
   }
 
-  async record(tracks: LX.Music.MusicInfo[], round: number, allowRepeated = false, commit?: () => boolean) {
+  async record(tracks: LX.Music.MusicInfo[], round: number, allowRepeated = false, commit?: () => boolean | Promise<boolean>) {
     const next = this.queue.then(async() => {
       await this.ready
       const keys = [...new Set(tracks.map(recommendationKey))]
       if (!allowRepeated && keys.some(key => this.snapshot.keys.includes(key))) throw new Error('推荐列表已经更新，请重新加载。')
-      if (commit && !commit()) throw new Error('已切换推荐平台。')
+      if (commit) {
+        const committed = commit()
+        // Keep synchronous display commits atomic, while allowing a queue
+        // delivery to finish before recording the songs as recommended.
+        if (!(typeof committed === 'boolean' ? committed : await committed)) throw new Error('推荐请求已取消。')
+      }
       const added = new Set(keys)
       const updated: History = { version: 1, keys: [...this.snapshot.keys.filter(key => !added.has(key)), ...keys].slice(-500), round: Math.max(round, this.snapshot.round) }
-      // Commit display and in-memory history in the same turn. An unseen batch
-      // cannot enter history, and a disk failure cannot allow session duplicates.
+      // Record only displayed or delivered batches. A disk failure must not
+      // allow duplicates of songs already exposed during this session.
       this.snapshot = updated
       await fs.promises.mkdir(path.dirname(this.filename), { recursive: true })
       await fs.promises.writeFile(this.filename + '.tmp', JSON.stringify(updated, null, 2) + '\n', 'utf8')

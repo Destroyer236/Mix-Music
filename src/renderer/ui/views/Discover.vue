@@ -23,9 +23,9 @@
       <button type="button" class="qq-rail-next" aria-label="下一组精选歌单" :disabled="playlistLoading" @click="advanceSelection"><UiIcon name="chevronRight" /></button>
     </section>
     <section class="qq-song-section" aria-label="歌曲推荐">
-      <div class="qq-song-heading"><div><h2>{{ source === 'all' ? '全平台，发现你的下一首喜欢' : discoveries.length ? '发现更多值得喜欢的音乐' : '这些好音乐，值得一听' }}</h2><button type="button" class="qq-play-all" aria-label="播放全部推荐" :disabled="!recommended.length" @click="playOne(recommended[0], recommended)"><UiIcon name="play" filled /></button></div><div class="qq-song-actions"><button type="button" aria-label="换一批推荐" :disabled="recommendationLoading" @click="retrySongs"><UiIcon name="refresh" />换一批</button><router-link :to="{ path: '/leaderboard', query: { source: source === 'all' ? undefined : source, boardId } }">更多好音乐 <UiIcon name="chevronRight" /></router-link></div></div>
+      <div class="qq-song-heading"><div><h2>{{ source === 'all' ? '全平台，发现你的下一首喜欢' : discoveries.length ? '发现更多值得喜欢的音乐' : '这些好音乐，值得一听' }}</h2><button type="button" class="qq-play-all" aria-label="播放全部推荐" :disabled="!recommended.length" @click="playOne(recommended[0], recommended, true)"><UiIcon name="play" filled /></button></div><div class="qq-song-actions"><button type="button" aria-label="换一批推荐" :disabled="recommendationLoading" @click="retrySongs"><UiIcon name="refresh" />换一批</button><router-link :to="{ path: '/leaderboard', query: { source: source === 'all' ? undefined : source, boardId } }">更多好音乐 <UiIcon name="chevronRight" /></router-link></div></div>
       <div class="qq-recommend-filters"><div class="ui-recommend-sources" role="group" aria-label="推荐平台"><button type="button" :aria-pressed="source === 'all'" @click="selectSource('all')">全部</button><button v-for="item in sources" :key="item" type="button" :aria-pressed="source === item" @click="selectSource(item)">{{ sourceNames[item] }}</button></div></div>
-      <RecommendationTracks v-if="recommended.length" :tracks="recommended" show-source @play="playOne($event, recommended)" />
+      <RecommendationTracks v-if="recommended.length" :tracks="recommended" show-source @play="playOne($event, recommended, true)" />
       <RecommendationState v-else :loading="recommendationLoading" :error="recommendationError || trendingError || discoveryError" @retry="retrySongs" />
       <p v-if="recommended.length && recommendationError" class="qq-song-note" role="status">{{ recommendationError }}<button type="button" :disabled="recommendationLoading" @click="retrySongs">重新加载</button></p>
     </section>
@@ -56,8 +56,8 @@ const greeting = useTimeGreeting()
 const message = ref('')
 const selection = ref<HTMLElement | null>(null)
 function openPlaylist(item: ListInfoItem, play = false) { void router.push({ path: '/songList/detail', query: { source: item.source, id: item.id, name: item.name, picUrl: item.img, play: play ? 'true' : undefined } }) }
-async function playOne(track: LX.Music.MusicInfo | null | undefined, list: LX.Music.MusicInfo[]) { if (!track) return; message.value = ''; try { await playTracks(list, list.findIndex(item => sameTrack(item, track))) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放，请稍后再试。' } }
-function toggleFeatured() { if (currentTrack.value) togglePlay(); else void playOne(featured.value, recommended.value) }
+async function playOne(track: LX.Music.MusicInfo | null | undefined, list: LX.Music.MusicInfo[], continuous = false) { if (!track) return; message.value = ''; try { await playTracks(list, list.findIndex(item => sameTrack(item, track)), undefined, continuous ? source.value : undefined) } catch (err) { message.value = err instanceof Error ? err.message : '暂时无法播放，请稍后再试。' } }
+function toggleFeatured() { if (currentTrack.value) togglePlay(); else void playOne(featured.value, recommended.value, true) }
 function advanceSelection() { const rail = selection.value; if (rail && rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 2) rail.scrollBy({ left: rail.clientWidth * 0.75, behavior: 'smooth' }); else { rail?.scrollTo({ left: 0 }); nextPlaylists() } }
 function retrySongs() { void loadSongs() }
 </script>

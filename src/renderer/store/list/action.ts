@@ -75,12 +75,19 @@ export const createUserList = async({ name, id = `userlist_${Date.now()}`, list 
 }
 
 
+let tempListWrites: Promise<unknown> = Promise.resolve()
+export const mutateTempList = async<T>(mutate: () => Promise<T>): Promise<T> => {
+  const task = tempListWrites.then(mutate)
+  tempListWrites = task.catch(() => {})
+  return task
+}
+
 export const setTempList = async(id: string, list: LX.Music.MusicInfo[]) => {
   tempListMeta.id = id
-  await overwriteListMusics({
+  await mutateTempList(async() => overwriteListMusics({
     listId: LIST_IDS.TEMP,
     musicInfos: list,
-  })
+  }))
 }
 
 export {

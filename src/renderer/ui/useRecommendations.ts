@@ -39,6 +39,7 @@ function createRecommendations() {
   let ready = false
   let viewers = 0
   let fastAvailable = true
+  let playbackReserved: () => string[] = () => []
   let running = 0
   const jobs: Array<{ run: () => Promise<void>, background: boolean, owner: RecommendationSource, priority: number }> = []
   let backgroundRunning = 0
@@ -66,6 +67,8 @@ function createRecommendations() {
     first: boolean
     round: number
     version: number
+    displayVersion: number
+    playbackRequests: number
     loading: boolean
     error: string
     trending: LX.Music.MusicInfo[]
@@ -86,6 +89,8 @@ function createRecommendations() {
       first: true,
       round: 0,
       version: 0,
+      displayVersion: 0,
+      playbackRequests: 0,
       loading: false,
       error: '',
       trending: [],
@@ -97,14 +102,7 @@ function createRecommendations() {
       buffer: new RecommendationBuffer({
         history: () => history.current.keys,
         prepare: async(excluded, valid, background) => prepareSongs(context, excluded, valid, background),
-        commit: async batch => {
-          const version = context.version
-          await history.record(batch.tracks, batch.round, false, () => {
-            if (!viewers || version !== context.version || context.source !== source.value || !usable(context, batch)) return false
-            context.tracks = batch.tracks; context.first = false; showContext(context)
-            return true
-          })
-        },
+        commit: async batch => commitDisplay(context, batch, () => true),
         usable: batch => usable(context, batch),
         repair: (batch, excluded) => {
           const cached = new Set(batch.tracks.map(recommendationKey))
@@ -116,12 +114,19 @@ function createRecommendations() {
     contexts.set(platform, context)
   }
   const currentContext = () => contexts.get(source.value)!
+  async function commitDisplay(context: SourceContext, batch: RecommendationBatch, valid: () => boolean) {
+    await history.record(batch.tracks, batch.round, false, () => {
+      if (!viewers || !valid() || context.source !== source.value || !usable(context, batch)) return false
+      context.tracks = batch.tracks; context.first = false; showContext(context)
+      return true
+    })
+  }
   function reserved(context: SourceContext) {
-    return [...contexts.values()].flatMap(other => [
+    return [...playbackReserved(), ...[...contexts.values()].flatMap(other => [
       ...other.tracks.map(recommendationKey),
       ...(other.preview?.tracks.map(recommendationKey) ?? []),
       ...(other === context ? [] : other.buffer.reserved),
-    ])
+    ])]
   }
   function usable(context: SourceContext, batch: RecommendationBatch) {
     const blocked = new Set([...history.current.keys, ...reserved(context), ...favoriteTracks.value.map(recommendationKey)])
@@ -185,7 +190,7 @@ function createRecommendations() {
 
   function pump() {
     while (running < 2 && jobs.length) {
-      const urgent = (job: typeof jobs[number]) => Boolean(contexts.get(job.owner)?.loading) && job.owner === source.value
+      const urgent = (job: typeof jobs[number]) => Boolean(contexts.get(job.owner)?.playbackRequests) || (Boolean(contexts.get(job.owner)?.loading) && job.owner === source.value)
       const eligible = jobs.filter(job => !job.background || urgent(job) || backgroundRunning === 0)
       if (!eligible.length) return
       eligible.sort((a, b) => (urgent(a) ? 0 : a.priority) - (urgent(b) ? 0 : b.priority) || Number(b.owner === source.value) - Number(a.owner === source.value))
@@ -370,16 +375,16 @@ function createRecommendations() {
   async function loadSongs() {
     const context = currentContext()
     if (context.loadingTask) return context.loadingTask
-    const version = context.version
-    const valid = () => version === context.version
+    const version = context.displayVersion
+    const valid = () => version === context.displayVersion
     context.loading = true; context.error = ''; showContext(context)
     clearTimeout(warmTimer)
     const task = (async() => {
       try {
         const initial = context.first && fastAvailable
         if (initial) fastAvailable = false
-        const batch = initial ? await firstSongs(context) : await context.buffer.next()
-        if (!valid()) return
+        const batch = initial ? await firstSongs(context) : await context.buffer.next(async batch => commitDisplay(context, batch, valid))
+        if (!valid()) { if (initial && context.preview === batch) context.preview = null; return }
         if (!batch) throw new Error('这一批暂时没有新的推荐，换个平台或稍后再试。')
         if (initial && context.source !== source.value) { context.preview = null; return }
         if (initial) {
@@ -396,6 +401,24 @@ function createRecommendations() {
     })().finally(() => { if (context.loadingTask === task) context.loadingTask = null })
     context.loadingTask = task
     return task
+  }
+  function setPlaybackReservation(reserved: () => string[]) { playbackReserved = reserved }
+  async function nextForPlayback(platform: RecommendationSource, valid: () => boolean, append: (tracks: LX.Music.MusicInfo[], eligible: () => boolean) => Promise<boolean>) {
+    const context = contexts.get(platform)!
+    context.playbackRequests++
+    pump()
+    try {
+      const batch = await context.buffer.next(async batch => {
+        await history.record(batch.tracks, batch.round, false, async() => {
+          if (!valid() || !usable(context, batch)) return false
+          return append(batch.tracks, () => valid() && usable(context, batch))
+        })
+      })
+      return Boolean(batch && valid())
+    } finally {
+      context.playbackRequests--
+      warmSongs()
+    }
   }
   async function loadTags() {
     const version = ++tagVersion
@@ -425,8 +448,9 @@ function createRecommendations() {
   function nextPlaylists() { page.value = hasNext.value ? page.value + 1 : 1; void loadPlaylists() }
   function cancelForeground(context: SourceContext) {
     if (!context.loading) return
-    context.version++; context.buffer.cancel()
-    context.loading = false; context.loadingTask = null; context.initial = null; context.preview = null
+    // Cancelling a view must not invalidate a batch being delivered to playback.
+    context.displayVersion++
+    context.loading = false; context.loadingTask = null
   }
   function attach(initialSource: RecommendationSource) { viewers++; void start(initialSource) }
   function detach() {
@@ -448,14 +472,17 @@ function createRecommendations() {
     ready = true
     loadAll()
   }
-  return { attach, detach, loadSongs, recommendationLoading, recommendationError, sources, source, playlists, trending, discoveries, recommended, tags, tagId, boardId, boardName, selectedArtist, playlistLoading, trendingLoading, discoveryLoading, playlistError, trendingError, discoveryError, selectSource, selectTag, nextPlaylists, loadPlaylists, loadTrending, loadDiscoveries }
+  return { attach, detach, loadSongs, nextForPlayback, setPlaybackReservation, recommendationLoading, recommendationError, sources, source, playlists, trending, discoveries, recommended, tags, tagId, boardId, boardName, selectedArtist, playlistLoading, trendingLoading, discoveryLoading, playlistError, trendingError, discoveryError, selectSource, selectTag, nextPlaylists, loadPlaylists, loadTrending, loadDiscoveries }
 }
 
 // The six bounded pools and their prepared batches live for this app session,
 // independently of router view mounts. Only the first display gets the fast path.
 let sharedRecommendations: ReturnType<typeof createRecommendations> | undefined
+export function getRecommendations() {
+  return sharedRecommendations ??= effectScope(true).run(createRecommendations)!
+}
 export function useRecommendations(initialSource: RecommendationSource = 'all') {
-  const state = sharedRecommendations ??= effectScope(true).run(createRecommendations)!
+  const state = getRecommendations()
   onMounted(() => { state.attach(initialSource) })
   onUnmounted(state.detach)
   return state
