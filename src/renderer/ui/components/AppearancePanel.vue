@@ -5,7 +5,6 @@
         <section ref="panel" class="appearance-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title" tabindex="-1" @keydown="handleKeydown">
           <header class="appearance-header">
             <div>
-              <span class="appearance-eyebrow">MAKE IT YOURS</span>
               <h2 id="appearance-title">你的音乐，你的风格</h2>
               <p>把这里调整成最自在的样子。</p>
             </div>
@@ -220,7 +219,6 @@ onBeforeUnmount(() => { previousFocus?.focus() })
   h2 { margin: 7px 0 5px; font-size: 19px; font-weight: 600; letter-spacing: -.5px; }
   p { color: var(--modern-muted); font-size: 12px; }
 }
-.appearance-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: 2px; color: var(--modern-accent-ink); }
 .appearance-close {
   border: 0;
   background: var(--modern-hover);

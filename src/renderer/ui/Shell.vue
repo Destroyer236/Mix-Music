@@ -7,7 +7,7 @@
         <div class="ui-personal-section">
           <div class="ui-nav-label">我的音乐</div>
           <div class="ui-personal-links">
-            <router-link to="/list?id=love" :aria-label="`喜欢·${favoriteTracks.length}`" :title="`喜欢 · ${favoriteTracks.length} 首`" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === 'love' && route.query.view !== 'recent' }"><UiIcon name="heart" /><span>喜欢<span class="ui-recent-count">·{{ favoriteTracks.length }}</span></span></router-link>
+            <div class="ui-favorites-entry" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === 'love' && route.query.view !== 'recent' }"><router-link to="/list?id=love" :aria-label="`喜欢·${favoriteTracks.length}`" :title="`喜欢 · ${favoriteTracks.length} 首`"><UiIcon name="heart" /><span>喜欢<span class="ui-recent-count">·{{ favoriteTracks.length }}</span></span></router-link><HeartbeatButton /></div>
             <router-link :to="{ path: '/list', query: { view: 'recent' } }" :aria-label="`最近播放·${recentTracks.length}`" title="最近播放" :class="{ 'ui-nav-active': recentVisible }"><UiIcon name="clock" /><span>最近播放<span class="ui-recent-count">·{{ recentTracks.length }}</span></span></router-link>
             <router-link to="/local" :aria-label="`本地下载·${deviceMusicCount}`" :title="`本地下载 · ${deviceMusicCount} 首`" :class="{ 'ui-nav-active': route.path === '/local' || route.path === '/download' }"><UiIcon name="download" /><span>本地下载<span class="ui-recent-count">·{{ deviceMusicCount }}</span></span></router-link>
           </div>
@@ -60,6 +60,7 @@ import { appearancePanelOpen, resolvedAppearanceMode, toggleAppearanceMode } fro
 import UiIcon from './components/UiIcon.vue'
 import SearchBox from './components/SearchBox.vue'
 import PlayerBar from './PlayerBar.vue'
+import HeartbeatButton from './components/HeartbeatButton.vue'
 import WindowControls from './components/WindowControls.vue'
 import UpdateCenter from './components/UpdateCenter.vue'
 import { checkUpdateOnStartup, openUpdateCenter, updateAvailable, updateChecking, updateResult } from './services/appUpdate'

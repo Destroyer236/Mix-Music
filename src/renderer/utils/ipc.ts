@@ -830,8 +830,8 @@ export const removeSyncServerDevice = (clientId: string) => {
  * @param listener
  * @returns
  */
-export const onNewDesktopLyricProcess = (listener: LX.IpcRendererEventListener): RemoveListener => {
-  rendererOn(WIN_MAIN_RENDERER_EVENT_NAME.process_new_desktop_lyric_client, listener)
+export const onNewDesktopLyricProcess = (listener: LX.IpcRendererEventListenerParams<{ clientId?: string } | null>): RemoveListener => {
+  rendererOn<{ clientId?: string } | null>(WIN_MAIN_RENDERER_EVENT_NAME.process_new_desktop_lyric_client, listener)
   return () => {
     rendererOff(WIN_MAIN_RENDERER_EVENT_NAME.process_new_desktop_lyric_client, listener)
   }

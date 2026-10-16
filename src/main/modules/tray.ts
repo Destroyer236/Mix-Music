@@ -25,9 +25,11 @@ const playerState = {
 }
 
 const watchConfigKeys = [
-  'desktopLyric.enable',
-  'desktopLyric.isLock',
-  'desktopLyric.isAlwaysOnTop',
+  'externalLyric.desktop.enabled',
+  'externalLyric.desktop.locked',
+  'externalLyric.desktop.alwaysOnTop',
+  'externalLyric.island.enabled',
+  'externalLyric.taskbar.enabled',
   'tray.themeId',
   'tray.enable',
   'player.isShowStatusBarLyric',
@@ -236,45 +238,17 @@ export const createMenu = () => {
   let menu: Electron.MenuItemConstructorOptions[] = createPlayerMenu()
   if (playerState.empty) for (const m of menu) m.enabled = false
   menu.push({ type: 'separator' })
-  menu.push(global.lx.appSetting['desktopLyric.enable']
-    ? {
-        label: i18n.getMessage('hide_win_lyric'),
-        click() {
-          handleUpdateConfig({ 'desktopLyric.enable': false })
-        },
-      }
-    : {
-        label: i18n.getMessage('show_win_lyric'),
-        click() {
-          handleUpdateConfig({ 'desktopLyric.enable': true })
-        },
-      })
-  menu.push(global.lx.appSetting['desktopLyric.isLock']
-    ? {
-        label: i18n.getMessage('unlock_win_lyric'),
-        click() {
-          handleUpdateConfig({ 'desktopLyric.isLock': false })
-        },
-      }
-    : {
-        label: i18n.getMessage('lock_win_lyric'),
-        click() {
-          handleUpdateConfig({ 'desktopLyric.isLock': true })
-        },
-      })
-  menu.push(global.lx.appSetting['desktopLyric.isAlwaysOnTop']
-    ? {
-        label: i18n.getMessage('untop_win_lyric'),
-        click() {
-          handleUpdateConfig({ 'desktopLyric.isAlwaysOnTop': false })
-        },
-      }
-    : {
-        label: i18n.getMessage('top_win_lyric'),
-        click() {
-          handleUpdateConfig({ 'desktopLyric.isAlwaysOnTop': true })
-        },
-      })
+  menu.push({
+    label: '外部歌词',
+    submenu: [
+      { label: '桌面歌词', type: 'checkbox', checked: global.lx.appSetting['externalLyric.desktop.enabled'], click: item => { handleUpdateConfig({ 'externalLyric.desktop.enabled': item.checked }) } },
+      { label: '灵动岛歌词', type: 'checkbox', checked: global.lx.appSetting['externalLyric.island.enabled'], click: item => { handleUpdateConfig({ 'externalLyric.island.enabled': item.checked }) } },
+      { label: '任务栏歌词', type: 'checkbox', enabled: isWin, checked: global.lx.appSetting['externalLyric.taskbar.enabled'], click: item => { handleUpdateConfig({ 'externalLyric.taskbar.enabled': item.checked }) } },
+      { type: 'separator' },
+      { label: '锁定桌面歌词', type: 'checkbox', checked: global.lx.appSetting['externalLyric.desktop.locked'], click: item => { handleUpdateConfig({ 'externalLyric.desktop.locked': item.checked }) } },
+      { label: '桌面歌词置顶', type: 'checkbox', checked: global.lx.appSetting['externalLyric.desktop.alwaysOnTop'], click: item => { handleUpdateConfig({ 'externalLyric.desktop.alwaysOnTop': item.checked }) } },
+    ],
+  })
   if (isMac) {
     menu.push({ type: 'separator' })
     menu.push(isShowStatusBarLyric

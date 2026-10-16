@@ -6,8 +6,8 @@
         <div class="ui-player-song-actions"><button type="button" class="ui-icon-button ui-collect-button" :aria-pressed="collected" :aria-label="collected ? '取消收藏当前歌曲' : '收藏当前歌曲'" :class="{ 'ui-active': collected }" :disabled="!currentTrack" @click="toggleCollect"><UiIcon name="heart" :filled="collected" /></button><button type="button" class="ui-icon-button" aria-label="查看歌曲评论" :disabled="!currentTrack" @click="openComments"><UiIcon name="comment" /></button><PlayerOptions :track="currentTrack" :collected="collected" :favorite-pending="currentTrack ? favoritePending.has(currentTrack.id) : false" @collect="toggleCollect" /><TrackBadges class="ui-player-current-badges" :show-source="false" :show-vip="false" :trial="isTrial" /></div>
       </div>
     </div>
-    <div class="ui-player-center"><div class="ui-player-control-row"><button type="button" class="ui-icon-button ui-play-mode-button" :aria-label="modeLabel" :title="modeLabel" @click="cyclePlayMode"><UiIcon :name="currentMode.icon" /></button><div class="ui-transport"><button type="button" class="ui-icon-button" aria-label="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button><button type="button" class="ui-play-button" :aria-label="isPlay ? '暂停' : '播放'" @click="togglePlay"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button><button type="button" class="ui-icon-button" aria-label="下一首" @click="playNext()"><UiIcon name="next" filled /></button></div><VolumeControl /></div><div class="ui-seek"><span>{{ playProgress.nowPlayTimeStr }}</span><UiRange :model-value="seeking ?? playProgress.nowPlayTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div></div>
-    <div class="ui-player-right-tools"><QualityControl :track="currentTrack" defer-load /><button type="button" class="ui-icon-button" :class="{ 'ui-active': appSetting['desktopLyric.enable'] }" :aria-pressed="appSetting['desktopLyric.enable']" aria-label="切换桌面歌词" title="桌面歌词" @click="toggleDesktopLyric"><UiIcon name="lyric" /></button><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
+    <div class="ui-player-center"><div class="ui-player-control-row"><button type="button" class="ui-icon-button ui-play-mode-button" :class="{ 'ui-active': heartbeatActive }" :aria-label="modeLabel" :title="modeLabel" @click="cyclePlayMode"><UiIcon :name="currentMode.icon" /></button><div class="ui-transport"><button type="button" class="ui-icon-button" aria-label="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button><button type="button" class="ui-play-button" :aria-label="isPlay ? '暂停' : '播放'" @click="togglePlay"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button><button type="button" class="ui-icon-button" aria-label="下一首" @click="playNext()"><UiIcon name="next" filled /></button></div><VolumeControl /></div><div class="ui-seek"><span>{{ playProgress.nowPlayTimeStr }}</span><UiRange :model-value="seeking ?? playProgress.nowPlayTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div></div>
+    <div class="ui-player-right-tools"><QualityControl :track="currentTrack" defer-load /><ExternalLyricsMenu /><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
     <PlayerPopover :show="queueOpen" title="播放列表" :subtitle="`${queue.length} 首歌曲`" :width="380" :trigger="queueTrigger" panel-class="ui-player-queue-panel" @close="queueOpen = false"><div v-if="!queue.length" class="ui-empty">选择歌曲后，播放队列会出现在这里。</div><button v-for="(item, index) in queue" :key="item.source + ':' + item.id" type="button" class="ui-queue-track" :class="{ 'ui-active': item.id === playMusicInfo.musicInfo?.id && item.source === currentTrack?.source }" @click="playList(playInfo.playerListId, index)"><span>{{ String(index + 1).padStart(2, '0') }}</span><strong class="ui-queue-track-info"><TrackTitle :track="item" /></strong><small>{{ item.singer }}</small></button><template v-if="tempPlayList.length"><h3 class="ui-queue-heading">稍后播放</h3><div v-for="item in tempPlayList" :key="item.musicInfo.id" class="ui-queue-track"><span /><strong class="ui-queue-track-info"><TrackTitle :track="item.musicInfo" focusable /></strong><small>{{ item.musicInfo.singer }}</small></div></template></PlayerPopover>
   </section>
 </template>
@@ -22,7 +22,7 @@ import { togglePlay, playNext, playPrev, playList } from '@renderer/core/player'
 import { getListMusics } from '@renderer/store/list/action'
 import { favoritePending, isFavorite, requestFavorite } from './services/platformAccounts'
 import { getDownloadList } from '@renderer/store/download/action'
-import useToggleDesktopLyric from '@renderer/utils/compositions/useToggleDesktopLyric'
+import ExternalLyricsMenu from './components/ExternalLyricsMenu.vue'
 import UiIcon from './components/UiIcon.vue'
 import PlayerPopover from './components/PlayerPopover.vue'
 import QualityControl from './components/QualityControl.vue'
@@ -34,14 +34,17 @@ import TrackBadges from './components/TrackBadges.vue'
 import TrackTitle from './components/TrackTitle.vue'
 import { activeStream } from './services/platformPlayback'
 import { getCatalogSources } from './services/catalogSearch'
+import { heartbeatActive, toggleHeartbeat } from './services/heartbeat'
 const playModes = [{ value: 'listLoop', label: '列表循环', icon: 'repeat' }, { value: 'random', label: '随机播放', icon: 'shuffle' }, { value: 'singleLoop', label: '单曲循环', icon: 'repeatOne' }, { value: 'list', label: '顺序播放', icon: 'listPlay' }]
 const normalizePlayMode = mode => { if (mode === 'none') setTogglePlayMode('listLoop') }
 watch(() => appSetting['player.togglePlayMethod'], normalizePlayMode, { immediate: true })
 const modeIndex = computed(() => Math.max(0, playModes.findIndex(mode => mode.value === appSetting['player.togglePlayMethod'])))
-const currentMode = computed(() => playModes[modeIndex.value])
-const modeLabel = computed(() => `播放模式：${currentMode.value.label}，点击切换为${playModes[(modeIndex.value + 1) % playModes.length].label}`)
-const cyclePlayMode = () => { setTogglePlayMode(playModes[(modeIndex.value + 1) % playModes.length].value) }
-const { toggleDesktopLyric } = useToggleDesktopLyric()
+const currentMode = computed(() => heartbeatActive.value ? { label: '心动模式', icon: 'heartPulse' } : playModes[modeIndex.value])
+const modeLabel = computed(() => heartbeatActive.value ? '心动模式，点击退出并保留当前队列' : `播放模式：${currentMode.value.label}，点击切换为${playModes[(modeIndex.value + 1) % playModes.length].label}`)
+const cyclePlayMode = () => {
+  if (heartbeatActive.value) { void toggleHeartbeat(); return }
+  setTogglePlayMode(playModes[(modeIndex.value + 1) % playModes.length].value)
+}
 const currentTrack = computed(() => { const item = playMusicInfo.musicInfo; return item && 'metadata' in item ? item.metadata.musicInfo : item })
 const currentStream = computed(() => activeStream.value?.trackId === playMusicInfo.musicInfo?.id ? activeStream.value : null)
 const isTrial = computed(() => currentStream.value?.isTrial === true)

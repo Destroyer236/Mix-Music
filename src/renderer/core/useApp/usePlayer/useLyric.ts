@@ -9,6 +9,7 @@ import {
   stop,
   init,
   sendInfo,
+  sendCover,
   setPlaybackRate,
 } from '@renderer/core/lyric'
 import { appSetting } from '@renderer/store/setting'
@@ -34,6 +35,7 @@ export default () => {
   window.app_event.on('error', pause)
   window.app_event.on('musicToggled', setPlayInfo)
   window.app_event.on('lyricUpdated', setLyric)
+  window.app_event.on('picUpdated', sendCover)
   window.app_event.on('setPlaybackRate', handleApplyPlaybackRate)
 
   onBeforeUnmount(() => {
@@ -43,6 +45,7 @@ export default () => {
     window.app_event.off('error', pause)
     window.app_event.off('musicToggled', setPlayInfo)
     window.app_event.off('lyricUpdated', setLyric)
+    window.app_event.off('picUpdated', sendCover)
     window.app_event.off('setPlaybackRate', handleApplyPlaybackRate)
   })
 }

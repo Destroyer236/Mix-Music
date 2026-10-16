@@ -2,13 +2,14 @@ import type { I18n } from '../../lang/i18n'
 import type { PlatformQuality } from '../platformPlayback'
 import type { PreferredPlatformSource } from '../platformSources'
 import type { WindowCloseAction } from '../windowClose'
+import type { ExternalLyricSettings } from '../externalLyric'
 
 declare global {
 
   declare namespace LX {
     type AddMusicLocationType = 'top' | 'bottom'
 
-    interface AppSetting {
+    interface AppSetting extends ExternalLyricSettings {
       version: string
 
       /**

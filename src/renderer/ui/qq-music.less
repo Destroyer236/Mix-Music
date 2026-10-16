@@ -3066,6 +3066,13 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
   &:hover, &.ui-nav-active { background: color-mix(in srgb, var(--modern-text) 8%, transparent); }
 }
 .ui-recent-count { font-size: 14px; font-variant-numeric: tabular-nums; }
+.ui-shell .ui-favorites-entry {
+  display: flex; align-items: center; gap: 2px; min-width: 0; border-radius: 8px;
+  &:hover, &.ui-nav-active { background: color-mix(in srgb, var(--modern-text) 8%, transparent); }
+  > a { flex: 1; min-width: 0; width: auto; &, &:hover { background: transparent; } > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } }
+}
+.ui-shell .ui-personal-links .ui-heartbeat-button { display: grid; place-items: center; flex: none; width: 34px; height: 28px; min-height: 28px; padding: 0; margin-right: 6px; border-radius: 999px; color: var(--modern-muted); background: var(--modern-hover); svg { width: 18px; height: 18px; color: inherit; } &:hover, &.active { color: var(--modern-accent-ink); background: var(--modern-accent-soft); } &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 2px; } &:disabled { opacity: .5; cursor: wait; } }
+@media (max-width: 800px) { .ui-shell .ui-favorites-entry { flex-direction: column; gap: 2px; > a { flex: none; width: 100%; } .ui-heartbeat-button { margin: 0 0 3px; } } }
 .ui-shell .ui-playlist-section { display: flex; flex-direction: column; min-height: 80px; flex: 1 0 80px; margin-top: 26px; }
 .ui-shell .ui-playlist-tabs {
   display: flex; align-items: center; justify-content: space-between; padding: 0 8px 10px; gap: 2px;

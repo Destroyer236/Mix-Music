@@ -3,7 +3,7 @@ import registerWinMain from './winMain'
 import registerHotKey from './hotKey'
 import registerTray from './tray'
 import registerAppMenu from './appMenu'
-import registerWinLyric from './winLyric'
+import registerWinLyric from './externalLyric'
 import registerCommonRenderers from './commonRenderers'
 
 let isRegistered = false

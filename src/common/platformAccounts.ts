@@ -45,6 +45,18 @@ export interface PlatformPlaylistDetail {
   cached: boolean
 }
 
+export interface PlatformHeartbeatRequest {
+  /** Current NetEase song ID; otherwise a random liked song is used. */
+  seedId?: string | number
+}
+
+export interface PlatformHeartbeatResult {
+  accountId: string
+  playlistId: string
+  seedId: string
+  tracks: LX.Music.MusicInfoOnline[]
+}
+
 export interface PlatformSnapshot {
   accounts: PlatformAccount[]
   favorites: PlatformFavorite[]

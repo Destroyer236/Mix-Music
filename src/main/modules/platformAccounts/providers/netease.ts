@@ -1,6 +1,6 @@
 import type { PlatformProvider, ProviderContext } from './types'
 import type { PlatformQuality } from '@common/platformPlayback'
-import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts'
+import type { PlatformHeartbeatRequest, PlatformHeartbeatResult, PlatformPlaylist, PlatformProfile } from '@common/platformAccounts'
 import { songVip } from '@common/musicAccess'
 import { songSubtitle } from '@common/musicSubtitle'
 
@@ -42,6 +42,58 @@ const toTrack = (song: any, privilege?: unknown): LX.Music.MusicInfoOnline => {
 
 const levels: Partial<Record<PlatformQuality, string>> = { '128k': 'standard', '192k': 'higher', '320k': 'exhigh', flac: 'lossless', flac24bit: 'hires', jyeffect: 'jyeffect', sky: 'sky', jymaster: 'jymaster', auto: 'jymaster' }
 const qualitiesByLevel = Object.fromEntries(Object.entries(levels).filter(([key]) => key !== 'auto').map(([quality, level]) => [level, quality])) as Record<string, PlatformQuality>
+
+const musicId = (value: unknown): string => {
+  if (typeof value !== 'string' && typeof value !== 'number') return ''
+  if (typeof value === 'number' && !Number.isSafeInteger(value)) return ''
+  const id = String(value).trim()
+  return /^[1-9]\d{0,24}$/.test(id) ? id : ''
+}
+
+/** Follow SPlayer Next's NetEase intelligence queue protocol. */
+export async function getNeteaseHeartbeat(context: ProviderContext, profile: PlatformProfile, params: PlatformHeartbeatRequest = {}): Promise<PlatformHeartbeatResult> {
+  if (!(await context.cookies()).MUSIC_U) throw new Error('登录网易云音乐后才能使用心动模式')
+  let seedId = musicId(params.seedId)
+  if (!seedId) {
+    const liked = await request(context, 'song/like/get', { uid: profile.id })
+    if (!Array.isArray(liked.ids)) throw new Error('无法读取网易云喜欢的歌曲，请稍后重试')
+    const ids = liked.ids.map(musicId).filter(Boolean)
+    if (!ids.length) throw new Error('请先在网易云音乐喜欢一些歌曲，再使用心动模式')
+    seedId = ids[Math.floor(Math.random() * ids.length)]
+  }
+
+  // The ordinary playlist snapshot intentionally excludes this special list.
+  let playlistId = ''
+  let offset = 0
+  for (let page = 0; page < 200; page++) {
+    const body = await request(context, 'user/playlist', { uid: profile.id, limit: 100, offset, includeVideo: false })
+    if (!Array.isArray(body.playlist)) throw new Error('无法读取网易云喜欢的音乐歌单，请稍后重试')
+    const liked = body.playlist.find((item: any) => Number(item?.specialType) === 5 && String(item.creator?.userId ?? '') === profile.id && musicId(item.id))
+    if (liked) { playlistId = musicId(liked.id); break }
+    if (!body.more || !body.playlist.length) break
+    offset += body.playlist.length
+  }
+  if (!playlistId) throw new Error('未找到网易云喜欢的音乐歌单，请先在网易云音乐喜欢一些歌曲')
+
+  const body = await request(context, 'playmode/intelligence/list', {
+    songId: seedId,
+    type: 'fromPlayOne',
+    playlistId,
+    startMusicId: seedId,
+    // NetEase returns the complete smart queue for one seed. Count is required.
+    count: 1,
+  })
+  if (!Array.isArray(body.data)) throw new Error('网易云暂时无法生成心动歌单，请稍后重试')
+  const tracks = new Map<string, LX.Music.MusicInfoOnline>()
+  for (const item of body.data) {
+    const song = item?.songInfo
+    const id = musicId(song?.id)
+    if (!id || typeof song?.name !== 'string' || !song.name.trim() || tracks.has(id)) continue
+    tracks.set(id, toTrack(song, item.privilege ?? song.privilege))
+  }
+  if (!tracks.size) throw new Error('网易云暂时没有返回心动歌曲，请稍后重试')
+  return { accountId: profile.id, playlistId, seedId, tracks: [...tracks.values()] }
+}
 
 async function playlists(context: ProviderContext, profile: PlatformProfile): Promise<PlatformPlaylist[]> {
   const result = new Map<string, PlatformPlaylist>()

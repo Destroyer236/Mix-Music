@@ -7,7 +7,7 @@
         <span class="track-table__index">#</span><span>歌曲</span><span class="track-table__singer">歌手</span><span class="track-table__duration">时长</span><span v-if="$slots.selection" aria-hidden="true" />
       </div>
       <div ref="scrollContainer" class="track-table__rows">
-        <div v-for="row in rows" :key="row.key" class="track-table__row" :class="{ 'track-table__row--playing': currentTrack?.id === row.track.id && currentTrack?.source === row.track.source, 'track-table__row--selected': selectedIds?.has(row.track.id) }" role="row">
+        <div v-for="row in rows" :key="row.key" class="track-table__row" :class="{ 'track-table__row--playing': currentTrack?.id === row.track.id && currentTrack?.source === row.track.source, 'track-table__row--selected': selectedIds?.has(row.track.id) }" :data-track-key="`${row.track.source}:${row.track.id}`" role="row">
           <span class="track-table__index">{{ row.number }}</span>
           <div class="track-table__song">
             <div class="track-table__name">

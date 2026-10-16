@@ -1,12 +1,12 @@
 import { app, BrowserWindow, session } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { PlatformAccount, PlatformId, PlatformLikeResult, PlatformPlaylist, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
+import type { PlatformAccount, PlatformHeartbeatRequest, PlatformHeartbeatResult, PlatformId, PlatformLikeResult, PlatformPlaylist, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { mainHandle } from '@common/mainIpc'
 import { sendEvent, showWindow } from '@main/modules/winMain/main'
 import { aggregateFavorites, chooseMatch } from './matching'
 import { qqProvider } from './providers/qq'
-import { neteaseProvider } from './providers/netease'
+import { getNeteaseHeartbeat, neteaseProvider } from './providers/netease'
 import { miguProvider } from './providers/migu'
 import { bilibiliProvider } from './providers/bilibili'
 import { kugouProvider } from './providers/kugou'
@@ -199,6 +199,41 @@ const getPlaylist = async(params: { id: string, refresh?: boolean }): Promise<Pl
     } catch (error) {
       await save()
       notify()
+      throw error
+    }
+  })
+}
+
+const getHeartbeat = async(params: PlatformHeartbeatRequest = {}): Promise<PlatformHeartbeatResult> => {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('无效的心动模式参数')
+  const state = await getState('netease')
+  const generation = state.generation
+  const changed = () => generation !== state.generation
+  return exclusive(state, async() => {
+    if (changed()) throw new Error('网易云账号已更改，请重新开启心动模式')
+    if (!state.account.connected) throw new Error('登录网易云音乐后才能使用心动模式')
+    try {
+      const previousId = state.account.profile?.id
+      const profile = await state.provider.profile(state.context)
+      if (changed()) throw new Error('网易云账号已更改，请重新开启心动模式')
+      acceptProfile(state, profile)
+      if (previousId && previousId !== profile.id) {
+        await save()
+        notify()
+        throw new Error('网易云账号已更改，请重新开启心动模式')
+      }
+      const result = await getNeteaseHeartbeat(state.context, profile, params)
+      if (changed() || state.account.profile?.id !== profile.id) throw new Error('网易云账号已更改，请重新开启心动模式')
+      return result
+    } catch (error) {
+      if (changed()) throw new Error('网易云账号已更改，请重新开启心动模式')
+      const message = errorMessage(error)
+      if (/登录|login/i.test(message)) {
+        state.account.connected = false
+        state.account.error = message
+        await save()
+        notify()
+      }
       throw error
     }
   })
@@ -440,6 +475,7 @@ export default () => {
     return snapshot()
   })
   mainHandle<{ id: string, refresh?: boolean }, PlatformPlaylistDetail>('platform_accounts_playlist', async({ params }) => getPlaylist(params))
+  mainHandle<PlatformHeartbeatRequest, PlatformHeartbeatResult>('platform_netease_heartbeat', async({ params }) => getHeartbeat(params))
   mainHandle<PlatformId, PlatformSnapshot>('platform_accounts_logout', async({ params }) => {
     const state = await getState(params)
     ++state.generation

@@ -22,6 +22,7 @@ import { activeStream, commitStream, preferredQuality, preferredSource } from '@
 import { addDislikeInfo } from '@renderer/core/dislikeList'
 import { samePlayTrack } from '@common/platformMatching'
 import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
+import { notifyPlaybackIntent } from './playbackIntent'
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
 let gettingUrlId = ''
@@ -276,6 +277,7 @@ const handlePlay = () => {
 export const playListById = (listId: string, id: string) => {
   const musicInfo = getList(listId).find(m => m.id == id)
   if (!musicInfo) return
+  notifyPlaybackIntent(listId)
   navigationGeneration++
   const prevListId = playInfo.playerListId
   setPlayListId(listId)
@@ -294,6 +296,7 @@ export const playListById = (listId: string, id: string) => {
 export const playList = (listId: string, index: number) => {
   const musicInfo = getList(listId)[index]
   if (!musicInfo) return
+  notifyPlaybackIntent(listId)
   navigationGeneration++
   const prevListId = playInfo.playerListId
   setPlayListId(listId)
