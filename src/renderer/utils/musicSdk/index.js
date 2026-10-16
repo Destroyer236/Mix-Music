@@ -6,6 +6,7 @@ import mg from './mg/index'
 import bd from './bd/index'
 import xm from './xm'
 import bi from './bi'
+import qs from './qs'
 import { supportQuality } from './api-source'
 import { versionChars } from './versionChars'
 
@@ -33,6 +34,10 @@ const sources = {
       id: 'mg',
     },
     {
+      name: '汽水音乐',
+      id: 'qs',
+    },
+    {
       name: '虾米音乐',
       id: 'xm',
     },
@@ -49,6 +54,7 @@ const sources = {
   bd,
   xm,
   bi,
+  qs,
 }
 export default {
   ...sources,

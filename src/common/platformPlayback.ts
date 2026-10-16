@@ -22,6 +22,7 @@ export interface PlatformStream {
   url: string
   type: LX.Quality
   quality?: PlatformQuality
+  qualityLabel?: string
   expires?: number
   bitrate?: number
   sampleRate?: number

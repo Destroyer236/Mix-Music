@@ -17,6 +17,7 @@ export const sourceList: SourceLists = markRaw({
 
 
 for (const source of music.sources) {
+  if (source.id === 'qs') continue
   if (!music[source.id as LX.OnlineSource]?.hotSearch) continue
   sources.push(source.id as LX.OnlineSource)
   sourceList[source.id as LX.OnlineSource] = reactive<string[]>([])

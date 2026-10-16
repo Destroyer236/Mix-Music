@@ -6,6 +6,7 @@ export type Source = LX.OnlineSource
 export const sources: LX.OnlineSource[] = markRaw([])
 
 for (const source of music.sources) {
+  if (source.id === 'qs') continue
   if (!music[source.id as LX.OnlineSource]?.leaderboard?.getBoards) continue
   sources.push(source.id as LX.OnlineSource)
 }

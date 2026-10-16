@@ -1,6 +1,6 @@
-export type PlatformId = 'qq' | 'netease' | 'kugou' | 'kuwo' | 'migu' | 'bilibili'
+export type PlatformId = 'qq' | 'netease' | 'kugou' | 'kuwo' | 'migu' | 'bilibili' | 'qishui'
 
-export const platformNames: Record<PlatformId, string> = { qq: 'QQ 音乐', netease: '网易云音乐', kugou: '酷狗音乐', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩' }
+export const platformNames: Record<PlatformId, string> = { qq: 'QQ 音乐', netease: '网易云音乐', kugou: '酷狗音乐', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩', qishui: '汽水音乐' }
 
 export interface PlatformProfile {
   id: string

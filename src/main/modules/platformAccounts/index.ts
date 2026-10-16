@@ -11,6 +11,8 @@ import { miguProvider } from './providers/migu'
 import { bilibiliProvider } from './providers/bilibili'
 import { kugouProvider } from './providers/kugou'
 import { kuwoProvider } from './providers/kuwo'
+import qishuiProvider, { searchCatalog, publicPlaylist, resolveShare, getLyrics, getAlbumTracks, getArtistTracks } from './providers/qishui'
+import { createQishuiLogin } from './qishuiLogin'
 import type { PlatformProvider, ProviderContext } from './providers/types'
 import { canNavigateAccount, registerAccountSession } from './navigation'
 import { createPlaybackResolver } from './playback'
@@ -26,7 +28,7 @@ interface ProviderState {
   busy: Promise<unknown>
   generation: number
 }
-const providers = [qqProvider, neteaseProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider]
+const providers = [qqProvider, neteaseProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider, qishuiProvider]
 const states = new Map<PlatformId, ProviderState>()
 let initialized: Promise<void> | undefined
 let saveQueue = Promise.resolve()
@@ -200,6 +202,7 @@ const getPlaylist = async(params: { id: string, refresh?: boolean }): Promise<Pl
   })
 }
 const openLogin = async(id: PlatformId) => {
+  if (id === 'qishui') throw new Error('请使用汽水音乐的扫码登录入口')
   const state = await getState(id)
   if (state.window && !state.window.isDestroyed()) { state.window.focus(); return snapshot() }
   const window = new BrowserWindow({
@@ -318,6 +321,57 @@ const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | nu
 }
 
 export default () => {
+  let qrLogin: ReturnType<typeof createQishuiLogin> | undefined
+  const qrOwners = new WeakSet<Electron.WebContents>()
+  const getQrLogin = async() => {
+    const state = await getState('qishui')
+    qrLogin ??= createQishuiLogin(state.context, async() => {
+      const generation = state.generation
+      const profile = await state.provider.profile(state.context)
+      if (generation !== state.generation || !qrLogin?.isActive()) throw new Error('登录已取消或过期，请重新扫码')
+      // Cookie persistence finishes inside the controller before this callback.
+      // Accept the verified profile without another await so cancel cannot split
+      // the account commit from the controller's confirmed state.
+      acceptProfile(state, profile)
+      state.account.connected = true
+      state.account.error = ''
+      void save()
+      notify()
+      void syncState(state)
+    })
+    return { state, login: qrLogin }
+  }
+  mainHandle('platform_qishui_login_start', async({ event }) => {
+    const { state, login } = await getQrLogin()
+    if (!qrOwners.has(event.sender)) {
+      qrOwners.add(event.sender)
+      const owner = event.sender.id
+      event.sender.once('destroyed', () => {
+        try { if (login.cancel(owner)) ++state.generation } catch {}
+      })
+    }
+    ++state.generation
+    return login.start(event.sender.id)
+  })
+  mainHandle<{ flowId: string }, Awaited<ReturnType<ReturnType<typeof createQishuiLogin>['check']>>>('platform_qishui_login_check', async({ event, params }) => {
+    const { login } = await getQrLogin()
+    if (!params || typeof params.flowId !== 'string') throw new Error('无效的登录会话')
+    return login.check(event.sender.id, params.flowId)
+  })
+  mainHandle<{ flowId?: string }>('platform_qishui_login_cancel', async({ event, params }) => {
+    const { state, login } = await getQrLogin()
+    if (login.cancel(event.sender.id, params?.flowId)) ++state.generation
+  })
+  mainHandle<{ query: string, kind: 'track' | 'album' | 'artist' | 'playlist', page?: number }, Awaited<ReturnType<typeof searchCatalog>>>('platform_qishui_search', async({ params }) => {
+    const state = await getState('qishui')
+    if (!params || typeof params.query !== 'string' || !['track', 'album', 'artist', 'playlist'].includes(params.kind)) throw new Error('无效的汽水搜索')
+    return searchCatalog(state.context, params.query, params.kind, params.page ?? 1)
+  })
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof publicPlaylist>>>('platform_qishui_playlist', async({ params }) => publicPlaylist((await getState('qishui')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getAlbumTracks>>>('platform_qishui_album', async({ params }) => getAlbumTracks((await getState('qishui')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getArtistTracks>>>('platform_qishui_artist', async({ params }) => getArtistTracks((await getState('qishui')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getLyrics>>>('platform_qishui_lyric', async({ params }) => getLyrics((await getState('qishui')).context, params?.id))
+  mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveShare>>>('platform_qishui_share', async({ params }) => resolveShare((await getState('qishui')).context, params?.text))
   mainHandle<{ track: LX.Music.MusicInfoOnline, quality?: PlatformQuality, isRefresh?: boolean, allowToggleSource?: boolean }, ResolvedPlatformStream>('platform_playback_resolve', async({ params }) => {
     await init()
     return playback.resolve(params.track, params.quality ?? 'auto', Boolean(params.isRefresh), params.allowToggleSource !== false)
@@ -334,6 +388,10 @@ export default () => {
   mainHandle<PlatformId, PlatformSnapshot>('platform_accounts_logout', async({ params }) => {
     const state = await getState(params)
     ++state.generation
+    if (params === 'qishui' && qrLogin) {
+      qrLogin.cancelAll()
+      await qrLogin.settled()
+    }
     state.window?.close()
     await exclusive(state, async() => {
       await state.provider.logout?.(state.context)
