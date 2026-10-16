@@ -2,6 +2,7 @@ import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts
 import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 import { randomUUID } from 'node:crypto'
 import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 
 import type { PlatformProvider, ProviderContext } from './types'
 
@@ -95,6 +96,7 @@ function normalizeSong(song: QqSong): LX.Music.MusicInfo_tx | null {
     meta: {
       songId: mid,
       isVip: songVip('tx', song),
+      subtitle: songSubtitle('tx', song),
       albumName: album.name ?? '',
       recordingVersion: /\blive\b|重录|重新录制|现场|演唱会|\bremaster(?:ed)?\b|\bremix\b|翻唱|伴奏|\binstrumental\b|\bacoustic\b/i.test(song.subtitle ?? '') ? song.subtitle : '',
       albumId: album.mid ?? album.id ?? '',

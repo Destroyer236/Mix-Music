@@ -10,6 +10,7 @@ import { filterMusicInfoList as miguTracks } from './mg/musicInfo'
 import { ipcRenderer } from 'electron'
 import { toOldMusicInfo } from '@common/utils/tools'
 import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 
 // Catalogue search uses platform album/artist endpoints, not song keyword results.
 export const catalogSources = { album: ['wy', 'tx', 'kg', 'kw', 'qs'], artist: ['wy', 'tx', 'kg', 'kw', 'mg', 'qs'] }
@@ -52,7 +53,7 @@ function neteaseTracks(raw, privileges = []) {
       }
     }
     const album = song.al ?? song.album ?? {}
-    return { source: 'wy', isVip: songVip('wy', song, privilege), name: strings(song.name), singer: singers(song.ar ?? song.artists), albumName: strings(album.name), albumId: album.id, songmid: song.id, img: picture(album.picUrl), interval: formatPlayTime(count(song.dt ?? song.duration) / 1000), types, _types, typeUrl: {} }
+    return { source: 'wy', isVip: songVip('wy', song, privilege), subtitle: songSubtitle('wy', song), name: strings(song.name), singer: singers(song.ar ?? song.artists), albumName: strings(album.name), albumId: album.id, songmid: song.id, img: picture(album.picUrl), interval: formatPlayTime(count(song.dt ?? song.duration) / 1000), types, _types, typeUrl: {} }
   })
 }
 

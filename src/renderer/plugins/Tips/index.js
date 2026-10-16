@@ -13,6 +13,9 @@ const getTipText = el => {
 
 const getTips = el => {
   if (!(el instanceof window.Element)) return null
+  // Song titles provide their own full-title/details popup. Keep the enclosing
+  // play button's aria-label accessible without displaying another tooltip.
+  if (el.closest('.ui-track-title-text')) return null
   // A title on the hovered element or its ancestor already supplies a native
   // tooltip. Keep aria-label for accessibility without showing a second tip.
   if (el.closest('[title]')?.getAttribute('title')?.trim()) return null

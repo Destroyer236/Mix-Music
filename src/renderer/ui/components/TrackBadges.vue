@@ -13,10 +13,11 @@ import { sourceNames } from '@renderer/store'
 const props = defineProps({
   track: { type: Object, default: null },
   showSource: { type: Boolean, default: true },
+  showVip: { type: Boolean, default: true },
   trial: { type: Boolean, default: false },
 })
 const sourceLabel = computed(() => props.showSource && props.track && props.track.source !== 'local' ? sourceNames.value[props.track.source] || props.track.source : '')
-const isVip = computed(() => props.track?.source !== 'local' && props.track?.meta?.isVip === true)
+const isVip = computed(() => props.showVip && props.track?.source !== 'local' && props.track?.meta?.isVip === true)
 </script>
 
 <style scoped lang="less">

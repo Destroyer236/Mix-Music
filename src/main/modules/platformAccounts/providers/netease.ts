@@ -2,6 +2,7 @@ import type { PlatformProvider, ProviderContext } from './types'
 import type { PlatformQuality } from '@common/platformPlayback'
 import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts'
 import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 
 // Use the maintained SDK's protocol encryption with Electron's isolated cookie jar.
 import encryption from 'NeteaseCloudMusicApi/util/crypto'
@@ -35,7 +36,7 @@ const toTrack = (song: any, privilege?: unknown): LX.Music.MusicInfoOnline => {
     name: song.name ?? '',
     singer: (song.ar ?? song.artists ?? []).map((artist: any) => artist.name).join('、'),
     interval: `${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`,
-    meta: { songId: song.id, isVip: songVip('wy', song, privilege), albumName: album.name ?? '', albumId: album.id, picUrl: album.picUrl ?? '', qualitys, _qualitys: { '128k': { size: null } } },
+    meta: { songId: song.id, isVip: songVip('wy', song, privilege), subtitle: songSubtitle('wy', song), albumName: album.name ?? '', albumId: album.id, picUrl: album.picUrl ?? '', qualitys, _qualitys: { '128k': { size: null } } },
   }
 }
 

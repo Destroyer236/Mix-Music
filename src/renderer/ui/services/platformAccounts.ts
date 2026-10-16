@@ -57,11 +57,15 @@ async function mergePlatformFavorites() {
   const remoteById = new Map(remote.map(track => [importKey(track), track]))
   const updates: LX.List.ListActionMusicUpdate = []
   const ready = saved.filter(item => !removed.some(track => track.id === item.id)).map(item => {
-    const isVip = remoteById.get(importKey(item))?.meta.isVip
-    if (typeof isVip !== 'boolean' || item.meta.isVip === isVip) return item
-    // Membership belongs to a platform's song, not to every matching recording.
+    const remoteMeta = remoteById.get(importKey(item))?.meta
+    const isVip = remoteMeta?.isVip
+    const subtitle = remoteMeta?.subtitle?.trim()
+    const updateVip = typeof isVip === 'boolean' && item.meta.isVip !== isVip
+    const updateSubtitle = Boolean(subtitle && item.meta.subtitle !== subtitle)
+    if (!updateVip && !updateSubtitle) return item
+    // Platform metadata belongs to this song ID, not every matching recording.
     const musicInfo: LX.Music.MusicInfo = { ...item }
-    musicInfo.meta = { ...item.meta, isVip }
+    musicInfo.meta = { ...item.meta, ...(updateVip ? { isVip } : {}), ...(updateSubtitle ? { subtitle } : {}) }
     updates.push({ id: loveList.id, musicInfo })
     return musicInfo
   })

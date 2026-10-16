@@ -1,4 +1,5 @@
 import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 import { httpFetch } from '../../request'
 
 import { formatPlayTime, sizeFormate } from '../../index'
@@ -50,6 +51,7 @@ export const filterMusicInfoItem = item => {
     songId: item.id,
     songmid: item.mid,
     isVip: songVip('tx', item),
+    subtitle: songSubtitle('tx', item),
     strMediaMid: item.file.media_mid,
     img: (albumId === '' || albumId === '空')
       ? item.singer?.length ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg` : ''

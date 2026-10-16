@@ -10,6 +10,7 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
   }
   const isVip = songVip(oldMusicInfo.source, oldMusicInfo)
   if (isVip != null) meta.isVip = isVip
+  if (typeof oldMusicInfo.subtitle === 'string' && oldMusicInfo.subtitle.trim()) meta.subtitle = oldMusicInfo.subtitle.trim()
   const newInfo = {
     id: `${oldMusicInfo.source}_${oldMusicInfo.songmid}`,
     name: oldMusicInfo.name,
@@ -71,6 +72,7 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo) => {
     typeUrl: {},
   }
   if (minfo.meta.isVip != null) oInfo.isVip = minfo.meta.isVip
+  if (minfo.meta.subtitle) oInfo.subtitle = minfo.meta.subtitle
   if (minfo.source == 'local') {
     oInfo.filePath = minfo.meta.filePath
     oInfo.ext = minfo.meta.ext

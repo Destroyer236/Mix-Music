@@ -848,7 +848,6 @@ html {
   color: var(--modern-muted);
 }
 
-.ui-shell .track-table--removable .track-table__actions button,
 .ui-shell .local-track-table__actions button {
   width: 30px;
   height: 30px;
@@ -3152,7 +3151,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
 .ui-recommend-tracks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 18px; }
 .ui-recommend-track { display: flex; align-items: center; min-width: 0; gap: 11px; padding: 10px 6px; border-radius: 8px; &:hover { background: var(--modern-hover); } .ui-recommend-like { flex: none; width: 27px; height: 27px; svg { width: 17px; height: 17px; } } }
 .ui-recommend-track-cover { position: relative; width: 47px; height: 47px; flex: none; border: 0; border-radius: 8px; padding: 0; overflow: hidden; > span:last-child { position: absolute; inset: 0; display: grid; place-items: center; background: #0004; opacity: 0; color: #fff; svg { width: 20px; height: 20px; } } &:hover > span:last-child, &:focus-visible > span:last-child { opacity: 1; } }
-.ui-recommend-track-info { min-width: 0; flex: 1; button, span { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; } button { border: 0; padding: 0; background: transparent; color: var(--modern-text); font-size: 13px; font-weight: 500; } span { color: var(--modern-muted); font-size: 11px; margin-top: 7px; } }
+.ui-recommend-track-info { min-width: 0; flex: 1; > button, > span { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; } > button { border: 0; padding: 0; background: transparent; color: var(--modern-text); font-size: 13px; font-weight: 500; } > span { color: var(--modern-muted); font-size: 11px; margin-top: 7px; } }
 .ui-recommend-rank { font-size: 11px; color: var(--modern-muted); font-variant-numeric: tabular-nums; }
 .ui-recommend-state { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 26px 18px; min-height: 100px; background: var(--modern-hover); border-radius: 10px; color: var(--modern-muted); > svg { width: 25px; height: 25px; flex: none; opacity: .7; } strong { font-size: 13px; font-weight: 500; line-height: 1.7; } p { font-size: 12px; line-height: 1.7; margin-top: 5px; } > button { display: flex; gap: 6px; align-items: center; flex: none; padding: 7px 10px; border: var(--ui-hairline); border-radius: 7px; color: var(--modern-text); background: var(--modern-panel); font-size: 12px; svg { width: 14px; height: 14px; } } &.is-loading { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ui-recommend-placeholder { display: flex; align-items: center; gap: 12px; min-width: 0; > span { width: 44px; height: 44px; border-radius: 7px; flex: none; background: color-mix(in srgb, var(--modern-text) 7%, transparent); } > div { flex: 1; } i { display: block; height: 8px; border-radius: 4px; margin: 8px 0; width: 80%; background: color-mix(in srgb, var(--modern-text) 7%, transparent); &:last-child { width: 55%; } } }
@@ -3263,7 +3262,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
 .ui-qq-recommend .ui-recommend-tracks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; }
 .ui-qq-recommend .ui-recommend-track { padding: 4px 0; gap: 11px; border-radius: 4px; }
 .ui-qq-recommend .ui-recommend-track-cover { width: 54px; height: 54px; border-radius: 4px; }
-.ui-qq-recommend .ui-recommend-track-info { button { font-size: 14px; font-weight: 400; } span { font-size: 12px; margin-top: 9px; } }
+.ui-qq-recommend .ui-recommend-track-info { > button { font-size: 14px; font-weight: 400; } > span { font-size: 12px; margin-top: 9px; } }
 .ui-qq-recommend .ui-recommend-like { opacity: 0; width: 23px; }
 .ui-qq-recommend .ui-recommend-track:hover .ui-recommend-like, .ui-qq-recommend .ui-recommend-track:focus-within .ui-recommend-like, .ui-qq-recommend .ui-recommend-like.ui-active { opacity: 1; }
 :root[data-modern-theme='dark'] .qq-personal-art { background: linear-gradient(105deg, #25423f, #474a2c); color: #e7efdf; }
@@ -3276,7 +3275,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
   .qq-green-play { width: 38px; height: 27px; margin-top: 7px; }
   .ui-qq-recommend .ui-recommend-tracks { gap: 12px 16px; }
   .ui-qq-recommend .ui-recommend-track-cover { width: 46px; height: 46px; }
-  .ui-qq-recommend .ui-recommend-track-info { button { font-size: 13px; } span { font-size: 11px; } }
+  .ui-qq-recommend .ui-recommend-track-info { > button { font-size: 13px; } > span { font-size: 11px; } }
 }
 @media (max-width: 800px) {
   .ui-shell .ui-recommend-page.ui-qq-recommend { padding: 18px 20px 26px; }
@@ -3699,7 +3698,7 @@ body .ui-search-suggestions {
   button.ui-search-play { padding: 8px 12px; color: var(--modern-accent-ink); background: var(--modern-accent-soft); font-size: 11px; }
   .ui-search-results .track-table { border: 0; border-radius: 0; background: transparent; }
   .track-table__head { background: var(--modern-hover); border: 0; }
-  .track-table__title > strong { font-size: 13px; font-weight: 550; line-height: 1.4; }
+  .track-table__title strong { font-size: 13px; font-weight: 550; line-height: 1.4; }
   .track-table__title > .track-table__album-link { font-size: 11px; font-weight: 400; color: var(--modern-muted); line-height: 1.4; &:hover { color: var(--modern-accent-ink); } }
   .track-table__row { background: transparent; &:hover { background: var(--modern-hover); } }
   .ui-search-artists-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; &.is-single { grid-template-columns: minmax(0, 1fr); } }
@@ -3781,14 +3780,16 @@ body .ui-search-suggestions {
 
 // Unified collection typography and state colors.
 .ui-shell .track-table__title { gap: 5px; font-weight: 400; line-height: 1.4; }
-.ui-shell .track-table__title > strong { display: block; font-size: 13px; font-weight: 500; color: var(--modern-text); }
+.ui-shell .track-table__title strong { display: flex; min-width: 0; font-size: 13px; font-weight: 500; color: var(--modern-text); }
 .ui-shell .track-table__title > .track-table__album-link { display: block; color: var(--modern-muted); font-size: 11px; font-weight: 400; }
 .ui-shell .track-table__cover { width: 40px; height: 40px; border-radius: 8px; }
 .ui-shell .track-table__row:nth-child(even) { background: color-mix(in srgb, var(--modern-text) 1.5%, transparent); }
 .ui-shell .track-table__row:is(:hover, :focus-within) { background: color-mix(in srgb, var(--modern-accent) 7%, transparent); }
 .ui-shell .track-table__row--playing { background: var(--modern-accent-soft); }
-.ui-shell .track-table__row--playing :is(.track-table__index, .track-table__title > strong) { color: var(--modern-accent-ink); }
-.ui-shell .track-table__actions { opacity: 1; }
+.ui-shell .track-table__row--playing :is(.track-table__index, .track-table__title strong) { color: var(--modern-accent-ink); }
+.ui-shell .track-table__row--selected { background: var(--modern-accent-soft); }
+.ui-shell :is(.track-table__actions, .track-table__selection) { opacity: 0; pointer-events: none; }
+.ui-shell .track-table__row:is(:hover, :focus-within, .track-table__row--selected) :is(.track-table__actions, .track-table__selection) { opacity: 1; pointer-events: auto; }
 .ui-shell .track-table__actions button { color: var(--modern-muted); opacity: .75; }
 .ui-shell .track-table__actions button:is(:hover, :focus-visible) { opacity: 1; color: var(--modern-accent-ink); }
 .ui-shell .track-table__actions .ui-library-row-btn.loved { opacity: 1; color: var(--ui-favorite); }
@@ -3798,7 +3799,7 @@ body .ui-search-suggestions {
 .ui-shell .ui-library-scroll-hint { margin-left: auto; color: var(--modern-muted); font-size: 11px; }
 .ui-shell .ui-recent-page { display: flex; flex-direction: column; overflow: hidden; }
 .ui-shell .ui-recent-table { flex: 1; min-height: 0; }
-.ui-shell .ui-recent-table .track-table { height: 100%; --track-actions-width: 120px; }
+.ui-shell .ui-recent-table .track-table { height: 100%; }
 .ui-shell .ui-recent-page-heading { flex: none; }
 
 // Visible scrollbar styling is shared by the optional scrollbar mode below.
@@ -4015,17 +4016,23 @@ html[data-modern-theme][data-modern-joined-panels='true'] {
   }
 }
 
-// Source, membership and real preview state share a compact badge row.
-.ui-recommend-track-info .ui-recommend-track-badges.ui-track-badges { margin-top: 5px; }
-.ui-detail-metadata .ui-detail-track-badges.ui-track-badges { margin-top: 8px; }
+// Keep platform and VIP badges beside an ellipsized title, with artists below.
+.ui-recommend-track-info > button > .ui-track-title { width: 100%; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-title { flex: 1 1 auto; width: 100%; max-width: none; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title .ui-track-title { width: 100%; color: inherit; font: inherit; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title .ui-track-title-text { color: inherit; font: inherit; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-artists { flex: 0 1 auto; max-width: 30%; }
+#container .ui-player-detail.ui-player-detail--immersive.ui-player-detail--record .ui-detail-metadata h1 { display: block; overflow-wrap: normal; }
+.ui-detail-metadata h1 > .ui-track-title { width: 100%; }
+.ui-comments-song-info h1 > .ui-track-title { width: 100%; }
+.ui-shell .ui-download-title h2 > .ui-track-title { min-width: 0; }
 :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions { gap: 10px; }
 :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions > :is(button, .ui-player-options) { flex: none; }
-.ui-player-queue-panel .ui-queue-track > .ui-queue-track-info { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 5px; overflow: hidden; }
-.ui-player-queue-panel .ui-queue-track-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 1100px) {
-  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-current-badges > .ui-track-badge--source { display: none; }
-}
+.ui-player-queue-panel .ui-queue-track > .ui-queue-track-info { display: flex; align-items: center; min-width: 0; overflow: hidden; }
+.ui-player-queue-panel .ui-queue-track-info > .ui-track-title { width: 100%; color: inherit; font: inherit; }
+.ui-player-queue-panel .ui-queue-track-info .ui-track-title-text { color: inherit; font: inherit; }
 @media (max-width: 900px) {
+  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-artists { max-width: 100%; }
   :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions { gap: 6px; }
 }
 @media (max-width: 640px) {

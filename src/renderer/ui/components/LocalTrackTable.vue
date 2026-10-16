@@ -9,7 +9,7 @@
         <span class="local-track-table__album" role="columnheader">专辑</span>
         <span class="local-track-table__format" role="columnheader">格式</span>
         <span class="local-track-table__duration" role="columnheader">时长</span>
-        <span class="local-track-table__actions" role="columnheader">操作</span>
+        <span class="local-track-table__selection" role="columnheader" aria-label="选择歌曲" />
       </div>
       <div role="rowgroup">
         <div v-for="(track, index) in visibleItems" :key="track.id" class="local-track-table__row" :class="{ 'local-track-table__row--active': currentTrack?.source === 'local' && currentTrack.id === track.id, 'local-track-table__row--selected': selectedIds?.has(track.id) }" role="row" :data-track-id="track.id" :aria-selected="Boolean(selectedIds?.has(track.id))" :title="track.meta.filePath">
@@ -17,17 +17,19 @@
           <div class="local-track-table__song" role="cell">
             <button type="button" class="local-track-table__cover" tabindex="-1" :aria-label="`播放 ${track.name || '未命名歌曲'}`" @click="$emit('play', track)"><TrackArtwork :track="track" :list-id="listId" /><span class="local-track-table__cover-play" aria-hidden="true"><UiIcon name="play" filled /></span></button>
             <div class="local-track-table__metadata">
-              <button type="button" class="local-track-table__title" :aria-label="`播放 ${track.name || '未命名歌曲'}`" :title="track.name" @click="$emit('play', track)">{{ track.name || '未命名歌曲' }}</button>
+              <button type="button" class="local-track-table__title" :aria-label="`播放 ${track.name || '未命名歌曲'}`" @click="$emit('play', track)"><TrackTitle :track="track" :text="track.name || '未命名歌曲'" :show-badges="false" /></button>
               <span class="local-track-table__artists"><template v-if="artistNames(track).length"><template v-for="(artist, artistIndex) in artistNames(track)" :key="artist"><span v-if="artistIndex" aria-hidden="true">、</span><button type="button" class="local-track-table__link" :aria-label="`查看本地歌手 ${artist}`" @click="$emit('artist', artist, track)">{{ artist }}</button></template></template><span v-else>未知歌手</span></span>
+            </div>
+            <div class="local-track-table__actions">
+              <button type="button" :title="`加入歌单 ${track.name}`" :aria-label="`加入歌单 ${track.name}`" @click="$emit('add', track)"><UiIcon name="plus" /></button>
+              <button type="button" :title="`编辑 ${track.name}`" :aria-label="`编辑 ${track.name}`" @click="$emit('edit', track)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2.8 2.8 0 0 0-4-4L5 15z" /></svg></button>
+              <button type="button" :title="`从本地音乐库移除 ${track.name}`" :aria-label="`移除 ${track.name}`" @click="$emit('remove', track)"><UiIcon name="trash" /></button>
             </div>
           </div>
           <span class="local-track-table__album" role="cell"><button v-if="albumName(track)" type="button" class="local-track-table__link" :title="albumName(track)" :aria-label="`查看本地专辑 ${albumName(track)}`" @click="$emit('album', albumName(track), track)">{{ albumName(track) }}</button><span v-else>未知专辑</span></span>
           <span class="local-track-table__format" role="cell"><span>{{ track.meta.ext.replace(/^\./, '').toUpperCase() || '—' }}</span></span>
           <span class="local-track-table__duration" role="cell">{{ track.interval || '--:--' }}</span>
-          <div class="local-track-table__actions" role="cell">
-            <button type="button" :title="`加入歌单 ${track.name}`" :aria-label="`加入歌单 ${track.name}`" @click="$emit('add', track)"><UiIcon name="plus" /></button>
-            <button type="button" :title="`编辑 ${track.name}`" :aria-label="`编辑 ${track.name}`" @click="$emit('edit', track)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2.8 2.8 0 0 0-4-4L5 15z" /></svg></button>
-            <button type="button" :title="`从本地音乐库移除 ${track.name}`" :aria-label="`移除 ${track.name}`" @click="$emit('remove', track)"><UiIcon name="trash" /></button>
+          <div class="local-track-table__selection" role="cell">
             <input type="checkbox" :checked="Boolean(selectedIds?.has(track.id))" :aria-label="`选择 ${track.name}`" @change="$emit('select', track.id)">
           </div>
         </div>
@@ -43,6 +45,7 @@ import LazyListEnd from './LazyListEnd.vue'
 import { useProgressiveList } from '../useProgressiveList'
 import { isPlay, playMusicInfo } from '@renderer/store/player/state'
 import TrackArtwork from './TrackArtwork.vue'
+import TrackTitle from './TrackTitle.vue'
 import UiEmpty from './UiEmpty.vue'
 import UiIcon from './UiIcon.vue'
 
@@ -89,16 +92,16 @@ const albumName = (track: LX.Music.MusicInfoLocal) => track.meta.albumName.trim(
 <style lang="less">
 .local-track-table { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; color: var(--modern-text); container-type: inline-size; > .ui-empty { flex: 1; } }
 .local-track-table__scroll { flex: 1; min-height: 0; overflow: auto; }
-.local-track-table__head, .local-track-table__row { display: grid; grid-template-columns: 30px minmax(140px, 1.7fr) minmax(90px, 1fr) 62px 50px 125px; align-items: center; column-gap: 12px; padding: 0 14px; border-block: 0; }
+.local-track-table__head, .local-track-table__row { display: grid; grid-template-columns: 30px minmax(0, 1.9fr) minmax(90px, 1fr) 62px 50px 24px; align-items: center; column-gap: 12px; padding: 0 14px; border-block: 0; }
 .local-track-table__head { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--modern-panel); color: var(--modern-muted); font-size: 10px; }
-.local-track-table__row { min-height: max(66px, calc(var(--modern-row-height) + 20px)); font-size: 11px; transition: background .15s; &:hover, &:focus-within { background: var(--modern-hover); } &--active { .local-track-table__title, .local-track-table__index { color: var(--modern-accent-ink); } } &--selected { background: var(--modern-accent-soft); } }
+.local-track-table__row { min-height: max(66px, calc(var(--modern-row-height) + 20px)); font-size: 11px; transition: background .15s; &:hover, &:focus-within { background: var(--modern-hover); } &:hover, &:focus-within, &--selected { .local-track-table__actions, .local-track-table__selection { opacity: 1; pointer-events: auto; } .local-track-table__cover-play { opacity: 1; } } &--active { .local-track-table__title, .local-track-table__index { color: var(--modern-accent-ink); } } &--selected { background: var(--modern-accent-soft); } }
 .local-track-table__index { display: flex; align-items: center; justify-content: center; color: var(--modern-muted); font-size: 10px; font-variant-numeric: tabular-nums; svg { width: 16px; height: 16px; } }
 .local-track-table__song { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .local-track-table button { font: inherit; cursor: pointer; &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 2px; border-radius: 5px; } }
 .local-track-table__cover { position: relative; display: grid; place-items: center; flex: none; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 11px; overflow: hidden; background: var(--modern-accent-soft); }
 .local-track-table__cover-play { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; background: rgba(0, 0, 0, .35); color: white; transition: opacity .15s; svg { width: 17px; height: 17px; } }
 .local-track-table__cover:hover .local-track-table__cover-play { opacity: 1; }
-.local-track-table__metadata { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.local-track-table__metadata { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
 .local-track-table__title { display: block; max-width: 100%; padding: 0; border: 0; overflow: hidden; background: transparent; color: var(--modern-text); text-align: left; text-overflow: ellipsis; white-space: nowrap; font-weight: 500 !important; &:hover { color: var(--modern-accent-ink); } }
 .local-track-table__artists, .local-track-table__album { min-width: 0; overflow: hidden; color: var(--modern-muted); text-overflow: ellipsis; white-space: nowrap; }
 .local-track-table__artists { font-size: 10px; }
@@ -106,9 +109,12 @@ const albumName = (track: LX.Music.MusicInfoLocal) => track.meta.albumName.trim(
 .local-track-table__album .local-track-table__link { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .local-track-table__format, .local-track-table__duration { color: var(--modern-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .local-track-table__format > span { display: inline-block; max-width: 100%; padding: 3px 5px; overflow: hidden; border: 1px solid var(--modern-border); border-radius: 5px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.local-track-table__actions { display: flex; align-items: center; justify-content: flex-end; gap: 3px; button { display: grid; place-items: center; width: 29px; height: 29px; flex: none; padding: 0; border: 0; border-radius: 8px; color: var(--modern-muted); background: transparent; &:hover { background: var(--modern-accent-soft); color: var(--modern-accent-ink); } svg { width: 16px; height: 16px; } } input { width: 14px; height: 14px; flex: none; margin: 0 0 0 6px; accent-color: var(--modern-accent); cursor: pointer; &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 2px; } } }
+.local-track-table__actions, .local-track-table__selection { opacity: 0; pointer-events: none; transition: opacity .15s; }
+.local-track-table__actions { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 3px; button { display: grid; place-items: center; width: 29px; height: 29px; flex: none; padding: 0; border: 0; border-radius: 8px; color: var(--modern-muted); background: transparent; &:hover { background: var(--modern-accent-soft); color: var(--modern-accent-ink); } svg { width: 16px; height: 16px; } } }
+.local-track-table__selection { display: flex; align-items: center; justify-content: flex-end; input { width: 14px; height: 14px; flex: none; margin: 0; accent-color: var(--modern-accent); cursor: pointer; &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 2px; } } }
 .local-track-table__loading { display: flex; flex: 1; align-items: center; justify-content: center; gap: 9px; min-height: 190px; color: var(--modern-muted); font-size: 11px; svg { width: 17px; height: 17px; } }
-@container (max-width: 820px) { .local-track-table__head, .local-track-table__row { grid-template-columns: 26px minmax(130px, 1.4fr) minmax(85px, 1fr) 46px 116px; column-gap: 8px; padding: 0 10px; } .local-track-table__format { display: none; } .local-track-table__actions { gap: 1px; button { width: 27px; } input { margin-left: 5px; } } }
-@container (max-width: 630px) { .local-track-table__head, .local-track-table__row { grid-template-columns: 24px minmax(100px, 1fr) 43px 116px; column-gap: 6px; padding: 0 6px; } .local-track-table__album { display: none; } }
-@container (max-width: 560px) { .local-track-table__head, .local-track-table__row { grid-template-columns: 24px minmax(100px, 1fr) 43px 116px; column-gap: 6px; padding: 0 6px; } .local-track-table__format { display: none; } .local-track-table__cover { width: 34px; height: 34px; border-radius: 9px; } .local-track-table__song { gap: 8px; } .local-track-table__actions { gap: 1px; button { width: 27px; } input { margin-left: 5px; } } }
+@container (max-width: 820px) { .local-track-table__head, .local-track-table__row { grid-template-columns: 26px minmax(0, 1.8fr) minmax(85px, 1fr) 46px 24px; column-gap: 8px; padding: 0 10px; } .local-track-table__format { display: none; } .local-track-table__actions { gap: 1px; button { width: 27px; } } }
+@container (max-width: 630px) { .local-track-table__head, .local-track-table__row { grid-template-columns: 24px minmax(0, 1fr) 43px 24px; column-gap: 6px; padding: 0 6px; } .local-track-table__album { display: none; } }
+@container (max-width: 560px) { .local-track-table__cover { width: 34px; height: 34px; border-radius: 9px; } .local-track-table__song { gap: 8px; } }
+@container (max-width: 360px) { .local-track-table__head, .local-track-table__row { grid-template-columns: 20px minmax(0, 1fr) 20px; column-gap: 5px; } .local-track-table__duration { display: none; } .local-track-table__actions button { width: 25px; } .local-track-table__song { gap: 5px; } }
 </style>

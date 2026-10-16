@@ -6,8 +6,8 @@
       <header class="ui-comments-song">
         <div class="ui-comments-cover"><TrackArtwork :track="track" :list-id="listId" :alt="track.name" /></div>
         <div class="ui-comments-song-info">
-          <span class="ui-comments-eyebrow">歌曲评论<span v-if="track.source === 'local'" class="ui-comments-local-source">本地音乐</span><TrackBadges v-else :track="track" /></span>
-          <h1 :title="track.name">{{ track.name }}</h1>
+          <span class="ui-comments-eyebrow">歌曲评论<span v-if="track.source === 'local'" class="ui-comments-local-source">本地音乐</span></span>
+          <h1><TrackTitle :track="track" focusable /></h1>
           <p class="ui-comments-artists"><template v-for="(artist, index) in artists" :key="artist"><span v-if="index" aria-hidden="true"> / </span><router-link :to="artistLocation(artist)">{{ artist }}</router-link></template><span v-if="!artists.length">未知歌手</span></p>
           <p v-if="track.meta.albumName" class="ui-comments-album" :title="track.meta.albumName">专辑 · {{ track.meta.albumName }}</p>
         </div>
@@ -29,7 +29,7 @@ import { getCatalogSources } from '../services/catalogSearch'
 import { playTrack } from '../services/music'
 import CommentsPanel from '../components/CommentsPanel.vue'
 import TrackArtwork from '../components/TrackArtwork.vue'
-import TrackBadges from '../components/TrackBadges.vue'
+import TrackTitle from '../components/TrackTitle.vue'
 import UiEmpty from '../components/UiEmpty.vue'
 import UiIcon from '../components/UiIcon.vue'
 

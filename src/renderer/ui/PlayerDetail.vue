@@ -14,12 +14,11 @@
         </div>
         <div class="ui-detail-lyric-stage">
           <div class="ui-detail-metadata">
-            <h1 :title="musicInfo.name">{{ musicInfo.name || '静候一首好歌' }}</h1>
+            <h1><TrackTitle :track="currentTrack" :text="musicInfo.name || '静候一首好歌'" focusable /></h1>
             <p class="ui-detail-artists">
               <template v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" aria-hidden="true"> / </span><button type="button" class="ui-detail-metadata-link" :aria-label="`搜索歌手 ${artist}`" @click="searchMetadata('artist', artist)">{{ artist }}</button></template></template>
               <span v-else>从你的音乐库开始聆听</span>
             </p>
-            <TrackBadges class="ui-detail-track-badges" :track="currentTrack" />
           </div>
           <div ref="lyricPanel" class="ui-detail-lyrics scroll" :style="{ '--ui-lyric-size': (appSetting['playDetail.style.fontSize'] / 100) + 'rem' }">
             <div v-if="!lyric.lines.length" class="ui-lyric-empty"><UiIcon name="lyric" /><p>{{ musicInfo.name ? '纯粹聆听，暂无歌词' : '歌词会随音乐在这里展开' }}</p></div>
@@ -53,7 +52,7 @@ import UiIcon from './components/UiIcon.vue'
 import PlayerBar from './PlayerBar.vue'
 import WindowControls from './components/WindowControls.vue'
 import PlayerPopover from './components/PlayerPopover.vue'
-import TrackBadges from './components/TrackBadges.vue'
+import TrackTitle from './components/TrackTitle.vue'
 import useToggleDesktopLyric from '@renderer/utils/compositions/useToggleDesktopLyric'
 import { appearance } from '@renderer/composables/useAppearance'
 
