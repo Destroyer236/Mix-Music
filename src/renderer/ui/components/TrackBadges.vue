@@ -22,7 +22,8 @@ const isVip = computed(() => props.track?.source !== 'local' && props.track?.met
 <style scoped lang="less">
 .ui-track-badges.ui-track-badges { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: flex-start; gap: 4px; width: auto; max-width: 100%; min-width: 0; margin: 0; overflow: visible; white-space: nowrap; vertical-align: middle; line-height: 1; }
 .ui-track-badges > .ui-track-badge { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; width: auto; min-height: 16px; margin: 0; padding: 2px 4px; border: 0; border-radius: 3px; font-size: 9px; font-weight: 550; line-height: 12px; letter-spacing: .15px; white-space: nowrap; }
-.ui-track-badge--source { color: var(--modern-accent-ink); background: var(--modern-accent-soft); }
-.ui-track-badge--vip { color: color-mix(in srgb, #c78c28 70%, var(--modern-text)); background: color-mix(in srgb, #c78c28 14%, transparent); }
+.ui-track-badges > :is(.ui-track-badge--source, .ui-track-badge--vip) { padding: 1px 4px; border: 1px solid currentColor; background: transparent; font-size: 10px; font-weight: 500; }
+.ui-track-badge--source { color: #00CC65; }
+.ui-track-badge--vip { color: #E5B046; }
 .ui-track-badge--trial { color: var(--modern-text); background: color-mix(in srgb, var(--modern-text) 9%, transparent); }
 </style>
