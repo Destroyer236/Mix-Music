@@ -54,7 +54,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     return stream.url
   } catch (error) { platformError = error }
   // Custom sources remain available when an account API cannot return a full stream.
-  if (musicInfo.source === 'bi') throw platformError
+  if (musicInfo.source === 'bi' || musicInfo.source === 'qs') throw platformError
   quality = getPlayQuality(quality ?? legacyQuality(preferredQuality.value), musicInfo)
   // if (!musicInfo._types[type]) {
   //   // 兼容旧版酷我源搜索列表过滤128k音质的bug

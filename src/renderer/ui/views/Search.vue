@@ -63,7 +63,7 @@ import type { ListInfoItem } from '@renderer/store/songList/state'
 
 type SearchKind = 'music' | 'songlist' | 'album' | 'artist'
 type SearchSource = LX.OnlineSource | 'all'
-interface SearchResponse { list: LX.Music.MusicInfo[] | ListInfoItem[] | CatalogEntry[], total: number, limit: number, allPage?: number }
+interface SearchResponse { list: LX.Music.MusicInfo[] | ListInfoItem[] | CatalogEntry[], total: number, limit: number, allPage?: number, notice?: string }
 const route = useRoute()
 const router = useRouter()
 const input = ref('')
@@ -161,7 +161,7 @@ async function load() {
     limit.value = currentLimit
     pages.value = Math.max(1, ...results.map(item => item.allPage ?? Math.ceil(item.total / (item.limit || currentLimit))))
     const failed = responses.reduce<string[]>((names, item, index) => item.status === 'rejected' ? [...names, sourceNames.value[selectedSources[index]]] : names, [])
-    partialFailure.value = failed.length ? `${failed.join('、')}暂时不可用，已显示其他平台的结果。` : ''
+    partialFailure.value = [failed.length ? `${failed.join('、')}暂时不可用，已显示其他平台的结果。` : '', ...new Set(results.map(item => item.notice).filter(Boolean))].filter(Boolean).join(' ')
     if (currentKind === 'music') tracks.value = deduplicationList(results.flatMap(item => (item.list as LX.Music.MusicInfo[]).map(track => toNewMusicInfo(track))))
     else if (currentKind === 'songlist') playlists.value = results.flatMap(item => item.list as ListInfoItem[])
     else {

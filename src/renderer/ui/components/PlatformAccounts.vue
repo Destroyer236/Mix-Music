@@ -9,17 +9,19 @@
       <div class="ui-platform-actions"><button v-if="account.connected" type="button" class="studio-settings-button" :disabled="account.canSync === false || platformBusy.has(account.platform)" @click="syncPlatforms(account.platform)"><UiIcon name="refresh" />{{ platformBusy.has(account.platform) ? '处理中…' : account.canSync === false ? '不支持云同步' : '同步音乐库' }}</button><button v-else type="button" class="studio-settings-button primary" :disabled="platformLoading || platformBusy.has(account.platform)" @click="loginPlatform(account.platform)"><UiIcon name="arrowUpRight" />{{ platformBusy.has(account.platform) ? '正在打开…' : account.canSync === false ? '打开官网登录' : account.profile ? '重新登录' : '登录' }}</button><button v-if="account.profile" type="button" class="studio-settings-button" :disabled="platformBusy.has(account.platform)" @click="confirmLogout(account)">退出</button></div>
     </article>
     <UiModal :show="Boolean(logoutAccount)" title="退出平台账号" @close="logoutAccount = null"><p class="ui-dialog-note">退出 {{ logoutAccount?.name }} 后，此平台的同步红心将从聚合列表移除。你主动保存的本地收藏会继续保留。</p><template #footer><button type="button" class="ui-dialog-button" @click="logoutAccount = null">取消</button><button type="button" class="ui-dialog-button ui-dialog-button-primary" @click="logout">退出账号</button></template></UiModal>
+    <QishuiLogin />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { PlatformAccount } from '@common/platformAccounts'
+import { platformNames } from '@common/platformAccounts'
 import { connectedPlatforms, loginPlatform, logoutPlatform, platformBusy, platformError, platformLoading, platformSnapshot, syncPlatforms } from '../services/platformAccounts'
 import UiIcon from './UiIcon.vue'
 import UiModal from './UiModal.vue'
+import QishuiLogin from './QishuiLogin.vue'
 
-const platformNames: Record<PlatformAccount['platform'], string> = { qq: 'QQ 音乐', netease: '网易云音乐', kugou: '酷狗音乐', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩' }
 const fallback: PlatformAccount[] = (Object.keys(platformNames) as Array<PlatformAccount['platform']>).map(platform => ({ platform, name: platformNames[platform], connected: false, profile: null, lastSync: null, count: 0, error: '' }))
 const accounts = computed(() => {
   const remote = platformSnapshot.value.accounts

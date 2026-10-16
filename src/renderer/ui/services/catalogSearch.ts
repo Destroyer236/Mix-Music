@@ -14,7 +14,7 @@ export interface CatalogEntry {
   mid?: string
   numericId?: number
 }
-export interface CatalogResponse<T> { list: T[], total: number, limit: number, allPage: number }
+export interface CatalogResponse<T> { list: T[], total: number, limit: number, allPage: number, notice?: string }
 export const getCatalogSources = (kind: CatalogKind): LX.OnlineSource[] => catalogSources[kind] as LX.OnlineSource[]
 export const searchMusicCatalog = async(source: LX.OnlineSource, kind: CatalogKind, text: string, page: number, limit: number): Promise<CatalogResponse<CatalogEntry>> => await searchCatalog(source, kind, text, page, limit)
 export const readCatalogTracks = async(item: CatalogEntry, page: number, limit: number): Promise<CatalogResponse<LX.Music.MusicInfo>> => {

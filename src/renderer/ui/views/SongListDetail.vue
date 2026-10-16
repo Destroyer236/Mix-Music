@@ -15,7 +15,8 @@ import UiIcon from '@renderer/ui/components/UiIcon.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getListDetail, getListDetailAll } from '@renderer/store/songList/action'
-import { sources, type ListDetailInfo } from '@renderer/store/songList/state'
+import { type ListDetailInfo } from '@renderer/store/songList/state'
+import musicSdk from '@renderer/utils/musicSdk'
 import { createUserList, getUserLists, setTempList } from '@renderer/store/list/action'
 import { userLists } from '@renderer/store/list/state'
 import { sourceNames } from '@renderer/store'
@@ -30,6 +31,7 @@ import { usePaginationScroll } from '../usePaginationScroll'
 const route = useRoute()
 const router = useRouter()
 const queryValue = (value: unknown) => typeof value === 'string' ? value : ''
+const sources = musicSdk.sources.filter(item => musicSdk[item.id as LX.OnlineSource]?.songList?.getListDetail).map(item => item.id as LX.OnlineSource)
 const source = computed(() => sources.includes(queryValue(route.query.source) as LX.OnlineSource) ? route.query.source as LX.OnlineSource : sources[0] || 'kw')
 const playlistId = computed(() => queryValue(route.query.id))
 const page = computed(() => Math.max(1, Number.parseInt(queryValue(route.query.page), 10) || 1))

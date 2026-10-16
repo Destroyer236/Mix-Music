@@ -5,6 +5,7 @@ import { platformNames } from '@common/platformAccounts'
 import { sameRecording } from '@common/platformMatching'
 import { addListMusics, getListMusics, removeListMusics } from '@renderer/store/list/action'
 import { loveList } from '@renderer/store/list/state'
+import { startQishuiLogin, closeQishuiLogin } from './qishuiLogin'
 
 const importedKey = 'linkline.platform-favorites.imported.v1'
 const imported = new Set<string>()
@@ -94,6 +95,7 @@ export async function initializePlatformAccounts(): Promise<void> {
 }
 
 export function disposePlatformAccounts() {
+  closeQishuiLogin()
   stopped = true
   ipcRenderer.removeListener('platform_accounts_changed', onSnapshot)
   window.app_event.off('myListUpdate', onListUpdate)
@@ -110,7 +112,7 @@ async function accountAction(channel: string, platform: PlatformId | null) {
     await queue
   } catch (error) { platformError.value = describeError(error) } finally { platformBusy.value = new Set([...platformBusy.value].filter(id => !ids.includes(id))) }
 }
-export const loginPlatform = async(platform: PlatformId) => accountAction('platform_accounts_login', platform)
+export const loginPlatform = async(platform: PlatformId) => platform === 'qishui' ? startQishuiLogin() : accountAction('platform_accounts_login', platform)
 export const syncPlatforms = async(platform: PlatformId | null = null) => accountAction('platform_accounts_sync', platform)
 export const logoutPlatform = async(platform: PlatformId) => accountAction('platform_accounts_logout', platform)
 

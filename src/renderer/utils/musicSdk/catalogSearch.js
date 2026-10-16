@@ -7,9 +7,11 @@ import kuwoMusicSearch from './kw/musicSearch'
 import { objStr2JSON } from './kw/util'
 import { getMusicInfosByList } from './kg/musicInfo'
 import { filterMusicInfoList as miguTracks } from './mg/musicInfo'
+import { ipcRenderer } from 'electron'
+import { toOldMusicInfo } from '@common/utils/tools'
 
 // Catalogue search uses platform album/artist endpoints, not song keyword results.
-export const catalogSources = { album: ['wy', 'tx', 'kg', 'kw'], artist: ['wy', 'tx', 'kg', 'kw', 'mg'] }
+export const catalogSources = { album: ['wy', 'tx', 'kg', 'kw', 'qs'], artist: ['wy', 'tx', 'kg', 'kw', 'mg', 'qs'] }
 const count = value => Math.max(0, Number(value) || 0)
 const strings = value => decodeName(String(value ?? '').replace(/<[^>]*>/g, ''))
 const picture = value => typeof value === 'string' && /^https?:\/\//.test(value) ? value.replaceAll('{size}', '400') : ''
@@ -55,6 +57,13 @@ function neteaseTracks(raw, privileges = []) {
 
 export async function searchCatalog(source, kind, text, page = 1, limit = 18) {
   if (!catalogSources[kind]?.includes(source)) throw new Error('此平台未提供该类型的音乐目录。')
+  if (source === 'qs') {
+    const response = await ipcRenderer.invoke('platform_qishui_search', { query: text, kind, page })
+    return {
+      ...result(response.list.map(value => entry(source, kind, value.id, value.name, value.cover, value.singer, { count: value.count })), response.total, response.limit),
+      notice: response.limited ? '汽水音乐当前显示搜索联想中的有限结果；登录后可尝试完整搜索。' : '',
+    }
+  }
   let list
   let total
   if (source === 'wy') {
@@ -98,6 +107,10 @@ export async function searchCatalog(source, kind, text, page = 1, limit = 18) {
 export async function getCatalogTracks(item, page = 1, limit = 30) {
   const { source, kind, id } = item
   if (!catalogSources[kind]?.includes(source)) throw new Error('此平台未提供该类型的音乐目录。')
+  if (source === 'qs') {
+    const response = await ipcRenderer.invoke(kind === 'album' ? 'platform_qishui_album' : 'platform_qishui_artist', { id })
+    return result(response.list.slice((page - 1) * limit, page * limit).map(toOldMusicInfo), response.list.length, limit)
+  }
   let list
   let total
   if (source === 'wy') {

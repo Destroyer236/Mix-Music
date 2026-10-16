@@ -4,10 +4,10 @@
     <Teleport to="body">
       <section v-if="open" :id="panelId" ref="panel" class="ui-quality-panel scroll" role="dialog" aria-modal="false" aria-label="播放音质" :style="position" @keydown="onPanelKeydown">
         <header><div><strong>播放音质</strong><span>{{ platformLabel }}</span></div><button type="button" class="ui-icon-button" aria-label="关闭音质设置" @click="close(true)"><UiIcon name="close" /></button></header>
-        <p v-if="stream" class="ui-quality-current" role="status">实际播放 · {{ qualityLabels[stream.quality ?? stream.type] }}<small v-if="streamDetails">{{ streamDetails }}</small></p>
+        <p v-if="stream" class="ui-quality-current" role="status">实际播放 · {{ stream.qualityLabel || qualityLabels[stream.quality ?? stream.type] }}<small v-if="streamDetails">{{ streamDetails }}</small></p>
         <p v-else class="ui-quality-current">{{ streamSummary }}</p>
         <div class="ui-quality-options" role="radiogroup" aria-label="选择播放音质">
-          <button v-for="quality in options" :key="quality" type="button" role="radio" :aria-checked="preferredQuality === quality" :data-quality="quality" :disabled="changing" :class="{ selected: preferredQuality === quality }" @click="choose(quality)"><span>{{ qualityLabels[quality] }}<small v-if="quality === 'auto'">默认 · 自动选择账号与歌曲允许的最高音质</small></span><UiIcon v-if="preferredQuality === quality" name="check" /></button>
+          <button v-for="quality in options" :key="quality" type="button" role="radio" :aria-checked="preferredQuality === quality" :data-quality="quality" :disabled="changing" :class="{ selected: preferredQuality === quality }" @click="choose(quality)"><span>{{ quality === 'auto' && qualityTrack?.source === 'qs' ? '平台提供的分享音频' : qualityLabels[quality] }}<small v-if="quality === 'auto'">{{ qualityTrack?.source === 'qs' ? '汽水分享接口未开放原生音质切换' : '默认 · 自动选择账号与歌曲允许的最高音质' }}</small></span><UiIcon v-if="preferredQuality === quality" name="check" /></button>
         </div>
         <p v-if="loading || changing" class="ui-quality-note" role="status">{{ changing ? '正在切换，保留当前播放进度…' : '正在查询这首歌的可用音质…' }}</p>
         <p v-if="error" class="ui-quality-error" role="status">{{ error }}</p>
@@ -40,7 +40,7 @@ const options = computed<PlatformQuality[]>(() => ['auto', ...qualitys.value.fil
 const unavailablePreference = computed(() => preferredQuality.value !== 'auto' && !options.value.includes(preferredQuality.value))
 const stream = computed(() => activeStream.value?.trackId === props.track?.id ? activeStream.value : null)
 const qualityTrack = computed(() => stream.value?.musicInfo ?? props.track)
-const platformNames: Record<string, string> = { qq: 'QQ 音乐', tx: 'QQ 音乐', netease: '网易云音乐', wy: '网易云音乐', kugou: '酷狗音乐', kg: '酷狗音乐', kuwo: '酷我音乐', kw: '酷我音乐', migu: '咪咕音乐', mg: '咪咕音乐', bilibili: '哔哩哔哩', bi: '哔哩哔哩' }
+const platformNames: Record<string, string> = { qq: 'QQ 音乐', tx: 'QQ 音乐', netease: '网易云音乐', wy: '网易云音乐', kugou: '酷狗音乐', kg: '酷狗音乐', kuwo: '酷我音乐', kw: '酷我音乐', migu: '咪咕音乐', mg: '咪咕音乐', bilibili: '哔哩哔哩', bi: '哔哩哔哩', qishui: '汽水音乐', qs: '汽水音乐' }
 const platformLabel = computed(() => {
   if (stream.value) return platformNames[stream.value.platform] ?? stream.value.platform
   const track: LX.Music.MusicInfo | null = props.track
@@ -49,7 +49,7 @@ const platformLabel = computed(() => {
 const streamSummary = computed(() => {
   if (!props.track) return '选择歌曲后可切换音质'
   if (props.track.source === 'local') return '本地文件音质由音频文件决定'
-  return stream.value ? `${platformLabel.value} · ${qualityLabels[stream.value.quality ?? stream.value.type]}` : `音质偏好 · ${qualityLabels[preferredQuality.value]}`
+  return stream.value ? `${platformLabel.value} · ${stream.value.qualityLabel ?? qualityLabels[stream.value.quality ?? stream.value.type]}` : `音质偏好 · ${qualityLabels[preferredQuality.value]}`
 })
 const streamDetails = computed(() => {
   const details: string[] = []
