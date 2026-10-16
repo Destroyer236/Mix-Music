@@ -95,10 +95,11 @@ export const sourceNames = computed(() => {
     wy: 'wy',
     bi: '哔哩哔哩',
     qs: '汽水音乐',
+    bo: '波点音乐',
     all: window.i18n.t(prefix + 'all' as any),
   }
   for (const { id } of music.sources) {
-    if (id === 'qs') continue
+    if (id === 'qs' || id === 'bo') continue
     sourceNames[id as LX.OnlineSource] = window.i18n.t(prefix + id as any)
   }
 

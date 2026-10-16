@@ -13,6 +13,8 @@ import { kugouProvider } from './providers/kugou'
 import { kuwoProvider } from './providers/kuwo'
 import qishuiProvider, { searchCatalog, publicPlaylist, resolveShare, getLyrics, getAlbumTracks, getArtistTracks } from './providers/qishui'
 import { createQishuiLogin } from './qishuiLogin'
+import bodianProvider, { searchCatalog as searchBodianCatalog, publicPlaylist as bodianPlaylist, resolveShare as resolveBodianShare, getLyrics as getBodianLyrics, getAlbumTracks as getBodianAlbumTracks, getArtistTracks as getBodianArtistTracks } from './providers/bodian'
+import { createBodianLogin } from './bodianLogin'
 import type { PlatformProvider, ProviderContext } from './providers/types'
 import { canNavigateAccount, registerAccountSession } from './navigation'
 import { createPlaybackResolver } from './playback'
@@ -28,7 +30,7 @@ interface ProviderState {
   busy: Promise<unknown>
   generation: number
 }
-const providers = [qqProvider, neteaseProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider, qishuiProvider]
+const providers = [qqProvider, neteaseProvider, qishuiProvider, bodianProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider]
 const states = new Map<PlatformId, ProviderState>()
 let initialized: Promise<void> | undefined
 let saveQueue = Promise.resolve()
@@ -203,6 +205,7 @@ const getPlaylist = async(params: { id: string, refresh?: boolean }): Promise<Pl
 }
 const openLogin = async(id: PlatformId) => {
   if (id === 'qishui') throw new Error('请使用汽水音乐的扫码登录入口')
+  if (id === 'bodian') throw new Error('请使用波点音乐的扫码登录入口')
   const state = await getState(id)
   if (state.window && !state.window.isDestroyed()) { state.window.focus(); return snapshot() }
   const window = new BrowserWindow({
@@ -326,6 +329,53 @@ const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | nu
 }
 
 export default () => {
+  let bodianLogin: ReturnType<typeof createBodianLogin> | undefined
+  const bodianOwners = new WeakSet<Electron.WebContents>()
+  const getBodianLogin = async() => {
+    const state = await getState('bodian')
+    bodianLogin ??= createBodianLogin(state.context, async() => {
+      const generation = state.generation
+      const profile = await state.provider.profile(state.context)
+      if (generation !== state.generation || !bodianLogin?.isActive()) throw new Error('登录已取消或过期，请重新扫码')
+      acceptProfile(state, profile)
+      state.account.connected = true
+      state.account.error = ''
+      void save()
+      notify()
+      void syncState(state)
+    })
+    return { state, login: bodianLogin }
+  }
+  mainHandle('platform_bodian_login_start', async({ event }) => {
+    const { state, login } = await getBodianLogin()
+    if (!bodianOwners.has(event.sender)) {
+      bodianOwners.add(event.sender)
+      const owner = event.sender.id
+      event.sender.once('destroyed', () => {
+        try { if (login.cancel(owner)) ++state.generation } catch {}
+      })
+    }
+    ++state.generation
+    return login.start(event.sender.id)
+  })
+  mainHandle<{ flowId: string }, Awaited<ReturnType<ReturnType<typeof createBodianLogin>['check']>>>('platform_bodian_login_check', async({ event, params }) => {
+    const { login } = await getBodianLogin()
+    if (!params || typeof params.flowId !== 'string') throw new Error('无效的登录会话')
+    return login.check(event.sender.id, params.flowId)
+  })
+  mainHandle<{ flowId?: string }>('platform_bodian_login_cancel', async({ event, params }) => {
+    const { state, login } = await getBodianLogin()
+    if (login.cancel(event.sender.id, params?.flowId)) ++state.generation
+  })
+  mainHandle<{ query: string, kind: 'track' | 'album' | 'artist' | 'playlist', page?: number }, Awaited<ReturnType<typeof searchBodianCatalog>>>('platform_bodian_search', async({ params }) => {
+    if (!params || typeof params.query !== 'string' || !['track', 'album', 'artist', 'playlist'].includes(params.kind)) throw new Error('无效的波点搜索')
+    return searchBodianCatalog((await getState('bodian')).context, params.query, params.kind, params.page ?? 1)
+  })
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof bodianPlaylist>>>('platform_bodian_playlist', async({ params }) => bodianPlaylist((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianAlbumTracks>>>('platform_bodian_album', async({ params }) => getBodianAlbumTracks((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianArtistTracks>>>('platform_bodian_artist', async({ params }) => getBodianArtistTracks((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianLyrics>>>('platform_bodian_lyric', async({ params }) => getBodianLyrics((await getState('bodian')).context, params?.id))
+  mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveBodianShare>>>('platform_bodian_share', async({ params }) => resolveBodianShare((await getState('bodian')).context, params?.text))
   let qrLogin: ReturnType<typeof createQishuiLogin> | undefined
   const qrOwners = new WeakSet<Electron.WebContents>()
   const getQrLogin = async() => {
@@ -396,6 +446,10 @@ export default () => {
     if (params === 'qishui' && qrLogin) {
       qrLogin.cancelAll()
       await qrLogin.settled()
+    }
+    if (params === 'bodian' && bodianLogin) {
+      bodianLogin.cancelAll()
+      await bodianLogin.settled()
     }
     state.window?.close()
     await exclusive(state, async() => {

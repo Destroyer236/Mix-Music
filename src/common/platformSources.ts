@@ -5,10 +5,11 @@ export const platformSourceLabels: Record<PreferredPlatformSource, string> = {
   auto: '自动 · 跟随歌曲来源',
   tx: 'QQ 音乐',
   wy: '网易云音乐',
+  qs: '汽水音乐',
+  bo: '波点音乐',
   kg: '酷狗音乐',
   kw: '酷我音乐',
   mg: '咪咕音乐',
-  qs: '汽水音乐',
   bi: '哔哩哔哩',
 }
 

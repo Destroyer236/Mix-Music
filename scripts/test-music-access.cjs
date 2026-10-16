@@ -119,6 +119,7 @@ async function favoritesMigration() {
         updateListMusics: async items => { updates.push(...items); saved = saved.map(track => items.find(item => item.musicInfo.id === track.id)?.musicInfo ?? track) },
       },
       './qishuiLogin': { closeQishuiLogin() {} },
+      './bodianLogin': { closeBodianLogin() {} },
     })
     await service.initializePlatformAccounts()
     assert.deepEqual(updates.map(item => [item.musicInfo.id, item.musicInfo.meta.isVip, item.musicInfo.meta.subtitle]), [['wy_1', true, 'Real alias'], ['tx_2', false, 'Real subtitle'], ['tx_4', false, 'Updated subtitle']])

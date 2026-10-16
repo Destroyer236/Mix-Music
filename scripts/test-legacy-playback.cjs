@@ -41,7 +41,9 @@ const index = load('src/main/modules/platformAccounts/index.ts', {
   './providers/migu': { miguProvider: provider('migu', 'mg') },
   './providers/bilibili': { bilibiliProvider: provider('bilibili', 'bi') },
   './providers/qishui': { default: provider('qishui', 'qs'), __esModule: true },
+  './providers/bodian': { default: provider('bodian', 'bo'), __esModule: true },
   './qishuiLogin': {},
+  './bodianLogin': {},
   './navigation': { registerAccountSession() {} },
   './playback': resolver,
 })

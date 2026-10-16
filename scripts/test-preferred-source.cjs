@@ -49,6 +49,7 @@ function state(source, response = full(source), connected = false) {
 }
 async function main() {
   assert.equal(sources.isPreferredPlatformSource('qs'), true)
+  assert.equal(sources.isPreferredPlatformSource('bo'), true)
   assert.equal(sources.isPreferredPlatformSource('constructor'), false)
   assert.equal(sources.isPreferredPlatformSource(null), false)
   let preferred = 'wy'
@@ -116,10 +117,13 @@ async function main() {
   const field = schema.settingFields.find(item => item.key === 'player.preferredSource')
   assert.equal(field.category, 'playback')
   assert.equal(field.type, 'select')
-  assert.equal(field.options.length, 8)
+  assert.equal(field.options.length, 9)
+  assert.deepEqual(field.options.find(option => option.value === 'bo'), { value: 'bo', label: '波点音乐' })
   assert.equal(schema.parseSettingValue(field, 'mg'), 'mg')
+  assert.equal(schema.parseSettingValue(field, 'bo'), 'bo')
   assert.throws(() => schema.parseSettingValue(field, 'invalid'), /有效/)
   assert.deepEqual(schema.validateSettingBackup({ 'player.preferredSource': 'qs' }), { 'player.preferredSource': 'qs' })
+  assert.deepEqual(schema.validateSettingBackup({ 'player.preferredSource': 'bo' }), { 'player.preferredSource': 'bo' })
   assert.deepEqual(schema.validateSettingBackup({ 'player.preferredSource': 'invalid' }), {})
 
   // Source and quality edits share the existing transactional reload path.

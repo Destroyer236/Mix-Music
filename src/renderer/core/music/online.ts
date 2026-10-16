@@ -66,7 +66,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     return trial.url
   }
   // Custom sources remain available when an account API cannot return a full stream.
-  if (musicInfo.source === 'bi' || musicInfo.source === 'qs') return useTrial()
+  if (musicInfo.source === 'bi' || musicInfo.source === 'qs' || musicInfo.source === 'bo') return useTrial()
   quality = getPlayQuality(quality ?? legacyQuality(preferredQuality.value), musicInfo)
   // if (!musicInfo._types[type]) {
   //   // 兼容旧版酷我源搜索列表过滤128k音质的bug
