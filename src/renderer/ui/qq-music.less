@@ -4016,12 +4016,12 @@ html[data-modern-theme][data-modern-joined-panels='true'] {
   }
 }
 
-// Keep platform and VIP badges beside an ellipsized title, with artists below.
+// Keep title badges compact and player artists directly beside the song name.
 .ui-recommend-track-info > button > .ui-track-title { width: 100%; }
-:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-title { flex: 1 1 auto; width: 100%; max-width: none; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-title { flex: 0 1 auto; width: auto; max-width: 60%; }
 :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title .ui-track-title { width: 100%; color: inherit; font: inherit; }
 :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title .ui-track-title-text { color: inherit; font: inherit; }
-:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-artists { flex: 0 1 auto; max-width: 30%; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-artists { flex: 1; max-width: none; }
 #container .ui-player-detail.ui-player-detail--immersive.ui-player-detail--record .ui-detail-metadata h1 { display: block; overflow-wrap: normal; }
 .ui-detail-metadata h1 > .ui-track-title { width: 100%; }
 .ui-comments-song-info h1 > .ui-track-title { width: 100%; }
@@ -4032,7 +4032,7 @@ html[data-modern-theme][data-modern-joined-panels='true'] {
 .ui-player-queue-panel .ui-queue-track-info > .ui-track-title { width: 100%; color: inherit; font: inherit; }
 .ui-player-queue-panel .ui-queue-track-info .ui-track-title-text { color: inherit; font: inherit; }
 @media (max-width: 900px) {
-  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-artists { max-width: 100%; }
+  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-title-line > .ui-player-title { max-width: 100%; }
   :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions { gap: 6px; }
 }
 @media (max-width: 640px) {
