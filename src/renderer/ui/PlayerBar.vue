@@ -2,7 +2,7 @@
   <section class="ui-player" :class="`ui-progress-${appSetting['common.playBarProgressStyle']}`" aria-label="音乐播放器">
     <div class="ui-player-track">
       <button type="button" class="ui-player-cover" aria-label="打开播放详情" @click="setShowPlayerDetail(true)"><TrackArtwork :track="currentTrack" :src="musicInfo.pic" :alt="musicInfo.name" /></button>
-      <div class="ui-player-info"><div class="ui-player-title-line"><button type="button" class="ui-player-title" :aria-label="musicInfo.name ? `打开 ${musicInfo.name} 的播放详情` : '打开播放详情'" @click="setShowPlayerDetail(true)"><TrackTitle :track="currentTrack" :badge-track="playingTrack" :text="musicInfo.name || '选择一首歌，开始聆听'" /></button><span class="ui-player-artists" :title="musicInfo.singer"><template v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" aria-hidden="true"> / </span><router-link :to="artistLocation(artist)" :aria-label="`查看歌手 ${artist}`" @click="openArtist">{{ artist }}</router-link></template></template><template v-else>{{ musicInfo.name ? '未知歌手' : '每一种心情，都有自己的旋律' }}</template></span></div>
+      <div class="ui-player-info"><div class="ui-player-title-line"><button type="button" class="ui-player-title" :aria-label="musicInfo.name ? `打开 ${musicInfo.name} 的播放详情` : '打开播放详情'" @click="setShowPlayerDetail(true)"><TrackTitle :track="currentTrack" :show-badges="false" :text="musicInfo.name || '选择一首歌，开始聆听'" /></button><span class="ui-player-artists" :title="musicInfo.singer"><template v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" aria-hidden="true"> / </span><router-link :to="artistLocation(artist)" :aria-label="`查看歌手 ${artist}`" @click="openArtist">{{ artist }}</router-link></template></template><template v-else>{{ musicInfo.name ? '未知歌手' : '每一种心情，都有自己的旋律' }}</template></span></div>
         <div class="ui-player-song-actions"><button type="button" class="ui-icon-button ui-collect-button" :aria-pressed="collected" :aria-label="collected ? '取消收藏当前歌曲' : '收藏当前歌曲'" :class="{ 'ui-active': collected }" :disabled="!currentTrack" @click="toggleCollect"><UiIcon name="heart" :filled="collected" /></button><button type="button" class="ui-icon-button" aria-label="查看歌曲评论" :disabled="!currentTrack" @click="openComments"><UiIcon name="comment" /></button><PlayerOptions :track="currentTrack" :collected="collected" :favorite-pending="currentTrack ? favoritePending.has(currentTrack.id) : false" @collect="toggleCollect" /><TrackBadges class="ui-player-current-badges" :show-source="false" :show-vip="false" :trial="isTrial" /></div>
       </div>
     </div>
@@ -44,11 +44,6 @@ const cyclePlayMode = () => { setTogglePlayMode(playModes[(modeIndex.value + 1) 
 const { toggleDesktopLyric } = useToggleDesktopLyric()
 const currentTrack = computed(() => { const item = playMusicInfo.musicInfo; return item && 'metadata' in item ? item.metadata.musicInfo : item })
 const currentStream = computed(() => activeStream.value?.trackId === playMusicInfo.musicInfo?.id ? activeStream.value : null)
-const playingTrack = computed(() => {
-  const track = currentStream.value?.musicInfo
-  if (!track) return currentTrack.value
-  return track.meta.isVip === undefined && currentTrack.value?.meta?.isVip === true ? { ...track, meta: { ...track.meta, isVip: true } } : track
-})
 const isTrial = computed(() => currentStream.value?.isTrial === true)
 const artistNames = computed(() => [...new Set(String(musicInfo.singer || '').split(/\s*、\s*|\s+\/\s+/).map(name => name.trim()).filter(Boolean))])
 const artistLocation = text => ({ path: '/search', query: { text, type: 'artist', source: getCatalogSources('artist').includes(currentTrack.value?.source) ? currentTrack.value.source : 'all', page: '1' } })
