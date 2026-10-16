@@ -63,7 +63,7 @@ import type { ListInfoItem } from '@renderer/store/songList/state'
 
 type SearchKind = 'music' | 'songlist' | 'album' | 'artist'
 type SearchSource = LX.OnlineSource | 'all'
-interface SearchResponse { list: LX.Music.MusicInfo[] | ListInfoItem[] | CatalogEntry[], total: number, limit: number, allPage?: number, notice?: string }
+interface SearchResponse { list: LX.Music.MusicInfo[] | ListInfoItem[] | CatalogEntry[], total: number, totalExact?: boolean, limit: number, allPage?: number, notice?: string }
 const route = useRoute()
 const router = useRouter()
 const input = ref('')
@@ -74,6 +74,7 @@ const page = ref(1)
 const limit = ref(30)
 const pages = ref(1)
 const total = ref(0)
+const totalExact = ref(true)
 const tracks = ref<LX.Music.MusicInfo[]>([])
 const playlists = ref<ListInfoItem[]>([])
 const catalog = ref<CatalogEntry[]>([])
@@ -101,7 +102,7 @@ const sourceOptions = computed(() => [{ value: 'all', label: '全部平台' }, .
 const resultUnit = computed(() => ({ music: '首歌曲', songlist: '份歌单', album: '张专辑', artist: '位歌手' }[kind.value]))
 const artistMatches = computed(() => matchArtists(catalog.value, keyword.value))
 const resultHeading = computed(() => ({ music: '歌曲', artist: '匹配歌手', album: '专辑', songlist: '歌单' }[kind.value]))
-const resultSummary = computed(() => kind.value === 'artist' ? `${artistMatches.value.exact ? '' : '本页 '}${artistMatches.value.groups.length} 组结果` : source.value === 'all' ? `本页 ${kind.value === 'music' ? tracks.value.length : kind.value === 'album' ? catalog.value.length : playlists.value.length} ${resultUnit.value}` : `${total.value.toLocaleString()} ${resultUnit.value}`)
+const resultSummary = computed(() => kind.value === 'artist' ? `${artistMatches.value.exact ? '' : '本页 '}${artistMatches.value.groups.length} 组结果` : source.value === 'all' || !totalExact.value ? `本页 ${kind.value === 'music' ? tracks.value.length : kind.value === 'album' ? catalog.value.length : playlists.value.length} ${resultUnit.value}` : `${total.value.toLocaleString()} ${resultUnit.value}`)
 const prompts = [{ icon: 'moon', label: '放松一下', text: '睡前 轻音乐' }, { icon: 'focus', label: '保持专注', text: '专注 工作' }, { icon: 'discover', label: '发现好心情', text: '快乐 流行' }]
 let requestId = 0
 let entityRequestId = 0
@@ -158,6 +159,7 @@ async function load() {
     const results = responses.filter((item): item is PromiseFulfilledResult<SearchResponse> => item.status === 'fulfilled').map(item => item.value)
     if (!results.length) throw new Error('所选平台暂时无法返回结果，请重试或切换音源。')
     total.value = results.reduce((sum, item) => sum + (Number(item.total) || 0), 0)
+    totalExact.value = results.every(item => item.totalExact !== false)
     limit.value = currentLimit
     pages.value = Math.max(1, ...results.map(item => item.allPage ?? Math.ceil(item.total / (item.limit || currentLimit))))
     const failed = responses.reduce<string[]>((names, item, index) => item.status === 'rejected' ? [...names, sourceNames.value[selectedSources[index]]] : names, [])
@@ -175,6 +177,7 @@ async function load() {
     playlists.value = []
     catalog.value = []
     total.value = 0
+    totalExact.value = true
     pages.value = 1
   } finally { if (id === requestId) loading.value = false }
 }

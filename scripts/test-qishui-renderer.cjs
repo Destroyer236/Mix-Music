@@ -12,7 +12,8 @@ function load(relative, dependencies = {}) {
   instance.filename = file
   instance.paths = Module._nodeModulePaths(path.dirname(file))
   const nativeRequire = instance.require.bind(instance)
-  instance.require = name => Object.hasOwn(dependencies, name) ? dependencies[name] : nativeRequire(name)
+  instance.require = name => Object.hasOwn(dependencies, name) ? dependencies[name]
+    : name === '../musicAccess' ? load('src/common/musicAccess.ts') : nativeRequire(name)
   instance._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, file)

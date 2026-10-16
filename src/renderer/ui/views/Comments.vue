@@ -6,8 +6,8 @@
       <header class="ui-comments-song">
         <div class="ui-comments-cover"><TrackArtwork :track="track" :list-id="listId" :alt="track.name" /></div>
         <div class="ui-comments-song-info">
-          <span class="ui-comments-eyebrow">歌曲评论<span>{{ track.source === 'local' ? '本地音乐' : sourceNames[track.source] }}</span></span>
-          <h1 :title="track.name">{{ track.name }}</h1>
+          <span class="ui-comments-eyebrow">歌曲评论<span v-if="track.source === 'local'" class="ui-comments-local-source">本地音乐</span></span>
+          <h1><TrackTitle :track="track" focusable /></h1>
           <p class="ui-comments-artists"><template v-for="(artist, index) in artists" :key="artist"><span v-if="index" aria-hidden="true"> / </span><router-link :to="artistLocation(artist)">{{ artist }}</router-link></template><span v-if="!artists.length">未知歌手</span></p>
           <p v-if="track.meta.albumName" class="ui-comments-album" :title="track.meta.albumName">专辑 · {{ track.meta.albumName }}</p>
         </div>
@@ -22,7 +22,6 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { LIST_IDS } from '@common/constants'
-import { sourceNames } from '@renderer/store'
 import { playMusicInfo } from '@renderer/store/player/state'
 import { getListMusics } from '@renderer/store/list/action'
 import { getDownloadList } from '@renderer/store/download/action'
@@ -30,6 +29,7 @@ import { getCatalogSources } from '../services/catalogSearch'
 import { playTrack } from '../services/music'
 import CommentsPanel from '../components/CommentsPanel.vue'
 import TrackArtwork from '../components/TrackArtwork.vue'
+import TrackTitle from '../components/TrackTitle.vue'
 import UiEmpty from '../components/UiEmpty.vue'
 import UiIcon from '../components/UiIcon.vue'
 
@@ -83,7 +83,7 @@ onBeforeUnmount(() => { requestId++ })
 .ui-comments-song { display: flex; align-items: center; gap: 22px; padding-bottom: 26px; border-bottom: 1px solid var(--modern-border); margin-bottom: 22px; }
 .ui-comments-cover { flex: none; width: 108px; height: 108px; overflow: hidden; border-radius: 10px; }
 .ui-comments-song-info { flex: 1; min-width: 0; h1 { margin: 7px 0 9px; font-size: clamp(20px, 2vw, 27px); font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } }
-.ui-comments-eyebrow { display: flex; align-items: center; gap: 10px; color: var(--modern-muted); font-size: 11px; > span { border-left: 1px solid var(--modern-border); padding-left: 10px; } }
+.ui-comments-eyebrow { display: flex; align-items: center; gap: 10px; color: var(--modern-muted); font-size: 11px; > .ui-comments-local-source { border-left: 1px solid var(--modern-border); padding-left: 10px; } }
 .ui-comments-artists { font-size: 13px; line-height: 1.6; a { color: var(--modern-muted); text-decoration: none; &:hover { color: var(--modern-accent-ink); text-decoration: underline; } } }
 .ui-comments-album { margin-top: 5px; font-size: 11px; color: var(--modern-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-comments-play { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 7px; padding: 10px 16px; border: 0; border-radius: 22px; background: var(--modern-accent); color: var(--modern-accent-contrast); font: inherit; font-size: 12px; cursor: pointer; svg { width: 16px; height: 16px; } &:disabled { opacity: .5; cursor: default; } }

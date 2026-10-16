@@ -1,11 +1,16 @@
 // 业务工具方法
 
+import { songVip } from '../musicAccess'
+
 export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
   const meta: Record<string, any> = {
     songId: oldMusicInfo.songmid, // 歌曲ID，local为文件路径
     albumName: oldMusicInfo.albumName, // 歌曲专辑名称
     picUrl: oldMusicInfo.img, // 歌曲图片链接
   }
+  const isVip = songVip(oldMusicInfo.source, oldMusicInfo)
+  if (isVip != null) meta.isVip = isVip
+  if (typeof oldMusicInfo.subtitle === 'string' && oldMusicInfo.subtitle.trim()) meta.subtitle = oldMusicInfo.subtitle.trim()
   const newInfo = {
     id: `${oldMusicInfo.source}_${oldMusicInfo.songmid}`,
     name: oldMusicInfo.name,
@@ -66,6 +71,8 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo) => {
     img: minfo.meta.picUrl ?? '',
     typeUrl: {},
   }
+  if (minfo.meta.isVip != null) oInfo.isVip = minfo.meta.isVip
+  if (minfo.meta.subtitle) oInfo.subtitle = minfo.meta.subtitle
   if (minfo.source == 'local') {
     oInfo.filePath = minfo.meta.filePath
     oInfo.ext = minfo.meta.ext

@@ -1,10 +1,15 @@
 <template>
   <div ref="pageContainer" class="ui-song-detail ui-discovery-page" @keyup.space.stop>
     <button type="button" class="ui-song-detail__back" @click="router.push({ path: '/songList/list', query: { source } })"><UiIcon name="back" />精选歌单</button>
-    <section class="ui-song-detail__hero"><div class="ui-song-detail__cover"><img v-if="cover" :src="cover" :alt="name" @error="hideImage"><span aria-hidden="true"><UiIcon name="music" /></span></div><div class="ui-song-detail__info"><span class="ui-eyebrow">PLAYLIST · {{ sourceNames[source] }}</span><h1>{{ name }}</h1><p class="ui-song-detail__author">{{ detail?.info.author || '精选歌单' }}<span v-if="detail?.total"> · {{ detail.total.toLocaleString() }} 首歌曲</span><span v-if="detail?.info.play_count"> · {{ detail.info.play_count }} 次播放</span></p><p v-if="description" class="ui-song-detail__description">{{ description }}</p><div class="ui-song-detail__buttons"><button type="button" class="ui-solid-button" :disabled="loading || busy || !detail?.list.length" @click="playCollection()"><UiIcon name="play" filled />{{ busy === 'play' ? '正在准备…' : '播放歌单' }}</button><button type="button" class="ui-outline-button" :disabled="loading || busy || !detail?.list.length" @click="importCollection"><UiIcon name="plus" />{{ busy === 'import' ? '正在导入…' : '加入音乐库' }}</button></div></div></section>
+    <PlaylistHeader :title="name" :compact="headerCompact">
+      <template #cover><TrackArtwork :src="cover" :alt="`${name} 封面`" /></template>
+      <template #details><p>{{ detail?.info.author || '精选歌单' }}<span v-if="detail?.total"> · {{ detail.total.toLocaleString() }} 首歌曲</span><span v-if="detail?.info.play_count"> · {{ detail.info.play_count }} 次播放</span></p><p v-if="description" class="ui-song-detail__description">{{ description }}</p></template>
+      <template #actions><button type="button" class="ui-playlist-header__primary" :disabled="loading || busy || !detail?.list.length" @click="playCollection()"><UiIcon name="play" filled />{{ busy === 'play' ? '正在准备…' : '播放歌单' }}</button><button type="button" :disabled="loading || busy || !detail?.list.length" @click="importCollection"><UiIcon name="plus" />{{ busy === 'import' ? '正在导入…' : '加入音乐库' }}</button></template>
+    </PlaylistHeader>
     <div v-if="message" class="ui-inline-message" role="status"><span>{{ message }}</span><button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
     <div class="ui-section-heading"><h2>歌单里的声音</h2><button type="button" :disabled="loading" @click="load(true)"><UiIcon name="refresh" />刷新</button></div>
     <div class="ui-track-panel"><TrackTable :list="detail?.list || []" :loading="loading" :error="error" :offset="(page - 1) * (detail?.limit || 30)" empty-title="这份歌单暂时没有歌曲" @play="playCollection($event)" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="load(true)" /></div>
+    <PlaylistFloatingButtons :container="pageContainer" :tracks="detail?.list || []" />
     <UiPagination :page="page" :pages="pages" :loading="loading" @change="changePage" />
     <TrackActionModal :show="actionOpen" :tracks="actionTracks" :action="action" @close="actionOpen = false" @success="message = $event" />
   </div>
@@ -19,14 +24,17 @@ import { type ListDetailInfo } from '@renderer/store/songList/state'
 import musicSdk from '@renderer/utils/musicSdk'
 import { createUserList, getUserLists, setTempList } from '@renderer/store/list/action'
 import { userLists } from '@renderer/store/list/state'
-import { sourceNames } from '@renderer/store'
 import { toMD5 } from '@renderer/utils'
 import { LIST_IDS } from '@common/constants'
 import { playTrack } from '../services/music'
 import TrackTable from '../components/TrackTable.vue'
+import TrackArtwork from '../components/TrackArtwork.vue'
+import PlaylistHeader from '../components/PlaylistHeader.vue'
+import PlaylistFloatingButtons from '../components/PlaylistFloatingButtons.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
 import UiPagination from '../components/UiPagination.vue'
 import { usePaginationScroll } from '../usePaginationScroll'
+import { useCollapsingPlaylistHeader } from '../useCollapsingPlaylistHeader'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +43,8 @@ const sources = musicSdk.sources.filter(item => musicSdk[item.id as LX.OnlineSou
 const source = computed(() => sources.includes(queryValue(route.query.source) as LX.OnlineSource) ? route.query.source as LX.OnlineSource : sources[0] || 'kw')
 const playlistId = computed(() => queryValue(route.query.id))
 const page = computed(() => Math.max(1, Number.parseInt(queryValue(route.query.page), 10) || 1))
-const pageContainer = usePaginationScroll([page])
+const pageContainer = usePaginationScroll([page, playlistId, source], '.track-table__rows')
+const headerCompact = useCollapsingPlaylistHeader(pageContainer, [page, playlistId, source], '.track-table__rows')
 const detail = ref<ListDetailInfo | null>(null)
 const name = computed(() => detail.value?.info.name ?? (queryValue(route.query.name) || '歌单详情'))
 const cover = computed(() => detail.value?.info.img ?? queryValue(route.query.picUrl))
@@ -130,19 +139,15 @@ async function importCollection() {
 }
 function changePage(value: number) { void router.push({ path: '/songList/detail', query: { ...route.query, page: String(value), refresh: undefined, play: undefined } }) }
 function openAction(track: LX.Music.MusicInfo, value: 'add' | 'download') { actionTracks.value = [track]; action.value = value; actionOpen.value = true }
-function hideImage(event: Event) { (event.target as HTMLImageElement).style.display = 'none' }
 </script>
 
 <style lang="less">
 @import '../discovery.less';
-.ui-song-detail__back { margin: 0 0 22px; padding: 0; border: 0; color: var(--modern-muted); background: transparent; font: inherit; font-size: 10px; cursor: pointer; &:hover { color: var(--modern-accent-ink); } }
+.ui-shell .ui-song-detail { position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.ui-song-detail__back { flex: none; align-self: flex-start; margin: 0 0 18px; padding: 0; border: 0; color: var(--modern-muted); background: transparent; font: inherit; font-size: 10px; cursor: pointer; &:hover { color: var(--modern-accent-ink); } }
 .ui-song-detail__back svg { width: 15px; height: 15px; }
-.ui-song-detail__cover > span svg { width: 50px; height: 50px; }
-.ui-song-detail__hero { display: flex; align-items: center; gap: 25px; margin-bottom: 28px; }
-.ui-song-detail__cover { position: relative; flex: none; display: grid; place-items: center; width: 140px; height: 140px; overflow: hidden; border: 1px solid var(--modern-border); border-radius: var(--modern-radius); background: var(--modern-accent-soft); color: var(--modern-accent-ink); box-shadow: var(--modern-shadow); img { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; object-fit: cover; } > span { font-size: 50px; } }
-.ui-song-detail__info { min-width: 0; flex: 1; h1 { margin: 10px 0; font-size: 24px; font-weight: 550; letter-spacing: -.7px; line-height: 1.3; overflow-wrap: anywhere; } }
-.ui-song-detail__author { color: var(--modern-muted); font-size: 10px; line-height: 1.5; }
-.ui-song-detail__description { display: -webkit-box; overflow: hidden; margin-top: 10px; color: var(--modern-muted); font-size: 10px; line-height: 1.6; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ui-song-detail__buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
-@media (max-width: 680px) { .ui-song-detail__hero { gap: 17px; } .ui-song-detail__cover { width: 110px; height: 110px; } .ui-song-detail__info h1 { font-size: 20px; } }
+.ui-song-detail__description { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ui-shell .ui-song-detail > .ui-track-panel { flex: 1; min-height: 0; }
+.ui-song-detail > .ui-track-panel > .track-table { height: 100%; }
+.ui-song-detail > :is(.ui-inline-message, .ui-section-heading, .ui-pagination) { flex: none; }
 </style>

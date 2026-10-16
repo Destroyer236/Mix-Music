@@ -9,9 +9,11 @@ import { getMusicInfosByList } from './kg/musicInfo'
 import { filterMusicInfoList as miguTracks } from './mg/musicInfo'
 import { ipcRenderer } from 'electron'
 import { toOldMusicInfo } from '@common/utils/tools'
+import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 
 // Catalogue search uses platform album/artist endpoints, not song keyword results.
-export const catalogSources = { album: ['wy', 'tx', 'kg', 'kw', 'qs'], artist: ['wy', 'tx', 'kg', 'kw', 'mg', 'qs'] }
+export const catalogSources = { album: ['wy', 'tx', 'kg', 'kw', 'qs', 'bo'], artist: ['wy', 'tx', 'kg', 'kw', 'mg', 'qs', 'bo'] }
 const count = value => Math.max(0, Number(value) || 0)
 const strings = value => decodeName(String(value ?? '').replace(/<[^>]*>/g, ''))
 const picture = value => typeof value === 'string' && /^https?:\/\//.test(value) ? value.replaceAll('{size}', '400') : ''
@@ -51,17 +53,18 @@ function neteaseTracks(raw, privileges = []) {
       }
     }
     const album = song.al ?? song.album ?? {}
-    return { source: 'wy', name: strings(song.name), singer: singers(song.ar ?? song.artists), albumName: strings(album.name), albumId: album.id, songmid: song.id, img: picture(album.picUrl), interval: formatPlayTime(count(song.dt ?? song.duration) / 1000), types, _types, typeUrl: {} }
+    return { source: 'wy', isVip: songVip('wy', song, privilege), subtitle: songSubtitle('wy', song), name: strings(song.name), singer: singers(song.ar ?? song.artists), albumName: strings(album.name), albumId: album.id, songmid: song.id, img: picture(album.picUrl), interval: formatPlayTime(count(song.dt ?? song.duration) / 1000), types, _types, typeUrl: {} }
   })
 }
 
 export async function searchCatalog(source, kind, text, page = 1, limit = 18) {
   if (!catalogSources[kind]?.includes(source)) throw new Error('此平台未提供该类型的音乐目录。')
-  if (source === 'qs') {
-    const response = await ipcRenderer.invoke('platform_qishui_search', { query: text, kind, page })
+  if (source === 'qs' || source === 'bo') {
+    const response = await ipcRenderer.invoke(source === 'bo' ? 'platform_bodian_search' : 'platform_qishui_search', { query: text, kind, page, limit })
     return {
       ...result(response.list.map(value => entry(source, kind, value.id, value.name, value.cover, value.singer, { count: value.count })), response.total, response.limit),
-      notice: response.limited ? '汽水音乐当前显示搜索联想中的有限结果；登录后可尝试完整搜索。' : '',
+      ...(source === 'bo' ? { totalExact: response.totalExact } : {}),
+      notice: source === 'qs' && response.limited ? '汽水音乐当前显示搜索联想中的有限结果；登录后可尝试完整搜索。' : '',
     }
   }
   let list
@@ -107,8 +110,9 @@ export async function searchCatalog(source, kind, text, page = 1, limit = 18) {
 export async function getCatalogTracks(item, page = 1, limit = 30) {
   const { source, kind, id } = item
   if (!catalogSources[kind]?.includes(source)) throw new Error('此平台未提供该类型的音乐目录。')
-  if (source === 'qs') {
-    const response = await ipcRenderer.invoke(kind === 'album' ? 'platform_qishui_album' : 'platform_qishui_artist', { id })
+  if (source === 'qs' || source === 'bo') {
+    const platform = source === 'bo' ? 'bodian' : 'qishui'
+    const response = await ipcRenderer.invoke(`platform_${platform}_${kind}`, { id })
     return result(response.list.slice((page - 1) * limit, page * limit).map(toOldMusicInfo), response.list.length, limit)
   }
   let list

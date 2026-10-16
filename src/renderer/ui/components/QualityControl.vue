@@ -40,7 +40,7 @@ const options = computed<PlatformQuality[]>(() => ['auto', ...qualitys.value.fil
 const unavailablePreference = computed(() => preferredQuality.value !== 'auto' && !options.value.includes(preferredQuality.value))
 const stream = computed(() => activeStream.value?.trackId === props.track?.id ? activeStream.value : null)
 const qualityTrack = computed(() => stream.value?.musicInfo ?? props.track)
-const platformNames: Record<string, string> = { qq: 'QQ 音乐', tx: 'QQ 音乐', netease: '网易云音乐', wy: '网易云音乐', kugou: '酷狗音乐', kg: '酷狗音乐', kuwo: '酷我音乐', kw: '酷我音乐', migu: '咪咕音乐', mg: '咪咕音乐', bilibili: '哔哩哔哩', bi: '哔哩哔哩', qishui: '汽水音乐', qs: '汽水音乐' }
+const platformNames: Record<string, string> = { qq: 'QQ 音乐', tx: 'QQ 音乐', netease: '网易云音乐', wy: '网易云音乐', kugou: '酷狗音乐', kg: '酷狗音乐', kuwo: '酷我音乐', kw: '酷我音乐', migu: '咪咕音乐', mg: '咪咕音乐', bilibili: '哔哩哔哩', bi: '哔哩哔哩', qishui: '汽水音乐', qs: '汽水音乐', bodian: '波点音乐', bo: '波点音乐' }
 const platformLabel = computed(() => {
   if (stream.value) return platformNames[stream.value.platform] ?? stream.value.platform
   const track: LX.Music.MusicInfo | null = props.track

@@ -9,6 +9,7 @@ import { nativeTheme, powerSaveBlocker } from 'electron'
 import { joinPath } from '@common/utils/nodejs'
 import themes from '@common/theme/index.json'
 import { migrateWindowCloseSetting } from '@common/windowClose'
+import { isPreferredPlatformSource } from '@common/platformSources'
 
 export const parseEnvParams = (argv = process.argv): { cmdParams: LX.CmdParams, deeplink: string | null } => {
   const cmdParams: LX.CmdParams = {}
@@ -73,6 +74,7 @@ export const mergeSetting = (originSetting: LX.AppSetting, targetSetting?: Parti
     if (originSettingKeys.length > targetSettingKeys.length) {
       for (const key of targetSettingKeys as Array<keyof LX.AppSetting>) {
         const targetValue: any = targetSetting[key]
+        if (key === 'player.preferredSource' && !isPreferredPlatformSource(targetValue)) continue
         const isPrimitive = checkPrimitiveType(targetValue)
         // if (checkPrimitiveType(value)) {
         if (!isPrimitive || targetValue == originSettingCopy[key] || originSettingCopy[key] === undefined) continue
@@ -87,6 +89,7 @@ export const mergeSetting = (originSetting: LX.AppSetting, targetSetting?: Parti
     } else {
       for (const key of originSettingKeys as Array<keyof LX.AppSetting>) {
         const targetValue: any = targetSetting[key]
+        if (key === 'player.preferredSource' && !isPreferredPlatformSource(targetValue)) continue
         const isPrimitive = checkPrimitiveType(targetValue)
         // if (checkPrimitiveType(value)) {
         if (!isPrimitive || targetValue == originSettingCopy[key]) continue

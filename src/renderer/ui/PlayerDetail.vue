@@ -4,7 +4,7 @@
       <header class="ui-detail-header">
         <button type="button" class="ui-detail-back" aria-label="收起播放详情" title="返回 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
         <div class="ui-detail-header-tools">
-          <button type="button" class="ui-icon-button" aria-label="切换桌面歌词" title="桌面歌词" :aria-pressed="appSetting['desktopLyric.enable']" @click="toggleDesktopLyric"><UiIcon name="lyric" /></button>
+          <ExternalLyricsMenu />
           <WindowControls />
         </div>
       </header>
@@ -14,7 +14,7 @@
         </div>
         <div class="ui-detail-lyric-stage">
           <div class="ui-detail-metadata">
-            <h1 :title="musicInfo.name">{{ musicInfo.name || '静候一首好歌' }}</h1>
+            <h1><TrackTitle :track="currentTrack" :text="musicInfo.name || '静候一首好歌'" focusable /></h1>
             <p class="ui-detail-artists">
               <template v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" aria-hidden="true"> / </span><button type="button" class="ui-detail-metadata-link" :aria-label="`搜索歌手 ${artist}`" @click="searchMetadata('artist', artist)">{{ artist }}</button></template></template>
               <span v-else>从你的音乐库开始聆听</span>
@@ -52,7 +52,8 @@ import UiIcon from './components/UiIcon.vue'
 import PlayerBar from './PlayerBar.vue'
 import WindowControls from './components/WindowControls.vue'
 import PlayerPopover from './components/PlayerPopover.vue'
-import useToggleDesktopLyric from '@renderer/utils/compositions/useToggleDesktopLyric'
+import TrackTitle from './components/TrackTitle.vue'
+import ExternalLyricsMenu from './components/ExternalLyricsMenu.vue'
 import { appearance } from '@renderer/composables/useAppearance'
 
 const seekLine = line => { window.app_event.setProgress(line.time / 1000) }
@@ -72,7 +73,6 @@ const offsetTrigger = ref(null)
 const offsetOpen = ref(false)
 const showExtended = ref(true)
 const hasExtended = computed(() => lyric.lines.some(line => line.extendedLyrics?.length))
-const { toggleDesktopLyric } = useToggleDesktopLyric()
 const copyLyric = () => { clipboardWriteText(lyric.lines.map(line => line.text).join('\n')) }
 
 // Read only the displayed cover. No extra request or change to saved wallpaper.

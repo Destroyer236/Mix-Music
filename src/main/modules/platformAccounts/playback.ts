@@ -1,6 +1,7 @@
 import { chooseMatch } from '@common/platformMatching'
 import type { PlatformAccount } from '@common/platformAccounts'
 import type { PlatformQuality, PlatformStream, ResolvedPlatformStream } from '@common/platformPlayback'
+import { isPreferredPlatformSource } from '@common/platformSources'
 import type { PlatformProvider, ProviderContext } from './providers/types'
 
 export interface PlaybackState {
@@ -11,7 +12,7 @@ export interface PlaybackState {
   generation: number
 }
 
-export const createPlaybackResolver = (getStates: () => PlaybackState[]) => {
+export const createPlaybackResolver = (getStates: () => PlaybackState[], getPreferredSource: () => unknown = () => 'auto') => {
   const cache = new Map<string, { stream: ResolvedPlatformStream, until: number }>()
   const pending = new Map<string, Promise<PlatformStream>>()
   const streamFor = async(state: PlaybackState, track: LX.Music.MusicInfoOnline, quality: PlatformQuality, refresh: boolean): Promise<ResolvedPlatformStream> => {
@@ -42,21 +43,34 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[]) => {
     const states = getStates().filter(state => state.provider.musicUrl)
     const original = states.find(state => state.provider.source === track.source)
     const errors: string[] = []
-    if (original) {
-      try { return await streamFor(original, track, quality, refresh) } catch (error) { errors.push(`${original.provider.name}：${error instanceof Error ? error.message : '无法播放'}`) }
-    }
-    if (allowToggleSource) {
-      const alternatives = states.filter(state => state !== original).sort((a, b) => Number(b.account.connected) - Number(a.account.connected))
-      for (const state of alternatives) {
-        const generation = state.generation
-        try {
+    const requestedSource = getPreferredSource()
+    const preferred = allowToggleSource && isPreferredPlatformSource(requestedSource) && requestedSource !== 'auto'
+      ? states.find(state => state.provider.source === requestedSource)
+      : undefined
+    const alternatives = allowToggleSource
+      ? states.filter(state => state !== original && state !== preferred).sort((a, b) => Number(b.account.connected) - Number(a.account.connected))
+      : []
+    const ordered = [...new Set([preferred, original, ...alternatives].filter((state): state is PlaybackState => Boolean(state)))]
+    const trials: Array<{ state: PlaybackState, generation: number, stream: ResolvedPlatformStream }> = []
+    for (const state of ordered) {
+      const generation = state.generation
+      try {
+        let candidate = track
+        if (state !== original) {
           let matched = chooseMatch(track, state.tracks)
           if (matched.status !== 'matched') matched = chooseMatch(track, await state.provider.search(state.context, track))
           if (state.generation !== generation || matched.status !== 'matched') continue
-          return await streamFor(state, matched.track, quality, refresh)
-        } catch (error) { errors.push(`${state.provider.name}：${error instanceof Error ? error.message : '无法播放'}`) }
-      }
+          candidate = matched.track
+        }
+        const stream = await streamFor(state, candidate, quality, refresh)
+        // A preferred platform's official preview must not shadow another
+        // platform's complete recording. Keep it only as a final fallback.
+        if (stream.isTrial) trials.push({ state, generation, stream })
+        else return stream
+      } catch (error) { errors.push(`${state.provider.name}：${error instanceof Error ? error.message : '无法播放'}`) }
     }
+    const trial = trials.find(candidate => candidate.state.generation === candidate.generation)
+    if (trial) return trial.stream
     throw new Error(errors.length ? errors.join('；') : '没有找到有播放权限的同版本歌曲，请登录平台或检查播放权限')
   }
   const qualitys = async(track: LX.Music.MusicInfoOnline): Promise<PlatformQuality[]> => {

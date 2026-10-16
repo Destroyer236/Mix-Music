@@ -7,6 +7,7 @@ import bd from './bd/index'
 import xm from './xm'
 import bi from './bi'
 import qs from './qs'
+import bo from './bo'
 import { supportQuality } from './api-source'
 import { versionChars } from './versionChars'
 
@@ -38,6 +39,10 @@ const sources = {
       id: 'qs',
     },
     {
+      name: '波点音乐',
+      id: 'bo',
+    },
+    {
       name: '虾米音乐',
       id: 'xm',
     },
@@ -55,6 +60,7 @@ const sources = {
   xm,
   bi,
   qs,
+  bo,
 }
 export default {
   ...sources,

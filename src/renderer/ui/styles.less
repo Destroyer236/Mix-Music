@@ -27,8 +27,10 @@ svg { flex: none; }
 .ui-list-dot { height: 6px; width: 6px; background: var(--modern-muted); border-radius: 50%; margin: 0 7px; flex: none; opacity: .45; }
 .ui-sidebar-footer { padding-top: 12px; border-top: 1px solid var(--modern-border); small { font-size: 8px; padding: 8px 12px 0; color: var(--modern-muted); } }
 .ui-workspace { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-.ui-topbar { height: 65px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 calc(8px + var(--modern-layout-gap)); -webkit-app-region: drag; }
-.ui-breadcrumb { display: flex; align-items: center; gap: 10px; font-size: 10px; min-width: 0; flex: 1; span { color: var(--modern-muted); } strong { font-weight: 500; white-space: nowrap; } }
+.ui-topbar { position: relative; height: 65px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 calc(8px + var(--modern-layout-gap)); -webkit-app-region: drag; }
+.ui-topbar > * { position: relative; z-index: 1; }
+.ui-breadcrumb { display: flex; align-items: center; gap: 10px; font-size: 10px; min-width: 0; flex: 1; -webkit-app-region: drag; span { color: var(--modern-muted); } strong { font-weight: 500; white-space: nowrap; } }
+.ui-global-search, .ui-window-controls { -webkit-app-region: no-drag; }
 .ui-breadcrumb-separator { opacity: .4; }
 .ui-global-search { display: flex; gap: 8px; align-items: center; background: var(--modern-panel); border: 1px solid var(--modern-border); border-radius: 10px; padding: 7px 10px; width: 230px; color: var(--modern-muted); input { width: 100%; background: transparent; border: none; color: var(--modern-text); outline: none; font-size: 10px; } svg { width: 15px; height: 15px; } kbd { font-size: 10px; } }
 .ui-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; border: 0; border-radius: 9px; background: transparent; color: var(--modern-muted); padding: 0; &:hover { background: var(--modern-hover); color: var(--modern-text); } &.ui-active { color: var(--modern-accent-ink); } }

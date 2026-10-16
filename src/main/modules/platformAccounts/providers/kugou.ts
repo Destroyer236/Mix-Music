@@ -1,5 +1,6 @@
 import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 import type { PlatformProvider, ProviderContext } from './types'
+import { songVip } from '@common/musicAccess'
 
 const notice = '酷狗官网支持登录与歌曲播放；当前网页登录接口未开放收藏、创建歌单同步及红心写入。'
 const ranks: Record<PlatformQuality, number> = { auto: 100, '64k': 0, '128k': 1, '192k': 2, dolby: 2, '320k': 3, flac: 4, ape: 4, wav: 4, flac24bit: 5, jyeffect: 6, sky: 7, jymaster: 8 }
@@ -39,7 +40,15 @@ function toTrack(song: any): LX.Music.MusicInfo_kg | null {
     singer: decode(String(song.SingerName ?? '')),
     interval: seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : null,
     meta: {
-      songId, hash: String(song.FileHash), albumName: String(song.AlbumName ?? ''), albumId: String(song.AlbumID ?? ''), albumAudioId: String(song.MixSongID ?? ''), picUrl: String(song.Image ?? song.img ?? '').replace('{size}', '400'), qualitys: formats, _qualitys: Object.fromEntries(formats.map(format => [format.type, { hash: format.hash, size: null }])),
+      isVip: songVip('kg', song),
+      songId,
+      hash: String(song.FileHash),
+      albumName: String(song.AlbumName ?? ''),
+      albumId: String(song.AlbumID ?? ''),
+      albumAudioId: String(song.MixSongID ?? ''),
+      picUrl: String(song.Image ?? song.img ?? '').replace('{size}', '400'),
+      qualitys: formats,
+      _qualitys: Object.fromEntries(formats.map(format => [format.type, { hash: format.hash, size: null }])),
     },
   }
 }

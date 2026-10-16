@@ -2,6 +2,8 @@ import defaultSetting from '@common/defaultSetting'
 import { windowSizeList } from '@common/config'
 import { langList } from '@root/lang'
 import { qualityLabels } from '@common/platformPlayback'
+import { platformSourceLabels } from '@common/platformSources'
+import type { ExternalLyricMode } from '@common/externalLyric'
 import labels from './labels.json'
 
 export type SettingKey = keyof LX.AppSetting
@@ -16,15 +18,18 @@ export interface SettingField {
   max?: number
   step?: number
   hint?: string
+  group?: ExternalLyricMode
+  visible?: (setting: LX.AppSetting) => boolean
+  disabled?: (setting: LX.AppSetting) => boolean
 }
 
 export const categories = [
   { id: 'accounts', name: '平台账号与红心', description: '连接各平台账号，汇总红心与创建歌单。', keywords: '登录 账号 密码 扫码 QR 红心 收藏 歌单 平台 同步 QQ 网易云 酷狗 酷我 咪咕 哔哩哔哩 Bilibili' },
   { id: 'general', name: '常规与外观', description: '窗口、字体、语言与主题，调整熟悉的音乐空间。', keywords: '主题 颜色 圆角 外观 窗口 间距 面板 关闭 后台 播放 托盘 退出 不再询问 硬件 加速 内存 性能 GPU 重启' },
-  { id: 'sources', name: '音源管理', description: '导入并选择你使用的音乐接口，管理其更新提醒。', keywords: '接口 脚本 API 导入 音源' },
-  { id: 'playback', name: '播放', description: '音质、播放顺序、恢复进度与定时停止。', keywords: '定时 睡眠 音质' },
+  { id: 'sources', name: '音源与播放', description: '导入与管理音乐接口，设置首选音源、音质、播放顺序、恢复进度与定时停止。', keywords: '接口 脚本 API 导入 音源 管理 播放 定时 睡眠 音质 平台 首选' },
   { id: 'audio', name: '声音与设备', description: '输出设备、音量、均衡器、空间音效与音高。', keywords: 'EQ 音效 环境 环绕 扬声器' },
-  { id: 'lyrics', name: '歌词', description: '翻译、罗马音、播放详情与桌面歌词的显示方式。', keywords: '歌词 桌面 翻译' },
+  { id: 'lyrics', name: '歌词', description: '翻译、罗马音与播放详情的显示方式。', keywords: '歌词 翻译 罗马音' },
+  { id: 'externalLyric', name: '外部歌词', description: '分别设置桌面歌词、灵动岛歌词与任务栏歌词，可同时开启。', keywords: '歌词 桌面 灵动岛 任务栏 字体 逐字 颜色 外部' },
   { id: 'search', name: '搜索', description: '热门搜索、历史记录与搜索页面行为。', keywords: '搜索 记录' },
   { id: 'library', name: '音乐库', description: '列表操作、滚动恢复与屏蔽规则。', keywords: '收藏 列表 屏蔽 不喜欢' },
   { id: 'download', name: '下载', description: '保存目录、并发任务与歌词、封面嵌入。', keywords: '下载 保存 文件' },
@@ -39,6 +44,11 @@ export const categories = [
 
 const choices = (values: Array<[string | number, string]>): Option[] => values.map(([value, label]) => ({ value, label }))
 const align = choices([['left', '靠左'], ['center', '居中'], ['right', '靠右']])
+export const externalLyricSections: Array<{ id: ExternalLyricMode, name: string, description: string }> = [
+  { id: 'desktop', name: '桌面歌词', description: '透明悬浮歌词，支持双行、逐字高亮、描边和背景遮罩。' },
+  { id: 'island', name: '灵动岛歌词', description: '紧凑悬浮窗口，支持弹性动画、顶部吸附与鼠标穿透。' },
+  { id: 'taskbar', name: '任务栏歌词', description: '在 Windows 任务栏区域显示歌词，自动适应任务栏位置与可用空间。' },
+]
 const enums: Partial<Record<SettingKey, Option[]>> = {
   'common.windowSizeId': windowSizeList.map(item => ({ value: item.id, label: `${item.width} × ${item.height}` })),
   'common.langId': [{ value: '', label: '跟随系统' }, ...langList.map(item => ({ value: item.locale, label: item.name }))],
@@ -47,10 +57,15 @@ const enums: Partial<Record<SettingKey, Option[]>> = {
   'common.playBarProgressStyle': choices([['mini', '简洁'], ['middle', '居中'], ['full', '完整宽度']]),
   'player.togglePlayMethod': choices([['listLoop', '列表循环'], ['random', '随机播放'], ['list', '顺序播放'], ['singleLoop', '单曲循环'], ['none', '播放一次']]),
   'player.playQuality': choices(Object.entries(qualityLabels)),
+  'player.preferredSource': choices(Object.entries(platformSourceLabels)),
   'playDetail.style.align': align,
   'desktopLyric.style.align': align,
   'desktopLyric.scrollAlign': choices([['top', '顶部'], ['center', '居中']]),
   'desktopLyric.direction': choices([['horizontal', '横向'], ['vertical', '纵向']]),
+  'externalLyric.desktop.align': [...align, { value: 'justify', label: '双行交错对齐' }],
+  'externalLyric.island.transition': choices([['bounce', '弹性'], ['smooth', '平滑']]),
+  'externalLyric.taskbar.position': choices([['auto', '自动'], ['left', '左侧'], ['right', '右侧']]),
+  'externalLyric.taskbar.colorMode': choices([['taskbar', '跟随任务栏'], ['taskbarInverse', '任务栏反色'], ['light', '浅色主题'], ['dark', '深色主题']]),
   'list.addMusicLocationType': choices([['top', '顶部'], ['bottom', '底部']]),
   'download.fileName': choices([['歌名 - 歌手', '歌名 - 歌手'], ['歌手 - 歌名', '歌手 - 歌名'], ['歌名', '歌名']]),
   'download.lrcFormat': choices([['utf8', 'UTF-8'], ['gbk', 'GBK']]),
@@ -74,6 +89,15 @@ const bounds: Partial<Record<SettingKey, [number, number, number?]>> = {
   'desktopLyric.style.backgroundOpacity': [0, 100],
   'desktopLyric.width': [100, 5000],
   'desktopLyric.height': [50, 3000],
+  'externalLyric.desktop.fontSize': [20, 96],
+  'externalLyric.desktop.fontWeight': [100, 900, 100],
+  'externalLyric.island.scale': [0.5, 2, 0.05],
+  'externalLyric.island.fontWeight': [100, 900, 100],
+  'externalLyric.taskbar.maxWidth': [200, 800, 20],
+  'externalLyric.taskbar.leftMargin': [0, 500],
+  'externalLyric.taskbar.rightMargin': [0, 500],
+  'externalLyric.taskbar.fontSize': [12, 20],
+  'externalLyric.taskbar.fontWeight': [100, 900, 100],
   'download.maxDownloadNum': [1, 6],
   'sync.server.maxSsnapshotNum': [1, 50],
 }
@@ -88,8 +112,24 @@ const hints: Partial<Record<SettingKey, string>> = {
   'desktopLyric.style.backgroundOpacity': '0% 为全透明，100% 为不透明；只调整背景，不影响歌词文字和工具栏。',
   'desktopLyric.x': '留空时由应用自动定位；支持负坐标。',
   'desktopLyric.y': '留空时由应用自动定位；支持负坐标。',
+  'externalLyric.desktop.fontFamily': '留空时使用系统默认字体。',
+  'externalLyric.desktop.autoGenerateWordByWord': '没有逐字时间信息时，按整行时长生成逐字高亮。',
+  'externalLyric.desktop.align': '双行交错对齐时，两行歌词分别靠左、靠右排列。',
+  'externalLyric.desktop.locked': '锁定后鼠标穿透歌词窗口；可在此关闭锁定。',
+  'externalLyric.desktop.limitBounds': '移动和调整大小时，将歌词限制在屏幕可见范围。',
+  'externalLyric.desktop.useCSSDrag': '使用系统原生拖动区域；开启后拖动时可能暂时停止窗口内动画。',
+  'externalLyric.island.fontFamily': '留空时使用系统默认字体。',
+  'externalLyric.island.notchFusion': '仅 macOS：让灵动岛贴合屏幕顶部刘海区域。',
+  'externalLyric.island.nonOcclusive': '鼠标穿透窗口，悬停时隐藏内容，减少对其他窗口操作的遮挡。',
+  'externalLyric.island.useCSSDrag': '使用系统原生拖动区域；开启后拖动时可能暂时停止窗口内动画。',
+  'externalLyric.taskbar.fontFamily': '留空时使用系统默认字体。',
+  'externalLyric.taskbar.autoAdjustOccupiedSpace': '在自动宽度范围内，根据当前歌词和悬浮控件缩小实际占用空间。',
+  'externalLyric.taskbar.maxWidth': '关闭自动宽度时使用，单位为像素。',
+  'externalLyric.taskbar.leftMargin': '歌词区域与左侧任务栏项目之间的距离，单位为像素。',
+  'externalLyric.taskbar.rightMargin': '歌词区域与右侧任务栏项目之间的距离，单位为像素。',
   'player.mediaDeviceId': '开启高级音效后，音频输出固定为系统默认设备。',
   'player.playQuality': '默认使用账号最高音质，按平台、账号权限与歌曲版权自动选择。与播放栏共享同一偏好，修改后会切换当前歌曲并保留进度。',
+  'player.preferredSource': '自动时跟随歌曲来源。选择平台后，优先查找该平台的同版本歌曲；无版权或无播放权限时自动换源，完整歌曲优先于试听。修改后会切换当前歌曲并保留进度。',
   'player.soundEffect.convolution.mainGain': '数值 10 表示原声增益 100%。',
   'player.soundEffect.convolution.sendGain': '数值 10 表示环境音增益 100%。',
   'player.waitPlayEndStopTime': '以分钟计，例如 30；点击启动定时按钮开始倒计时。',
@@ -98,10 +138,11 @@ const hints: Partial<Record<SettingKey, string>> = {
 }
 
 function categoryFor(key: SettingKey): string {
+  if (key.startsWith('externalLyric.')) return 'externalLyric'
   if (key === 'common.apiSource') return 'sources'
   if (key.startsWith('player.soundEffect.') || ['player.volume', 'player.isMute', 'player.playbackRate', 'player.preservesPitch', 'player.mediaDeviceId', 'player.isMaxOutputChannelCount', 'player.audioVisualization', 'player.isMediaDeviceRemovedStopPlay'].includes(key)) return 'audio'
   if (key.startsWith('desktopLyric.') || key.startsWith('playDetail.') || /player\.(isShowLyric|isSwapLyric|isS2t|isPlayLxlrc)/.test(key)) return 'lyrics'
-  if (key.startsWith('player.')) return 'playback'
+  if (key.startsWith('player.')) return 'sources'
   if (key.startsWith('list.')) return 'library'
   if (key.startsWith('search.') || key.startsWith('odc.')) return 'search'
   if (key.startsWith('download.')) return 'download'
@@ -113,12 +154,13 @@ function categoryFor(key: SettingKey): string {
 
 export const settingFields: SettingField[] = (Object.keys(defaultSetting) as SettingKey[])
   .filter(key => !['version', 'common.isAgreePact', 'common.tryAutoUpdate', 'common.showChangeLog', 'common.sourceNameType', 'theme.id', 'theme.lightId', 'theme.darkId'].includes(key))
+  .filter(key => !key.startsWith('desktopLyric.') && !/^externalLyric\.(desktop|island)\.(x|y|width|height)$/.test(key))
   .map(key => {
     const value = defaultSetting[key]
     const range = key.startsWith('player.soundEffect.biquadFilter.') ? [-15, 15, 0.1] : bounds[key]
     let type: SettingField['type'] = typeof value === 'boolean' ? 'boolean' : typeof value === 'number' || key === 'desktopLyric.x' || key === 'desktopLyric.y' ? 'number' : 'text'
     if (enums[key]) type = 'select'
-    if (key.endsWith('.font')) type = 'font'
+    if (key.endsWith('.font') || key.endsWith('.fontFamily')) type = 'font'
     if (key.endsWith('Color')) type = 'color'
     if (key === 'download.savePath') type = 'path'
     return {
@@ -131,6 +173,13 @@ export const settingFields: SettingField[] = (Object.keys(defaultSetting) as Set
       max: range?.[1],
       step: range?.[2] ?? 1,
       hint: hints[key],
+      group: key.startsWith('externalLyric.') ? key.split('.')[1] as ExternalLyricMode : undefined,
+      visible: key === 'externalLyric.desktop.backgroundMaskColor' ? setting => setting['externalLyric.desktop.backgroundMask']
+        : key === 'externalLyric.taskbar.maxWidth' ? setting => !setting['externalLyric.taskbar.autoMaxWidth']
+          : key === 'externalLyric.taskbar.autoAdjustOccupiedSpace' ? setting => setting['externalLyric.taskbar.autoMaxWidth']
+            : key === 'externalLyric.island.notchFusion' ? () => process.platform === 'darwin'
+              : key.startsWith('externalLyric.taskbar.') ? () => process.platform === 'win32' : undefined,
+      disabled: key === 'externalLyric.island.snapCentered' ? setting => setting['externalLyric.island.notchFusion'] : undefined,
     }
   })
 
@@ -156,7 +205,26 @@ export function parseSettingValue(field: SettingField, text: string): LX.AppSett
 
 /** Normalize imported backups to the settings exposed by LinkLine. */
 export function validateSettingBackup(input: unknown): Partial<LX.AppSetting> {
-  const source = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
+  const source: Record<string, unknown> = input && typeof input === 'object' && !Array.isArray(input) ? { ...input } : {}
+  const legacyDesktopFields: Record<string, SettingKey> = {
+    'desktopLyric.enable': 'externalLyric.desktop.enabled',
+    'desktopLyric.isLock': 'externalLyric.desktop.locked',
+    'desktopLyric.isAlwaysOnTop': 'externalLyric.desktop.alwaysOnTop',
+    'desktopLyric.isLockScreen': 'externalLyric.desktop.limitBounds',
+    'desktopLyric.style.align': 'externalLyric.desktop.align',
+    'desktopLyric.style.font': 'externalLyric.desktop.fontFamily',
+    'desktopLyric.style.fontSize': 'externalLyric.desktop.fontSize',
+    'desktopLyric.style.lyricPlayedColor': 'externalLyric.desktop.playedColor',
+    'desktopLyric.style.lyricUnplayColor': 'externalLyric.desktop.unplayedColor',
+    'desktopLyric.style.lyricShadowColor': 'externalLyric.desktop.strokeColor',
+    'desktopLyric.x': 'externalLyric.desktop.x',
+    'desktopLyric.y': 'externalLyric.desktop.y',
+    'desktopLyric.width': 'externalLyric.desktop.width',
+    'desktopLyric.height': 'externalLyric.desktop.height',
+  }
+  for (const [legacy, current] of Object.entries(legacyDesktopFields)) {
+    if (!(current in source) && legacy in source) source[current] = source[legacy]
+  }
   const result: Partial<LX.AppSetting> = {}
   for (const field of settingFields) {
     if (!Object.prototype.hasOwnProperty.call(source, field.key)) continue
@@ -181,6 +249,17 @@ export function validateSettingBackup(input: unknown): Partial<LX.AppSetting> {
     if (field.key.endsWith('.port') && !(field.key === 'network.proxy.port' && value === '') && (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 65535)) continue
     if (field.type === 'color' && !CSS.supports('color', value)) continue
     result[field.key] = value as never
+  }
+  // Window geometry stays out of the preferences UI but is part of a full backup.
+  const coordinateKeys = ['externalLyric.desktop.x', 'externalLyric.desktop.y', 'externalLyric.island.x', 'externalLyric.island.y'] as const
+  for (const key of coordinateKeys) {
+    if (!(key in source)) continue
+    const value = source[key]
+    if (value === null || (typeof value === 'number' && Number.isFinite(value))) result[key] = value
+  }
+  for (const [key, min, max] of [['externalLyric.desktop.width', 240, 5000], ['externalLyric.desktop.height', 80, 3000]] as const) {
+    const value = source[key]
+    if (typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max) result[key] = value
   }
   return result
 }

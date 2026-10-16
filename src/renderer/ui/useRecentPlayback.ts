@@ -4,6 +4,7 @@ import { musicLinksFile, musicLinksError, trackPageUrl } from './useMusicLinks'
 import { mergeRecent, type RecentTrack } from './musicLinksFile'
 import { LIST_IDS } from '@common/constants'
 import { addListMusics } from '@renderer/store/list/action'
+import { SESSION_PLAYBACK_QUEUE_PREFIX } from '@renderer/core/player/playbackIntent'
 
 export type { RecentTrack } from './musicLinksFile'
 
@@ -20,7 +21,7 @@ export function useRecentPlayback() {
     // Temporary queues can be replaced by the next recommendation or search.
     // Retain played tracks in the audition library for recent playback, while
     // the active queue keeps exactly the selected page's order.
-    if (listId === LIST_IDS.TEMP) {
+    if (listId === LIST_IDS.TEMP || listId.startsWith(SESSION_PLAYBACK_QUEUE_PREFIX)) {
       try { await addListMusics(LIST_IDS.DEFAULT, [track]); listId = LIST_IDS.DEFAULT } catch {
         musicLinksError.value = '这首歌曲的最近播放信息未能保存，请稍后重试。'
         return

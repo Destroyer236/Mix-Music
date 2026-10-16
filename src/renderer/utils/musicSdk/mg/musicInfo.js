@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { sizeFormate, formatPlayTime } from '../../index'
 import { createHttpFetch } from './utils'
 import { formatSingerName } from '../utils'
@@ -70,6 +71,7 @@ export const filterMusicInfoList = (rawList) => {
       albumName: item.album,
       albumId: item.albumId,
       songmid: item.songId,
+      isVip: songVip('mg', item),
       copyrightId: item.copyrightId,
       source: 'mg',
       interval: intervalTest ? RegExp.$1 : null,
@@ -136,6 +138,7 @@ export const filterMusicInfoListV5 = (rawList) => {
       albumName: item.album,
       albumId: item.albumId,
       songmid: item.songId,
+      isVip: songVip('mg', item),
       copyrightId: item.copyrightId,
       source: 'mg',
       interval: formatPlayTime(item.duration),

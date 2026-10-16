@@ -10,6 +10,7 @@ import {
   overwriteListMusics,
 } from '@renderer/store/list/listManage'
 import { LIST_IDS } from '@common/constants'
+import { notifyPlaybackIntent } from '@renderer/core/player/playbackIntent'
 
 export const registerAction = (onListChanged: (listIds: string[]) => void) => {
   return registerListAction(appSetting, onListChanged)
@@ -83,6 +84,7 @@ export const mutateTempList = async<T>(mutate: () => Promise<T>): Promise<T> => 
 }
 
 export const setTempList = async(id: string, list: LX.Music.MusicInfo[]) => {
+  notifyPlaybackIntent()
   tempListMeta.id = id
   await mutateTempList(async() => overwriteListMusics({
     listId: LIST_IDS.TEMP,

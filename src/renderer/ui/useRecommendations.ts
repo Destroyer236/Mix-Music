@@ -2,7 +2,7 @@ import { computed, effectScope, onMounted, onUnmounted, ref, shallowRef, watch }
 import music from '@renderer/utils/musicSdk'
 import { toNewMusicInfo } from '@renderer/utils'
 import { sameRecording } from '@common/platformMatching'
-import { sources, sortList, type ListInfoItem, type TagInfoItem } from '@renderer/store/songList/state'
+import { sortList, type ListInfoItem, type TagInfoItem } from '@renderer/store/songList/state'
 import { getListDetail as getPlaylistDetail, getTags } from '@renderer/store/songList/action'
 import { getBoardsList, getListDetail } from '@renderer/store/leaderboard/action'
 import { getSongListSetting } from '@renderer/utils/data'
@@ -14,6 +14,9 @@ import { musicLinksFile } from './useMusicLinks'
 import { isPlay, playMusicInfo } from '@renderer/store/player/state'
 
 export type RecommendationSource = LX.OnlineSource | 'all'
+const sources = music.sources
+  .filter(item => Boolean(music[item.id as LX.OnlineSource]?.musicSearch?.search))
+  .map(item => item.id as LX.OnlineSource)
 
 // Two platform jobs at a time; only bounded display candidates are retained.
 function createRecommendations() {
@@ -247,7 +250,10 @@ function createRecommendations() {
     playlistError.value = ''
     hasNext.value = false
     const items = await collect<ListInfoItem>(source.value, async platform => {
-      const result = await music[platform]?.songList.getList(sortList[platform]?.[0]?.id ?? '', selectedTag, selectedPage)
+      const sorts = sortList[platform] ?? []
+      const result = sorts.length
+        ? await music[platform]?.songList.getList(sorts[0]?.id ?? '', selectedTag, selectedPage)
+        : await music[platform]?.songList.search('热门歌单', selectedPage)
       if (!result) throw new Error('这个平台暂时无法提供歌单。')
       if (valid()) hasNext.value ||= selectedPage * (result.limit || result.list.length || 30) < Number(result.total)
       return result.list.slice(0, 8)
@@ -282,7 +288,9 @@ function createRecommendations() {
     })
     const broader = (async() => {
       const sorts = sortList[platform] ?? []
-      const playlists = await music[platform]?.songList.getList(sorts[round % (sorts.length || 1)]?.id ?? '', '', 1 + (round + sources.indexOf(platform) * 3) % 12).catch(() => null)
+      const playlists = sorts.length
+        ? await music[platform]?.songList.getList(sorts[round % sorts.length]?.id ?? '', '', 1 + (round + sources.indexOf(platform) * 3) % 12).catch(() => null)
+        : await music[platform]?.songList.search('热门歌单', 1 + (round + sources.indexOf(platform) * 3) % 4).catch(() => null)
       const choices = playlists?.list ?? []
       const choice = choices.length ? choices[round % choices.length] : null
       const tracks = choice ? await getPlaylistDetail(choice.id, platform, 1).then(result => result.list.slice(0, 120)).catch(() => []) : []
@@ -423,7 +431,7 @@ function createRecommendations() {
   async function loadTags() {
     const version = ++tagVersion
     const platform = source.value
-    if (platform === 'all') { tags.value = []; return }
+    if (platform === 'all' || !(sortList[platform]?.length)) { tags.value = []; return }
     try {
       const result = await getTags(platform)
       if (version === tagVersion) tags.value = result.hotTag.slice(0, 6)

@@ -18,10 +18,11 @@ import { filterList } from './utils'
 import { requestMsg } from '@renderer/utils/message'
 import { getRandom } from '@renderer/utils/index'
 import { requestFavorite } from '@renderer/ui/services/platformAccounts'
-import { activeStream, commitStream, preferredQuality } from '@renderer/ui/services/platformPlayback'
+import { activeStream, commitStream, preferredQuality, preferredSource } from '@renderer/ui/services/platformPlayback'
 import { addDislikeInfo } from '@renderer/core/dislikeList'
 import { samePlayTrack } from '@common/platformMatching'
 import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
+import { notifyPlaybackIntent } from './playbackIntent'
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
 let gettingUrlId = ''
@@ -29,7 +30,7 @@ let resourceGeneration = 0
 let navigationGeneration = 0
 const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem) => {
   const tInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.meta.toggleMusicInfo : musicInfo.meta.toggleMusicInfo
-  return `${'progress' in musicInfo ? 'download' : musicInfo.source}:${musicInfo.id}_${tInfo?.id ?? ''}_${preferredQuality.value}`
+  return `${'progress' in musicInfo ? 'download' : musicInfo.source}:${musicInfo.id}_${tInfo?.id ?? ''}_${preferredQuality.value}_${preferredSource.value}`
 }
 const createDelayNextTimeout = (delay: number) => {
   let timeout: NodeJS.Timeout | null
@@ -160,15 +161,17 @@ export const reloadCurrentQuality = async(): Promise<void> => {
   if (!track || 'progress' in track || track.source === 'local') return
   const generation = ++resourceGeneration
   const quality = preferredQuality.value
-  setAllStatus('正在切换音质…')
+  const source = preferredSource.value
+  setAllStatus('正在切换播放资源…')
   try {
     const url = await getMusicUrl({ musicInfo: track, isRefresh: true })
-    if (generation !== resourceGeneration || track.id !== playMusicInfo.musicInfo?.id || quality !== preferredQuality.value) return
+    if (generation !== resourceGeneration || track.id !== playMusicInfo.musicInfo?.id || quality !== preferredQuality.value || source !== preferredSource.value) return
     const resume = getAutoplay()
     const time = getCurrentTime()
     setPause()
     commitStream(track, url, quality)
-    setResource(url, { time, autoplay: resume })
+    // A short official preview cannot resume a full song's later position.
+    setResource(url, { time: activeStream.value?.isTrial ? 0 : time, autoplay: resume })
     if (!resume) setAllStatus('')
   } catch (error) {
     if (generation === resourceGeneration) setAllStatus(error instanceof Error ? error.message : '音质切换失败')
@@ -274,6 +277,7 @@ const handlePlay = () => {
 export const playListById = (listId: string, id: string) => {
   const musicInfo = getList(listId).find(m => m.id == id)
   if (!musicInfo) return
+  notifyPlaybackIntent(listId)
   navigationGeneration++
   const prevListId = playInfo.playerListId
   setPlayListId(listId)
@@ -292,6 +296,7 @@ export const playListById = (listId: string, id: string) => {
 export const playList = (listId: string, index: number) => {
   const musicInfo = getList(listId)[index]
   if (!musicInfo) return
+  notifyPlaybackIntent(listId)
   navigationGeneration++
   const prevListId = playInfo.playerListId
   setPlayListId(listId)

@@ -1,3 +1,5 @@
+import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 import { httpFetch } from '../../request'
 import { weapi } from './utils/crypto'
 import { formatPlayTime, sizeFormate } from '../../index'
@@ -62,6 +64,8 @@ export default {
           source: 'wy',
           interval: formatPlayTime(item.dt / 1000),
           songmid: item.id,
+          isVip: songVip('wy', item, privilege),
+          subtitle: songSubtitle('wy', item),
           img: item.al?.picUrl ?? '',
           lrc: null,
           otherSource: null,
@@ -78,6 +82,8 @@ export default {
           source: 'wy',
           interval: formatPlayTime(item.dt / 1000),
           songmid: item.id,
+          isVip: songVip('wy', item, privilege),
+          subtitle: songSubtitle('wy', item),
           img: item.al?.picUrl,
           lrc: null,
           otherSource: null,

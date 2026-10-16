@@ -12,7 +12,7 @@ const getCurrentTime = () => {
 }
 
 let lrc: Lyric
-let desktopLyricPort: Electron.IpcRendererEvent['ports'][0] | null = null
+const desktopLyricPorts = new Map<string, Electron.IpcRendererEvent['ports'][0]>()
 const analyserTools: {
   dataArray: Uint8Array
   bufferLength: number
@@ -39,9 +39,13 @@ const analyserTools: {
 }
 
 export const sendDesktopLyricInfo = (info: LX.DesktopLyric.LyricActions, transferList?: Transferable[]) => {
-  if (desktopLyricPort == null) return
-  if (transferList) desktopLyricPort.postMessage(info, transferList)
-  else desktopLyricPort.postMessage(info)
+  // A separate channel per window lets all three lyric modes follow one player.
+  for (const [id, port] of desktopLyricPorts) {
+    try {
+      if (transferList && desktopLyricPorts.size === 1) port.postMessage(info, transferList)
+      else port.postMessage(info)
+    } catch { port.close(); desktopLyricPorts.delete(id) }
+  }
 }
 const handleDesktopLyricMessage = (action: LX.DesktopLyric.WinMainActions) => {
   switch (action) {
@@ -57,7 +61,9 @@ const handleDesktopLyricMessage = (action: LX.DesktopLyric.WinMainActions) => {
           tlrc: musicInfo.tlrc,
           rlrc: musicInfo.rlrc,
           lxlrc: musicInfo.lxlrc,
-          // pic: musicInfo.pic,
+          pic: musicInfo.pic,
+          playbackRate: appSetting['player.playbackRate'],
+          offset: lyric.tempOffset,
           isPlay: isPlay.value,
           line: lyric.line,
           played_time: getCurrentTime(),
@@ -105,12 +111,13 @@ export const init = () => {
     // offset: 80,
   })
 
-  onNewDesktopLyricProcess(({ event }) => {
+  onNewDesktopLyricProcess(({ event, params }) => {
     console.log('onNewDesktopLyricProcess')
     const [port] = event.ports
     if (!port) return
-    desktopLyricPort?.close()
-    desktopLyricPort = port
+    const id = (params as { clientId?: string } | null)?.clientId ?? 'desktop'
+    desktopLyricPorts.get(id)?.close()
+    desktopLyricPorts.set(id, port)
 
     port.onmessage = ({ data }) => {
       handleDesktopLyricMessage(data.action)
@@ -122,7 +129,7 @@ export const init = () => {
 
     port.onmessageerror = (event) => {
       console.log('onmessageerror', event)
-      if (desktopLyricPort === port) desktopLyricPort = null
+      if (desktopLyricPorts.get(id) === port) desktopLyricPorts.delete(id)
     }
     port.start()
   })
@@ -149,8 +156,13 @@ export const setLyricOffset = (offset: number) => {
   }
 }
 
+export const sendCover = () => {
+  sendDesktopLyricInfo({ action: 'set_cover', data: musicInfo.pic })
+}
+
 export const setPlaybackRate = (rate: number) => {
   lrc.setPlaybackRate(rate)
+  sendDesktopLyricInfo({ action: 'set_playbackRate', data: rate })
 
   if (isPlay.value) {
     setTimeout(() => {
@@ -238,7 +250,9 @@ export const sendInfo = () => {
       tlrc: musicInfo.tlrc,
       rlrc: musicInfo.rlrc,
       lxlrc: musicInfo.lxlrc,
-      // pic: musicInfo.pic,
+      pic: musicInfo.pic,
+      playbackRate: appSetting['player.playbackRate'],
+      offset: lyric.tempOffset,
       isPlay: isPlay.value,
       line: lyric.line,
       played_time: getCurrentTime(),

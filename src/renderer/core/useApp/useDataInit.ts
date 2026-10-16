@@ -6,6 +6,7 @@ import { getListMusics, getUserLists, registerAction } from '@renderer/store/lis
 
 import useInitUserApi from './useInitUserApi'
 import { play, playList } from '@renderer/core/player'
+import { SESSION_PLAYBACK_QUEUE_PREFIX } from '@renderer/core/player/playbackIntent'
 import { onBeforeUnmount } from '@common/utils/vueTools'
 import { appSetting } from '@renderer/store/setting'
 import { playMusicInfo } from '@renderer/store/player/state'
@@ -15,7 +16,7 @@ import { disposePlatformAccounts, initializePlatformAccounts } from '@renderer/u
 const initPrevPlayInfo = async() => {
   const info = await getPlayInfo()
   window.lx.restorePlayInfo = null
-  if (!info?.listId || info.index < 0) return
+  if (!info?.listId || info.index < 0 || info.listId.startsWith(SESSION_PLAYBACK_QUEUE_PREFIX)) return
   const list = await getListMusics(info.listId)
   if (!list[info.index]) return
   window.lx.restorePlayInfo = info

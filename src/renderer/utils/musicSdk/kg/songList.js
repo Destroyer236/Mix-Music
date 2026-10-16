@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { httpFetch } from '../../request'
 import { decodeName, formatPlayTime, sizeFormate, dateFormat, formatPlayCount } from '../../index'
 import infSign from '@renderer/utils/musicSdk/kg/vendors/infSign.min'
@@ -800,6 +801,7 @@ export default {
         albumName: decodeName(item.album_name),
         albumId: item.album_id,
         songmid: item.audio_id,
+        isVip: songVip('kg', item),
         albumAudioId: item.album_audio_id,
         source: 'kg',
         interval: formatPlayTime(item.duration / 1000),
@@ -924,6 +926,7 @@ export default {
         albumName: decodeName(item.album_info.album_name),
         albumId: item.album_info.album_id,
         songmid: item.audio_info.audio_id,
+        isVip: songVip('kg', item),
         albumAudioId: item.audio_info.audio_group_id,
         source: 'kg',
         interval: formatPlayTime(parseInt(item.audio_info.timelength) / 1000),

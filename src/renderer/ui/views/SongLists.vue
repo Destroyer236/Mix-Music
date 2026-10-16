@@ -114,7 +114,8 @@ function openPlaylist(item: ListInfoItem, play = false) { void router.push({ pat
 function openById() {
   const text = playlistInput.value.trim()
   if (!text) return
-  const selected = /https:\/\/(?:www\.qishui\.com|music\.douyin\.com|qishui\.douyin\.com)\//i.test(text) ? 'qs' : playlistSource.value || source.value
+  const selected = /https:\/\/(?:www\.qishui\.com|music\.douyin\.com|qishui\.douyin\.com)\//i.test(text) ? 'qs'
+    : /https:\/\/h5app\.kuwo\.cn\/m\/bodian\//i.test(text) ? 'bo' : playlistSource.value || source.value
   void router.push({ path: '/songList/detail', query: { source: selected, id: text } })
 }
 </script>

@@ -1,18 +1,20 @@
 import { app, BrowserWindow, session } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { PlatformAccount, PlatformId, PlatformLikeResult, PlatformPlaylist, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
+import type { PlatformAccount, PlatformHeartbeatRequest, PlatformHeartbeatResult, PlatformId, PlatformLikeResult, PlatformPlaylist, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { mainHandle } from '@common/mainIpc'
 import { sendEvent, showWindow } from '@main/modules/winMain/main'
 import { aggregateFavorites, chooseMatch } from './matching'
 import { qqProvider } from './providers/qq'
-import { neteaseProvider } from './providers/netease'
+import { getNeteaseHeartbeat, neteaseProvider } from './providers/netease'
 import { miguProvider } from './providers/migu'
 import { bilibiliProvider } from './providers/bilibili'
 import { kugouProvider } from './providers/kugou'
 import { kuwoProvider } from './providers/kuwo'
 import qishuiProvider, { searchCatalog, publicPlaylist, resolveShare, getLyrics, getAlbumTracks, getArtistTracks } from './providers/qishui'
 import { createQishuiLogin } from './qishuiLogin'
+import bodianProvider, { searchCatalog as searchBodianCatalog, publicPlaylist as bodianPlaylist, resolveShare as resolveBodianShare, getLyrics as getBodianLyrics, getAlbumTracks as getBodianAlbumTracks, getArtistTracks as getBodianArtistTracks } from './providers/bodian'
+import { createBodianLogin } from './bodianLogin'
 import type { PlatformProvider, ProviderContext } from './providers/types'
 import { canNavigateAccount, registerAccountSession } from './navigation'
 import { createPlaybackResolver } from './playback'
@@ -28,14 +30,14 @@ interface ProviderState {
   busy: Promise<unknown>
   generation: number
 }
-const providers = [qqProvider, neteaseProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider, qishuiProvider]
+const providers = [qqProvider, neteaseProvider, qishuiProvider, bodianProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider]
 const states = new Map<PlatformId, ProviderState>()
 let initialized: Promise<void> | undefined
 let saveQueue = Promise.resolve()
 const cachePath = () => path.join(app.getPath('userData'), 'platform-favorites.json')
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : '平台请求失败，请重试'
 const hasAuthentication = (provider: PlatformProvider, cookies: Record<string, string>) => provider.authenticated?.(cookies) ?? Boolean(provider.id === 'qq' ? cookies.qqmusic_key || cookies.qm_keyst : provider.id === 'netease' ? cookies.MUSIC_U : Object.keys(cookies).length)
-const playback = createPlaybackResolver(() => [...states.values()])
+const playback = createPlaybackResolver(() => [...states.values()], () => global.lx.appSetting['player.preferredSource'])
 const snapshot = (): PlatformSnapshot => ({
   accounts: [...states.values()].map(state => ({ ...state.account })),
   favorites: aggregateFavorites([...states.values()].map(state => ({ platform: state.provider.id, tracks: state.tracks }))),
@@ -201,8 +203,44 @@ const getPlaylist = async(params: { id: string, refresh?: boolean }): Promise<Pl
     }
   })
 }
+
+const getHeartbeat = async(params: PlatformHeartbeatRequest = {}): Promise<PlatformHeartbeatResult> => {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) throw new Error('无效的心动模式参数')
+  const state = await getState('netease')
+  const generation = state.generation
+  const changed = () => generation !== state.generation
+  return exclusive(state, async() => {
+    if (changed()) throw new Error('网易云账号已更改，请重新开启心动模式')
+    if (!state.account.connected) throw new Error('登录网易云音乐后才能使用心动模式')
+    try {
+      const previousId = state.account.profile?.id
+      const profile = await state.provider.profile(state.context)
+      if (changed()) throw new Error('网易云账号已更改，请重新开启心动模式')
+      acceptProfile(state, profile)
+      if (previousId && previousId !== profile.id) {
+        await save()
+        notify()
+        throw new Error('网易云账号已更改，请重新开启心动模式')
+      }
+      const result = await getNeteaseHeartbeat(state.context, profile, params)
+      if (changed() || state.account.profile?.id !== profile.id) throw new Error('网易云账号已更改，请重新开启心动模式')
+      return result
+    } catch (error) {
+      if (changed()) throw new Error('网易云账号已更改，请重新开启心动模式')
+      const message = errorMessage(error)
+      if (/登录|login/i.test(message)) {
+        state.account.connected = false
+        state.account.error = message
+        await save()
+        notify()
+      }
+      throw error
+    }
+  })
+}
 const openLogin = async(id: PlatformId) => {
   if (id === 'qishui') throw new Error('请使用汽水音乐的扫码登录入口')
+  if (id === 'bodian') throw new Error('请使用波点音乐的扫码登录入口')
   const state = await getState(id)
   if (state.window && !state.window.isDestroyed()) { state.window.focus(); return snapshot() }
   const window = new BrowserWindow({
@@ -317,10 +355,62 @@ const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | nu
     interval: null,
     meta: { songId, albumName: '', qualitys: [], _qualitys: {}, strMediaMid: params.mediaMid ?? '', albumId: params.albumId ?? '', id: params.id },
   } as LX.Music.MusicInfoOnline
-  return state.provider.musicUrl(state.context, track, params.quality ?? '128k')
+  const stream = await state.provider.musicUrl(state.context, track, params.quality ?? '128k')
+  // The legacy SDK contract carries only url/type. Reject previews here so
+  // they cannot lose isTrial, get cached as full audio, or skip custom sources.
+  // Official previews are still available through platform_playback_resolve.
+  if (stream.isTrial) throw new Error(`${state.provider.name}仅返回试听音频，继续尝试其他完整音源`)
+  return stream
 }
 
 export default () => {
+  let bodianLogin: ReturnType<typeof createBodianLogin> | undefined
+  const bodianOwners = new WeakSet<Electron.WebContents>()
+  const getBodianLogin = async() => {
+    const state = await getState('bodian')
+    bodianLogin ??= createBodianLogin(state.context, async() => {
+      const generation = state.generation
+      const profile = await state.provider.profile(state.context)
+      if (generation !== state.generation || !bodianLogin?.isActive()) throw new Error('登录已取消或过期，请重新扫码')
+      acceptProfile(state, profile)
+      state.account.connected = true
+      state.account.error = ''
+      void save()
+      notify()
+      void syncState(state)
+    })
+    return { state, login: bodianLogin }
+  }
+  mainHandle('platform_bodian_login_start', async({ event }) => {
+    const { state, login } = await getBodianLogin()
+    if (!bodianOwners.has(event.sender)) {
+      bodianOwners.add(event.sender)
+      const owner = event.sender.id
+      event.sender.once('destroyed', () => {
+        try { if (login.cancel(owner)) ++state.generation } catch {}
+      })
+    }
+    ++state.generation
+    return login.start(event.sender.id)
+  })
+  mainHandle<{ flowId: string }, Awaited<ReturnType<ReturnType<typeof createBodianLogin>['check']>>>('platform_bodian_login_check', async({ event, params }) => {
+    const { login } = await getBodianLogin()
+    if (!params || typeof params.flowId !== 'string') throw new Error('无效的登录会话')
+    return login.check(event.sender.id, params.flowId)
+  })
+  mainHandle<{ flowId?: string }>('platform_bodian_login_cancel', async({ event, params }) => {
+    const { state, login } = await getBodianLogin()
+    if (login.cancel(event.sender.id, params?.flowId)) ++state.generation
+  })
+  mainHandle<{ query: string, kind: 'track' | 'album' | 'artist' | 'playlist', page?: number }, Awaited<ReturnType<typeof searchBodianCatalog>>>('platform_bodian_search', async({ params }) => {
+    if (!params || typeof params.query !== 'string' || !['track', 'album', 'artist', 'playlist'].includes(params.kind)) throw new Error('无效的波点搜索')
+    return searchBodianCatalog((await getState('bodian')).context, params.query, params.kind, params.page ?? 1)
+  })
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof bodianPlaylist>>>('platform_bodian_playlist', async({ params }) => bodianPlaylist((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianAlbumTracks>>>('platform_bodian_album', async({ params }) => getBodianAlbumTracks((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianArtistTracks>>>('platform_bodian_artist', async({ params }) => getBodianArtistTracks((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianLyrics>>>('platform_bodian_lyric', async({ params }) => getBodianLyrics((await getState('bodian')).context, params?.id))
+  mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveBodianShare>>>('platform_bodian_share', async({ params }) => resolveBodianShare((await getState('bodian')).context, params?.text))
   let qrLogin: ReturnType<typeof createQishuiLogin> | undefined
   const qrOwners = new WeakSet<Electron.WebContents>()
   const getQrLogin = async() => {
@@ -385,12 +475,17 @@ export default () => {
     return snapshot()
   })
   mainHandle<{ id: string, refresh?: boolean }, PlatformPlaylistDetail>('platform_accounts_playlist', async({ params }) => getPlaylist(params))
+  mainHandle<PlatformHeartbeatRequest, PlatformHeartbeatResult>('platform_netease_heartbeat', async({ params }) => getHeartbeat(params))
   mainHandle<PlatformId, PlatformSnapshot>('platform_accounts_logout', async({ params }) => {
     const state = await getState(params)
     ++state.generation
     if (params === 'qishui' && qrLogin) {
       qrLogin.cancelAll()
       await qrLogin.settled()
+    }
+    if (params === 'bodian' && bodianLogin) {
+      bodianLogin.cancelAll()
+      await bodianLogin.settled()
     }
     state.window?.close()
     await exclusive(state, async() => {

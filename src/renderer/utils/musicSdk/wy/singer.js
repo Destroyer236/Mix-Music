@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { eapiRequest } from './utils/index'
 import { formatPlayTime, sizeFormate } from '../../index'
 import { formatSingerName } from '../utils'
@@ -135,6 +136,7 @@ export default {
         albumName: item.album.name,
         albumId: item.album.id,
         songmid: item.id,
+        isVip: songVip('wy', item),
         source: 'wy',
         interval: formatPlayTime(item.duration),
         img: null,

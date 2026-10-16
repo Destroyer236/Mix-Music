@@ -3,9 +3,10 @@ import { computed, ref, shallowRef } from 'vue'
 import type { PlatformId, PlatformLikeResult, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { platformNames } from '@common/platformAccounts'
 import { sameRecording } from '@common/platformMatching'
-import { addListMusics, getListMusics, removeListMusics } from '@renderer/store/list/action'
+import { addListMusics, getListMusics, removeListMusics, updateListMusics } from '@renderer/store/list/action'
 import { loveList } from '@renderer/store/list/state'
 import { startQishuiLogin, closeQishuiLogin } from './qishuiLogin'
+import { startBodianLogin, closeBodianLogin } from './bodianLogin'
 
 const importedKey = 'linkline.platform-favorites.imported.v1'
 const imported = new Set<string>()
@@ -54,7 +55,22 @@ async function mergePlatformFavorites() {
     await removeListMusics({ listId: loveList.id, ids: removed.map(item => item.id) })
     for (const item of removed) imported.delete(importKey(item))
   }
-  const ready = saved.filter(item => !removed.some(track => track.id === item.id))
+  const remoteById = new Map(remote.map(track => [importKey(track), track]))
+  const updates: LX.List.ListActionMusicUpdate = []
+  const ready = saved.filter(item => !removed.some(track => track.id === item.id)).map(item => {
+    const remoteMeta = remoteById.get(importKey(item))?.meta
+    const isVip = remoteMeta?.isVip
+    const subtitle = remoteMeta?.subtitle?.trim()
+    const updateVip = typeof isVip === 'boolean' && item.meta.isVip !== isVip
+    const updateSubtitle = Boolean(subtitle && item.meta.subtitle !== subtitle)
+    if (!updateVip && !updateSubtitle) return item
+    // Platform metadata belongs to this song ID, not every matching recording.
+    const musicInfo: LX.Music.MusicInfo = { ...item }
+    musicInfo.meta = { ...item.meta, ...(updateVip ? { isVip } : {}), ...(updateSubtitle ? { subtitle } : {}) }
+    updates.push({ id: loveList.id, musicInfo })
+    return musicInfo
+  })
+  if (updates.length) await updateListMusics(updates)
   const missing: LX.Music.MusicInfoOnline[] = []
   for (const track of remote) {
     if (ready.some(item => sameRecording(item, track)) || missing.some(item => sameRecording(item, track))) continue
@@ -96,6 +112,7 @@ export async function initializePlatformAccounts(): Promise<void> {
 
 export function disposePlatformAccounts() {
   closeQishuiLogin()
+  closeBodianLogin()
   stopped = true
   ipcRenderer.removeListener('platform_accounts_changed', onSnapshot)
   window.app_event.off('myListUpdate', onListUpdate)
@@ -112,7 +129,11 @@ async function accountAction(channel: string, platform: PlatformId | null) {
     await queue
   } catch (error) { platformError.value = describeError(error) } finally { platformBusy.value = new Set([...platformBusy.value].filter(id => !ids.includes(id))) }
 }
-export const loginPlatform = async(platform: PlatformId) => platform === 'qishui' ? startQishuiLogin() : accountAction('platform_accounts_login', platform)
+export const loginPlatform = async(platform: PlatformId) => {
+  if (platform === 'qishui') { closeBodianLogin(); return startQishuiLogin() }
+  if (platform === 'bodian') { closeQishuiLogin(); return startBodianLogin() }
+  return accountAction('platform_accounts_login', platform)
+}
 export const syncPlatforms = async(platform: PlatformId | null = null) => accountAction('platform_accounts_sync', platform)
 export const logoutPlatform = async(platform: PlatformId) => accountAction('platform_accounts_logout', platform)
 

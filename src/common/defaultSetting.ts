@@ -1,5 +1,6 @@
 import path from 'node:path'
 import os from 'node:os'
+import { externalLyricDefaults } from './externalLyric'
 
 const isMac = process.platform == 'darwin'
 const isWin = process.platform == 'win32'
@@ -28,6 +29,7 @@ const defaultSetting: LX.AppSetting = {
   'player.startupAutoPlay': false,
   'player.togglePlayMethod': 'listLoop',
   'player.playQuality': 'auto',
+  'player.preferredSource': 'auto',
   'player.isShowTaskProgess': true,
   'player.isShowStatusBarLyric': false,
   'player.volume': 1,
@@ -105,6 +107,8 @@ const defaultSetting: LX.AppSetting = {
   'desktopLyric.style.isFontWeightFont': true,
   'desktopLyric.style.isFontWeightLine': true,
   'desktopLyric.style.isFontWeightExtended': true,
+
+  ...externalLyricDefaults,
 
   'list.isClickPlayList': false,
   'list.isShowSource': true,

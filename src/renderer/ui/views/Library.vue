@@ -3,31 +3,34 @@
 
 
     <main class="ui-library-main">
-      <header class="ui-library-heading">
-        <div class="ui-library-cover" :class="{ love: listId === 'love' }"><TrackArtwork v-if="coverTrack" :track="coverTrack" :list-id="listId" :alt="`${currentName} 封面`" /><img v-else-if="currentPlatformList?.cover" :src="currentPlatformList.cover" alt="" referrerpolicy="no-referrer"><UiIcon v-else :name="listId === 'love' ? 'heart' : listId === LOCAL_LIBRARY_ID ? 'folder' : 'music'" /></div>
-        <div class="ui-library-title"><span class="ui-library-eyebrow">YOUR COLLECTION</span><h1>{{ currentName }}</h1><p>{{ tracks.length }} 首歌曲 · {{ currentPlatformList ? `${platformName(currentPlatformList.platform)} · 平台创建歌单` : `${localCount} 首本地音乐` }}</p></div>
-        <div v-if="currentUserList" class="ui-library-edit"><button type="button" aria-label="重命名当前歌单" @click="openPlaylist('rename')">编辑</button><button type="button" aria-label="删除当前歌单" @click="openPlaylist('delete')">删除</button></div>
-      </header>
-
-      <div class="ui-library-toolbar">
-        <button type="button" class="ui-library-primary" :disabled="!tracks.length" @click="playFirst"><UiIcon name="play" filled />播放全部</button>
-        <button v-if="currentPlatformList" type="button" :disabled="loading" @click="refreshPlatformPlaylist"><UiIcon name="refresh" />同步歌单</button>
-        <button v-else type="button" :disabled="importing" @click="importAudioOpen = true">{{ importing ? '正在导入…' : '导入音乐' }}</button>
-        <button type="button" :disabled="importing" @click="importPlaylist">导入歌单</button>
-        <button type="button" :disabled="!tracks.length" @click="exportPlaylist">导出歌单</button>
-        <label class="ui-library-search"><UiIcon name="search" /><input v-model="query" placeholder="搜索此歌单" aria-label="搜索此歌单"></label>
-        <UiSelect :model-value="sort" :options="sortOptions" aria-label="歌单排序" @change="changeSort" />
-      </div>
+      <PlaylistHeader :title="currentName" :compact="headerCompact">
+        <template #cover><TrackArtwork v-if="coverTrack" :track="coverTrack" :list-id="listId" :alt="`${currentName} 封面`" /><img v-else-if="currentPlatformList?.cover" :src="currentPlatformList.cover" :alt="`${currentName} 封面`" referrerpolicy="no-referrer"><UiIcon v-else :name="listId === 'love' ? 'heart' : listId === LOCAL_LIBRARY_ID ? 'folder' : 'music'" /></template>
+        <template #details><p>{{ tracks.length }} 首歌曲 · {{ currentPlatformList ? `${platformName(currentPlatformList.platform)} · 平台创建歌单` : `${localCount} 首本地音乐` }}</p></template>
+        <template #extra><div v-if="currentUserList" class="ui-library-edit"><button type="button" aria-label="重命名当前歌单" @click="openPlaylist('rename')">编辑</button><button type="button" aria-label="删除当前歌单" @click="openPlaylist('delete')">删除</button></div></template>
+        <template #actions>
+          <button type="button" class="ui-playlist-header__primary" :disabled="!tracks.length" @click="playFirst"><UiIcon name="play" filled />播放全部</button>
+          <button v-if="currentPlatformList" type="button" :disabled="loading" @click="refreshPlatformPlaylist"><UiIcon name="refresh" />同步歌单</button>
+          <button v-else type="button" :disabled="importing" @click="importAudioOpen = true">{{ importing ? '正在导入…' : '导入音乐' }}</button>
+          <button type="button" :disabled="importing" @click="importPlaylist">导入歌单</button>
+          <button type="button" :disabled="!tracks.length" @click="exportPlaylist">导出歌单</button>
+        </template>
+        <template #tools>
+          <label class="ui-library-search"><UiIcon name="search" /><input v-model="query" placeholder="搜索此歌单" aria-label="搜索此歌单"></label>
+          <UiSelect :model-value="sort" :options="sortOptions" aria-label="歌单排序" @change="changeSort" />
+        </template>
+      </PlaylistHeader>
 
       <div v-if="importProgress && importing" class="ui-library-import-progress" role="status" aria-live="polite"><div><strong>正在扫描并导入本地音乐</strong><p>发现 {{ importProgress.discovered }} 首 · 已导入 {{ importProgress.imported }} 首 · 跳过 {{ importProgress.skipped }} 项 · 失败 {{ importProgress.failed + importProgress.metadataFailed }} 项</p><small :title="importProgress.directory">{{ importProgress.directory || '正在读取所选文件…' }}</small></div><button type="button" :disabled="importCancelled" @click="importCancelled = true">{{ importCancelled ? '正在停止…' : '停止导入' }}</button></div>
       <div v-if="actionError" class="ui-library-error" role="alert">{{ actionError }}<button type="button" aria-label="关闭错误提示" @click="actionError = ''"><UiIcon name="close" /></button></div>
       <div v-if="selected.size" class="ui-library-selection"><span>已选择 {{ selected.size }} 首</span><button type="button" @click="openTrackAction('add', selectedTracks)">加入歌单</button><button type="button" @click="favoriteMany(selectedTracks)">收藏</button><button type="button" @click="openTrackAction('download', selectedTracks)">下载</button><button v-if="!currentPlatformList" type="button" @click="requestRemove(selectedTracks)">移除</button><button type="button" @click="selected = new Set()">取消选择</button></div>
       <div class="ui-library-results">
-        <TrackTable :list="filteredTracks" :list-id="listId" :loading="loading" :error="error" :removable="!currentPlatformList" :empty-title="query ? '没有找到匹配的歌曲' : currentPlatformList ? '平台歌单暂时没有歌曲' : listId === LOCAL_LIBRARY_ID ? '导入文件或文件夹，开始聆听本地音乐' : '给这个歌单加入第一首音乐'" @play="playTrack" @add="addTrack" @download="downloadTrack" @remove="removeTrack" @retry="loadTracks">
-          <template #actions="{ track }: { track: LX.Music.MusicInfo }"><button type="button" class="ui-library-row-btn" :class="{ loved: isFavorite(track) }" :aria-pressed="isFavorite(track)" :aria-label="isFavorite(track) ? '取消收藏' : '收藏歌曲'" :disabled="favoritePending.has(track.id)" @click="toggleFavorite(track)"><UiIcon name="heart" :filled="isFavorite(track)" /></button><button v-if="!currentPlatformList" type="button" class="ui-library-row-btn" aria-label="编辑歌曲信息" @click="editTrack(track)"><UiIcon name="more" /></button><input type="checkbox" :checked="selected.has(track.id)" :aria-label="`选择 ${track.name}`" @change="toggleSelected(track.id)"></template>
+        <TrackTable :list="filteredTracks" :list-id="listId" :loading="loading" :error="error" :removable="!currentPlatformList" :selected-ids="selected" :empty-title="query ? '没有找到匹配的歌曲' : currentPlatformList ? '平台歌单暂时没有歌曲' : listId === LOCAL_LIBRARY_ID ? '导入文件或文件夹，开始聆听本地音乐' : '给这个歌单加入第一首音乐'" @play="playTrack" @add="addTrack" @download="downloadTrack" @remove="removeTrack" @retry="loadTracks">
+          <template #actions="{ track }: { track: LX.Music.MusicInfo }"><button type="button" class="ui-library-row-btn" :class="{ loved: isFavorite(track) }" :aria-pressed="isFavorite(track)" :aria-label="isFavorite(track) ? '取消收藏' : '收藏歌曲'" :disabled="favoritePending.has(track.id)" @click="toggleFavorite(track)"><UiIcon name="heart" :filled="isFavorite(track)" /></button><button v-if="!currentPlatformList" type="button" class="ui-library-row-btn" aria-label="编辑歌曲信息" @click="editTrack(track)"><UiIcon name="more" /></button></template>
+          <template #selection="{ track }: { track: LX.Music.MusicInfo }"><input type="checkbox" :checked="selected.has(track.id)" :aria-label="`选择 ${track.name}`" @change="toggleSelected(track.id)"></template>
         </TrackTable>
       </div>
       <footer v-if="filteredTracks.length" class="ui-library-pagination"><label><input type="checkbox" :checked="allSelected" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
+      <PlaylistFloatingButtons :container="pageContainer" :tracks="filteredTracks" />
     </main>
 
     <PlaylistDialog :show="playlistOpen" :action="playlistAction" :list-info="currentUserList" @close="playlistOpen = false" @saved="playlistSaved" />
@@ -45,12 +48,15 @@ import TrackTable from '../components/TrackTable.vue'
 import UiModal from '../components/UiModal.vue'
 import UiIcon from '../components/UiIcon.vue'
 import TrackArtwork from '../components/TrackArtwork.vue'
+import PlaylistHeader from '../components/PlaylistHeader.vue'
+import PlaylistFloatingButtons from '../components/PlaylistFloatingButtons.vue'
 import { playlistCoverTrack, rememberPlaylistCover } from '../usePlaylistCover'
 import UiSelect from '../components/UiSelect.vue'
 import TrackActionModal from '../components/TrackActionModal.vue'
 import PlaylistDialog from '../components/PlaylistDialog.vue'
 import TrackMetadataModal from '../components/TrackMetadataModal.vue'
 import { usePaginationScroll } from '../usePaginationScroll'
+import { useCollapsingPlaylistHeader } from '../useCollapsingPlaylistHeader'
 import { loveList, userLists } from '@renderer/store/list/state'
 import { getListMusics, getUserLists, addListMusics, createUserList, removeListMusics, updateListMusicsPosition, setTempList } from '@renderer/store/list/action'
 import { LIST_IDS } from '@common/constants'
@@ -75,6 +81,7 @@ const sort = ref('original')
 const sortOptions = [{ value: 'original', label: '原始排序' }, { value: 'name', label: '按歌曲名称' }, { value: 'singer', label: '按歌手名称' }]
 const originalOrder = ref<string[]>([])
 const pageContainer = usePaginationScroll([query, listId], '.track-table__rows')
+const headerCompact = useCollapsingPlaylistHeader(pageContainer, [query, listId], '.track-table__rows')
 const importing = ref(false)
 const importAudioOpen = ref(false)
 const importProgress = ref<LocalImportProgress | null>(null)
@@ -267,7 +274,7 @@ async function importPlaylist() {
 </script>
 
 <style lang="less">
-.ui-library { height: 100%; display: flex; min-height: 0; color: var(--modern-text); background: var(--modern-panel); }
+.ui-library { position: relative; height: 100%; display: flex; min-height: 0; color: var(--modern-text); background: var(--modern-panel); }
 .ui-library-rail { width: 184px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--modern-border); background: var(--modern-panel); }
 .ui-library-rail-heading { padding: 24px 16px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; button { display: grid; place-items: center; padding: 0; width: 25px; height: 25px; border: 0; border-radius: 7px; background: var(--modern-panel); color: var(--modern-muted); cursor: pointer; svg { width: 17px; height: 17px; } } }
 .ui-library-playlists { flex: 1; min-height: 0; padding: 0 8px; overflow-y: auto; button { width: 100%; padding: 11px 9px; display: flex; align-items: center; gap: 9px; border: 0; border-radius: var(--modern-radius-small); margin-bottom: 4px; background: transparent; color: var(--modern-muted); font-size: 12px; text-align: left; cursor: pointer; span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } &:hover { background: var(--modern-hover); color: var(--modern-text); } &.active { background: var(--modern-accent-soft); color: var(--modern-accent-ink); font-weight: 600; } } }
@@ -278,7 +285,6 @@ async function importPlaylist() {
 .ui-library-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; padding: 28px 26px 0; background: var(--modern-panel); }
 .ui-library-heading { display: flex; align-items: center; gap: 18px; flex: none; }
 .ui-library-cover { width: 74px; height: 74px; flex: none; border-radius: var(--modern-radius-small); overflow: hidden; display: grid; place-items: center; background: var(--modern-accent-soft); color: var(--modern-accent-ink); img { width: 100%; height: 100%; object-fit: cover; } svg { width: 35px; height: 35px; } &.love { background: rgba(183, 117, 127, .12); color: #b17b86; } }
-.ui-library-eyebrow { display: block; font-size: 9px; letter-spacing: 1.6px; color: var(--modern-muted); }
 .ui-library-title { min-width: 0; h1 { font-size: 25px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } p { font-size: 11px; color: var(--modern-muted); margin-top: 4px; } }
 .ui-library-edit { margin-left: auto; display: flex; gap: 8px; button { background: transparent; border: 0; color: var(--modern-muted); cursor: pointer; padding: 6px; font-size: 11px; &:hover { color: var(--modern-accent-ink); } } }
 .ui-library-toolbar { display: flex; gap: 8px; align-items: center; padding: 24px 0 18px; flex: none; > button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); padding: 9px 12px; background: var(--modern-panel); color: var(--modern-muted); font-size: 11px; cursor: pointer; svg { width: 14px; height: 14px; } &:hover { color: var(--modern-text); background: var(--modern-hover); } &:disabled { opacity: .4; cursor: default; } } button.ui-library-primary { background: var(--modern-text); border-color: transparent; color: var(--modern-panel); } .ui-select { width: 125px; flex: none; } }

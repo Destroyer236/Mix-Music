@@ -1,6 +1,8 @@
 import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts'
 import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 import { randomUUID } from 'node:crypto'
+import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 
 import type { PlatformProvider, ProviderContext } from './types'
 
@@ -21,6 +23,7 @@ interface QqSong {
   album?: { id?: number, mid?: string, name?: string, pmid?: string }
   file?: { media_mid?: string, size_128mp3?: number, size_320mp3?: number, size_flac?: number, size_hires?: number }
   status?: number
+  pay?: { pay_play?: number, pay_down?: number }
 }
 
 interface CgiResponse {
@@ -92,6 +95,8 @@ function normalizeSong(song: QqSong): LX.Music.MusicInfo_tx | null {
     interval: formatInterval(song.interval),
     meta: {
       songId: mid,
+      isVip: songVip('tx', song),
+      subtitle: songSubtitle('tx', song),
       albumName: album.name ?? '',
       recordingVersion: /\blive\b|重录|重新录制|现场|演唱会|\bremaster(?:ed)?\b|\bremix\b|翻唱|伴奏|\binstrumental\b|\bacoustic\b/i.test(song.subtitle ?? '') ? song.subtitle : '',
       albumId: album.mid ?? album.id ?? '',
@@ -190,16 +195,25 @@ async function vkey(context: ProviderContext, track: LX.Music.MusicInfoOnline, c
   })
   const data = asRecord(asRecord(result.req).data)
   const items = Array.isArray(data.midurlinfo) ? data.midurlinfo.map(asRecord) : []
+  let trial: PlatformStream | undefined
   for (const format of candidates) {
     const index = candidates.indexOf(format)
     const item = items.find(item => String(item.filename ?? '').startsWith(format.prefix) && item.purl) ?? items[index]
     const purl = String(item?.purl ?? '')
-    if (!purl || /(?:^|\/)RS02/.test(purl)) continue
-    const filename = String(item?.filename ?? purl.split('?')[0].split('/').pop() ?? '')
-    const actual = formats.find(entry => filename.startsWith(entry.prefix)) ?? format
+    if (!purl) continue
     const sip = Array.isArray(data.sip) ? String(data.sip.find(item => String(item).startsWith('https:')) ?? data.sip[0] ?? '') : ''
-    return { url: /^https?:\/\//.test(purl) ? purl : `${sip || 'https://ws.stream.qqmusic.qq.com/'}${purl}`, type: actual.type, quality: actual.quality, expires: 600 }
+    const url = /^https?:\/\//.test(purl) ? purl : `${sip || 'https://ws.stream.qqmusic.qq.com/'}${purl}`
+    if (/(?:^|\/)RS02/.test(purl)) {
+      // RS02 is QQ's server-clipped audition resource, not the requested tier.
+      trial ??= { url, type: '128k', quality: '128k', qualityLabel: '试听音频（平台提供）', expires: 600, isTrial: true }
+      continue
+    }
+    const returnedName = purl.split('?')[0].split('/').pop() ?? ''
+    const filename = formats.some(entry => returnedName.startsWith(entry.prefix)) ? returnedName : String(item?.filename ?? returnedName)
+    const actual = formats.find(entry => filename.startsWith(entry.prefix)) ?? format
+    return { url, type: actual.type, quality: actual.quality, expires: 600 }
   }
+  if (trial) return trial
   throw new Error('QQ 音乐没有返回完整可播放音频，请检查版权、会员或登录权限')
 }
 
@@ -356,10 +370,18 @@ async function musicUrl(context: ProviderContext, track: LX.Music.MusicInfoOnlin
   const mappedQuality = quality === '64k' ? '128k' : quality === 'dolby' ? 'sky' : quality === 'ape' || quality === 'wav' ? 'flac' : quality
   const index = formats.findIndex(format => format.quality === mappedQuality)
   const candidates = formats.slice(index < 0 ? formats.findIndex(format => format.quality === 'flac') : index)
-  // Preserve the requested level when entitled; fall back only when the platform rejects it.
-  try { return await vkey(context, track, candidates.slice(0, 1)) } catch (error) {
+  // A preview at a premium tier must not hide a lower, entitled full stream.
+  let trial: PlatformStream | undefined
+  try {
+    const stream = await vkey(context, track, candidates.slice(0, 1))
+    if (!stream.isTrial || candidates.length <= 1) return stream
+    trial = stream
+  } catch (error) {
     if (candidates.length <= 1) throw error
-    return vkey(context, track, candidates.slice(1))
+  }
+  try { return await vkey(context, track, candidates.slice(1)) } catch (error) {
+    if (trial) return trial
+    throw error
   }
 }
 

@@ -22,8 +22,6 @@
 
           <PlatformAccounts v-if="category.id === 'accounts'" />
 
-          <div v-if="category.id === 'lyrics'" class="studio-settings-feature"><div><h3>找回桌面歌词</h3><p>将歌词移回当前屏幕，恢复可见背景并解除锁定。</p></div><button type="button" class="studio-settings-button primary" :disabled="busy" @click="recoverDesktopLyrics"><UiIcon name="lyric" />找回桌面歌词</button></div>
-
           <template v-if="category.id === 'sources'">
             <div class="studio-settings-feature"><div><h3>{{ userApi.status ? '音源连接正常' : currentSource ? '音源连接状态' : '添加你的音乐音源' }}</h3><p>{{ currentSource ? `${currentSource.name} · ${sourceStatus}` : '导入已有的 LX 音源脚本后，即可使用对应接口播放音乐。' }}</p></div><button type="button" class="studio-settings-button primary" :disabled="busy" @click="importSource()">导入脚本</button></div>
             <div class="studio-settings-inline-form"><input v-model="sourceUrl" type="url" placeholder="https://… 音源脚本地址" aria-label="在线音源脚本地址"><button type="button" class="studio-settings-button" :disabled="busy || !sourceUrl" @click="importOnlineSource">从链接导入</button></div>
@@ -34,19 +32,23 @@
             </article>
           </template>
 
-          <div v-for="field in fieldsFor(category.id)" :key="field.key" class="studio-settings-row">
+          <template v-for="group in fieldGroupsFor(category.id)" :key="group.id">
+          <div v-if="group.mode" class="studio-settings-subheading external-lyric-heading"><h3>{{ group.name }}</h3><div class="studio-settings-actions"><button v-if="group.mode !== 'taskbar'" type="button" class="studio-settings-text-button" :disabled="busy" @click="recoverExternalLyrics(group.mode)">找回窗口</button><button type="button" class="studio-settings-text-button" :disabled="busy" @click="resetExternalLyrics(group.mode)">恢复默认设置</button></div><p>{{ group.description }}</p></div>
+          <div v-for="field in group.fields" :key="field.key" class="studio-settings-row">
             <div class="studio-settings-label"><label :for="fieldId(field)">{{ field.label }}</label><p v-if="field.hint">{{ field.hint }}</p></div>
             <div class="studio-settings-control">
-              <button v-if="field.type === 'boolean'" :id="fieldId(field)" type="button" class="studio-settings-switch" :class="{ checked: appSetting[field.key] }" :disabled="busy" role="switch" :aria-checked="Boolean(appSetting[field.key])" :aria-label="field.label" @click="setPreference(field, !appSetting[field.key])"><span /></button>
-              <UiSelect v-else-if="optionsFor(field).length" :id="fieldId(field)" :model-value="String(appSetting[field.key] ?? '')" :options="optionsFor(field)" :aria-label="field.label" @change="changeChoice(field, $event)" />
+              <button v-if="field.type === 'boolean'" :id="fieldId(field)" type="button" class="studio-settings-switch" :class="{ checked: appSetting[field.key] }" :disabled="busy || field.disabled?.(appSetting)" role="switch" :aria-checked="Boolean(appSetting[field.key])" :aria-label="field.label" @click="setPreference(field, !appSetting[field.key])"><span /></button>
+              <UiSelect v-else-if="optionsFor(field).length" :id="fieldId(field)" :model-value="String(appSetting[field.key] ?? '')" :options="optionsFor(field)" :aria-label="field.label" :disabled="busy || field.disabled?.(appSetting)" @change="changeChoice(field, $event)" />
               <template v-else-if="field.type === 'path'"><input :id="fieldId(field)" :value="appSetting[field.key]" @change="changeField(field, $event)"><button type="button" class="studio-settings-icon-button" aria-label="选择保存目录" @click="chooseDirectory"><UiIcon name="folder" /></button><button type="button" class="studio-settings-icon-button" aria-label="打开保存目录" @click="openDirInExplorer(appSetting['download.savePath'])"><UiIcon name="arrowUpRight" /></button></template>
               <div v-else-if="field.type === 'font'" class="studio-settings-font"><UiSelect :model-value="String(appSetting[field.key] ?? '')" :options="fontOptions" :aria-label="`${field.label}，选择系统字体`" placeholder="选择系统字体" @change="changeChoice(field, $event)" /><input :id="fieldId(field)" :value="appSetting[field.key]" placeholder="或手动填写字体家族" @change="changeField(field, $event)"></div>
               <template v-else-if="field.type === 'color'"><span class="studio-settings-color" :style="{ background: String(appSetting[field.key]) }" /><input :id="fieldId(field)" :value="appSetting[field.key]" @change="changeField(field, $event)"></template>
               <input v-else :id="fieldId(field)" :type="field.type === 'number' ? 'number' : 'text'" :value="appSetting[field.key] ?? ''" :min="field.min" :max="field.max" :step="field.step" @change="changeField(field, $event)">
             </div>
           </div>
+          </template>
+          <p v-if="category.id === 'externalLyric' && !isWindows" class="studio-settings-hint">任务栏歌词仅在 Windows 上可用。</p>
 
-          <div v-if="category.id === 'playback'" class="studio-settings-feature"><div><h3>定时停止</h3><p>{{ timer.timeLabel.value ? `剩余 ${timer.timeLabel.value}` : '在上方设置分钟数，睡前让音乐陪伴一会儿。' }}</p></div><div class="studio-settings-actions"><button type="button" class="studio-settings-button" @click="stopTimeoutStop">取消定时</button><button type="button" class="studio-settings-button primary" @click="startTimer">启动定时</button></div></div>
+          <div v-if="category.id === 'sources'" class="studio-settings-feature"><div><h3>定时停止</h3><p>{{ timer.timeLabel.value ? `剩余 ${timer.timeLabel.value}` : '在上方设置分钟数，睡前让音乐陪伴一会儿。' }}</p></div><div class="studio-settings-actions"><button type="button" class="studio-settings-button" @click="stopTimeoutStop">取消定时</button><button type="button" class="studio-settings-button primary" @click="startTimer">启动定时</button></div></div>
 
           <template v-if="category.id === 'audio'">
             <div class="studio-settings-actions spaced"><button type="button" class="studio-settings-button" @click="run('输出设备已刷新', refreshDevices)">刷新输出设备</button><button type="button" class="studio-settings-button" @click="resetEQ">重置均衡器</button></div>
@@ -118,8 +120,9 @@ import PlatformAccounts from '@renderer/ui/components/PlatformAccounts.vue'
 import UpdateCenterPanel from '@renderer/ui/components/UpdateCenterPanel.vue'
 import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
 import { LINKLINE_REPOSITORY } from '@common/appUpdate'
+import { externalLyricDefaults, type ExternalLyricMode, type ExternalLyricSettings } from '@common/externalLyric'
 import { openUpdateCenter } from '@renderer/ui/services/appUpdate'
-import { categories, settingFields, type Option, type SettingField } from '@renderer/ui/settings/schema'
+import { categories, externalLyricSections, settingFields, type Option, type SettingField } from '@renderer/ui/settings/schema'
 import { useSettings } from '@renderer/ui/settings/useSettings'
 import { useHotkeys } from '@renderer/ui/settings/useHotkeys'
 
@@ -127,7 +130,7 @@ const settings = useSettings()
 const { busy, notice, failed, fonts, devices, syncDevices, caches, rules, confirmation, answerConfirmation, run, setPreference, chooseDirectory, refreshDevices, importSource, removeSource, useSource, exportBackup, importBackup, exportText, refreshCaches, clearData, refreshSyncDevices, removeSyncDevice, saveRules, sync, versionInfo, userApi } = settings
 const route = useRoute()
 const router = useRouter()
-const resolveCategory = (id: unknown) => typeof id === 'string' && categories.some(category => category.id === id) ? id : 'accounts'
+const resolveCategory = (id: unknown) => id === 'playback' ? 'sources' : typeof id === 'string' && categories.some(category => category.id === id) ? id : 'accounts'
 const query = ref('')
 const active = ref(resolveCategory(route.query.category))
 const categoryNav = ref<HTMLElement | null>(null)
@@ -140,6 +143,7 @@ const customEq = ref<LX.SoundEffect.EQPreset[]>([])
 const eqPresetName = ref('')
 const eqPresetId = ref('')
 const timer = useTimeout()
+const isWindows = process.platform === 'win32'
 const report = (error: unknown) => { failed.value = true; notice.value = error instanceof Error ? error.message : String(error) }
 const hotkeys = useHotkeys(report)
 const hotkeyKinds = [{ id: 'local', name: '应用内快捷键' }, { id: 'global', name: '全局快捷键' }] as const
@@ -148,7 +152,7 @@ const fontOptions = computed(() => [{ value: '', label: '系统默认' }, ...fon
 const cacheKinds = [{ id: 'resources', name: '图片和资源缓存' }, { id: 'sources', name: '换源匹配缓存' }, { id: 'urls', name: '播放地址缓存' }, { id: 'lyrics', name: '原始歌词缓存' }, { id: 'edited', name: '已编辑歌词' }] as const
 const keyword = computed(() => query.value.trim().toLowerCase())
 const visibleCategories = computed(() => keyword.value ? categories.filter(category => `${category.name} ${category.description} ${category.keywords}`.toLowerCase().includes(keyword.value) || settingFields.some(field => field.category === category.id && `${field.label} ${field.hint ?? ''}`.toLowerCase().includes(keyword.value))) : categories)
-const outputDevicesVisible = computed(() => active.value === 'audio' || active.value === 'playback')
+const outputDevicesVisible = computed(() => active.value === 'audio' || active.value === 'sources')
 watch(outputDevicesVisible, visible => { void settings.setDeviceEnumerationActive(visible).catch(report) })
 const currentSource = computed(() => userApi.list.find(api => api.id === appSetting['common.apiSource']))
 const sourceStatus = computed(() => userApi.status ? '已就绪' : userApi.message === 'initing' ? '正在初始化' : userApi.message ? userApi.message : '尚未连接')
@@ -164,6 +168,7 @@ function mountSection(id: string) {
   if (mountedSections.value.has(id)) return
   mountedSections.value = new Set([...mountedSections.value, id])
   void settings.initializeSection(id)
+  if (id === 'externalLyric') void settings.initializeSection('general')
   if (id === 'hotkeys') void hotkeys.refresh().catch(report)
   if (id === 'audio') void getUserEQPresetList().then(list => { customEq.value = list }).catch(report)
 }
@@ -218,7 +223,14 @@ onBeforeUnmount(() => { navigationVersion++; sectionObserver?.disconnect(); canc
 function fieldsFor(id: string) {
   const category = categories.find(item => item.id === id)
   const matchesCategory = `${category?.name} ${category?.description} ${category?.keywords}`.toLowerCase().includes(keyword.value)
-  return settingFields.filter(field => field.category === id && (!keyword.value || matchesCategory || `${field.label} ${field.hint ?? ''}`.toLowerCase().includes(keyword.value)))
+  return settingFields.filter(field => field.category === id && (!field.visible || field.visible(appSetting)) && (!keyword.value || matchesCategory || `${field.label} ${field.hint ?? ''}`.toLowerCase().includes(keyword.value)))
+}
+function fieldGroupsFor(id: string) {
+  const fields = fieldsFor(id)
+  if (id !== 'externalLyric') return [{ id, name: '', description: '', mode: undefined as ExternalLyricMode | undefined, fields }]
+  return externalLyricSections.filter(section => section.id !== 'taskbar' || isWindows)
+    .map(section => ({ ...section, mode: section.id, fields: fields.filter(field => field.group === section.id) }))
+    .filter(section => section.fields.length)
 }
 function optionsFor(field: SettingField): Option[] {
   if (field.key === 'common.apiSource') return [{ value: '', label: '未选择音源' }, ...userApi.list.map(api => ({ value: api.id, label: api.name }))]
@@ -228,20 +240,36 @@ function optionsFor(field: SettingField): Option[] {
 }
 function changeField(field: SettingField, event: Event) { void setPreference(field, (event.target as HTMLInputElement).value) }
 function changeChoice(field: SettingField, value: string | number) { void setPreference(field, String(value)) }
-async function recoverDesktopLyrics() {
-  await run('桌面歌词已移回当前屏幕', async() => {
-    await settings.saveRecord({
-      'desktopLyric.enable': true,
-      'desktopLyric.isLock': false,
-      'desktopLyric.isAlwaysOnTop': true,
-      'desktopLyric.style.opacity': 95,
-      'desktopLyric.style.backgroundOpacity': 100,
-      'desktopLyric.style.fontSize': 20,
-      'desktopLyric.width': 450,
-      'desktopLyric.height': 300,
-      'desktopLyric.x': null,
-      'desktopLyric.y': null,
+async function recoverExternalLyrics(mode?: ExternalLyricMode) {
+  if (!mode || mode === 'taskbar') return
+  await run('歌词窗口已移回当前屏幕', async() => {
+    await settings.saveRecord(mode === 'desktop' ? {
+      'externalLyric.desktop.enabled': true,
+      'externalLyric.desktop.locked': false,
+      'externalLyric.desktop.alwaysOnTop': true,
+      'externalLyric.desktop.x': null,
+      'externalLyric.desktop.y': null,
+      'externalLyric.desktop.width': 800,
+      'externalLyric.desktop.height': 200,
+    } : {
+      'externalLyric.island.enabled': true,
+      'externalLyric.island.alwaysOnTop': true,
+      'externalLyric.island.snapCentered': true,
+      'externalLyric.island.nonOcclusive': false,
+      'externalLyric.island.x': null,
+      'externalLyric.island.y': null,
     })
+  })
+}
+async function resetExternalLyrics(mode?: ExternalLyricMode) {
+  if (!mode) return
+  await run('外部歌词设置已恢复默认', async() => {
+    const patch: Partial<LX.AppSetting> = {}
+    for (const key of Object.keys(externalLyricDefaults) as Array<keyof ExternalLyricSettings>) {
+      if (!key.startsWith(`externalLyric.${mode}.`) || key.endsWith('.enabled') || /\.(x|y|width|height)$/.test(key)) continue
+      patch[key] = externalLyricDefaults[key] as never
+    }
+    await settings.saveRecord(patch)
   })
 }
 async function importOnlineSource() {
@@ -339,6 +367,7 @@ onMounted(() => {
 .studio-settings-notice { max-width: 900px; padding: 12px 15px; margin: 0 auto 20px; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); color: var(--modern-accent-ink); font-size: 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--modern-accent-soft); &.error { color: #c66666; background: rgba(197, 78, 78, .07); } button { border: 0; background: none; color: inherit; cursor: pointer; svg { width: 17px; height: 17px; } } }
 .studio-settings-empty { text-align: center; padding: 60px 15px; h2 { font-size: 17px; font-weight: 500; } p { color: var(--modern-muted); font-size: 12px; margin-top: 10px; } &.compact { padding: 12px; } }
 .studio-settings-subheading { margin: 25px 0 13px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; h3 { font-size: 13px; font-weight: 550; } p { flex-basis: 100%; color: var(--modern-muted); font-size: 10px; line-height: 1.8; } }
+.studio-settings-continuous .studio-settings-row + .external-lyric-heading { margin-top: 48px; }
 .studio-settings-text-button { font-size: 11px; color: var(--modern-accent-ink); border: 0; background: transparent; cursor: pointer; }
 .studio-settings-rules { box-sizing: border-box; resize: vertical; width: 100%; min-height: 130px; padding: 12px; background: var(--modern-hover); border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); font-size: 12px; color: var(--modern-text); font-family: inherit; line-height: 1.8; }
 .studio-settings-presets { display: flex; gap: 7px; flex-wrap: wrap; > span { display: flex; border: 1px solid var(--modern-border); border-radius: 12px; overflow: hidden; } button { display: inline-flex; align-items: center; padding: 6px 9px; border: 0; color: var(--modern-text); background: var(--modern-hover); font-size: 11px; cursor: pointer; svg { width: 13px; height: 13px; } &:hover { background: var(--modern-accent-soft); } } }

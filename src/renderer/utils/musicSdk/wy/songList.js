@@ -1,3 +1,5 @@
+import { songVip } from '@common/musicAccess'
+import { songSubtitle } from '@common/musicSubtitle'
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/module/playlist_catlist.js
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/module/playlist_hot.js
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/module/top_playlist.js
@@ -174,6 +176,8 @@ export default {
           source: 'wy',
           interval: formatPlayTime(item.dt / 1000),
           songmid: item.id,
+          isVip: songVip('wy', item, privilege),
+          subtitle: songSubtitle('wy', item),
           img: item.al?.picUrl ?? '',
           lrc: null,
           otherSource: null,
@@ -190,6 +194,8 @@ export default {
           source: 'wy',
           interval: formatPlayTime(item.dt / 1000),
           songmid: item.id,
+          isVip: songVip('wy', item, privilege),
+          subtitle: songSubtitle('wy', item),
           img: item.al?.picUrl,
           lrc: null,
           otherSource: null,

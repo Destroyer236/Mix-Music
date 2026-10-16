@@ -1,5 +1,5 @@
 import { updateListMusics } from '@renderer/store/list/action'
-import { legacyQuality } from '@common/platformPlayback'
+import { legacyQuality, type ResolvedPlatformStream } from '@common/platformPlayback'
 import { acceptStream, preferredQuality, resolvePlatformStream } from '@renderer/ui/services/platformPlayback'
 import {
   saveLyric,
@@ -48,13 +48,25 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
 }): Promise<string> => {
   const requested = quality ?? preferredQuality.value
   let platformError: unknown
+  let trial: ResolvedPlatformStream | undefined
   try {
     const stream = await resolvePlatformStream(musicInfo, isRefresh, allowToggleSource, requested)
-    acceptStream(musicInfo, stream, requested)
-    return stream.url
+    if (!stream.isTrial) {
+      acceptStream(musicInfo, stream, requested)
+      return stream.url
+    }
+    trial = stream
   } catch (error) { platformError = error }
+  const useTrial = (error?: unknown): string => {
+    if (!trial) {
+      const cause = platformError ?? error
+      throw cause instanceof Error ? cause : new Error(typeof cause === 'string' ? cause : '没有找到可播放音频')
+    }
+    acceptStream(musicInfo, trial, requested)
+    return trial.url
+  }
   // Custom sources remain available when an account API cannot return a full stream.
-  if (musicInfo.source === 'bi' || musicInfo.source === 'qs') throw platformError
+  if (musicInfo.source === 'bi' || musicInfo.source === 'qs' || musicInfo.source === 'bo') return useTrial()
   quality = getPlayQuality(quality ?? legacyQuality(preferredQuality.value), musicInfo)
   // if (!musicInfo._types[type]) {
   //   // 兼容旧版酷我源搜索列表过滤128k音质的bug
@@ -63,7 +75,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   //   // return Promise.reject(new Error('该歌曲没有可播放的音频'))
   // }
   const targetQuality = quality
-  const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
+  const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality).catch(() => null)
   if (cachedUrl && !isRefresh) {
     acceptStream(musicInfo, { url: cachedUrl, type: targetQuality, quality: targetQuality, platform: '自定义音源', musicInfo }, requested)
     return cachedUrl
@@ -74,7 +86,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)
     void saveMusicUrl(musicInfo, targetQuality, url)
     return url
-  }).catch(() => { throw platformError })
+  }).catch((error: unknown) => useTrial(error))
 }
 
 export const getPicUrl = async({ musicInfo, listId, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {
