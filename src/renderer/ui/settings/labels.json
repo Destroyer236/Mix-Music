@@ -17,6 +17,7 @@
   "player.startupAutoPlay": "启动时自动播放歌曲",
   "player.togglePlayMethod": "切歌模式",
   "player.playQuality": "播放音质偏好",
+  "player.preferredSource": "全局首选音源",
   "player.isShowTaskProgess": "显示任务栏进度条",
   "player.isShowStatusBarLyric": "将歌词显示在状态栏",
   "player.volume": "音量大小",

@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { httpFetch } from '../../request'
 import { decodeName, formatPlayTime, sizeFormate } from '../../index'
 import { formatSingerName } from '../utils'
@@ -132,6 +133,7 @@ export default {
         albumName: decodeName(item.remark),
         albumId: item.album_id,
         songmid: item.audio_id,
+        isVip: songVip('kg', item),
         albumAudioId: item.album_audio_id,
         source: 'kg',
         interval: formatPlayTime(item.duration),

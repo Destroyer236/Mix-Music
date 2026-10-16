@@ -27,6 +27,8 @@ export interface PlatformStream {
   bitrate?: number
   sampleRate?: number
   bitDepth?: number
+  /** True only when the platform returned an official preview resource. */
+  isTrial?: boolean
 }
 
 export interface ResolvedPlatformStream extends PlatformStream {

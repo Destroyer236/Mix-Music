@@ -4014,3 +4014,20 @@ html[data-modern-theme][data-modern-joined-panels='true'] {
     box-shadow: none !important;
   }
 }
+
+// Source, membership and real preview state share a compact badge row.
+.ui-recommend-track-info .ui-recommend-track-badges.ui-track-badges { margin-top: 5px; }
+.ui-detail-metadata .ui-detail-track-badges.ui-track-badges { margin-top: 8px; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions { gap: 10px; }
+:is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions > :is(button, .ui-player-options) { flex: none; }
+.ui-player-queue-panel .ui-queue-track > .ui-queue-track-info { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 5px; overflow: hidden; }
+.ui-player-queue-panel .ui-queue-track-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1100px) {
+  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-current-badges > .ui-track-badge--source { display: none; }
+}
+@media (max-width: 900px) {
+  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions { gap: 6px; }
+}
+@media (max-width: 640px) {
+  :is(.ui-shell, .ui-player-detail) > .ui-player .ui-player-song-actions { gap: 4px; }
+}

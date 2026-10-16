@@ -15,7 +15,8 @@ function load(file) {
   instance.filename = file
   instance.paths = Module._nodeModulePaths(path.dirname(file))
   const nativeRequire = instance.require.bind(instance)
-  instance.require = name => name.startsWith('./qishui') ? load(path.resolve(path.dirname(file), `${name}.ts`)) : nativeRequire(name)
+  instance.require = name => name.startsWith('./qishui') ? load(path.resolve(path.dirname(file), `${name}.ts`))
+    : name.startsWith('@common/') ? load(path.join(root, 'src/common', `${name.slice(8)}.ts`)) : nativeRequire(name)
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   instance._compile(code, file)
   return instance.exports

@@ -11,7 +11,7 @@
           <span class="track-table__index">{{ row.number }}</span>
           <div class="track-table__name" role="button" tabindex="0" :aria-label="`播放 ${row.track.name || '未命名歌曲'}`" :title="row.track.name" @click="$emit('play', row.track, row.index)" @keydown.enter="$emit('play', row.track, row.index)" @keydown.space.prevent="$emit('play', row.track, row.index)">
             <span class="track-table__cover"><TrackArtwork :track="row.track" :list-id="listId" /></span>
-            <span class="track-table__title"><strong>{{ row.track.name || '未命名歌曲' }}</strong><template v-if="showAlbum(row.track)"><button type="button" class="track-table__metadata-link track-table__album-link" :aria-label="`搜索专辑 ${albumName(row.track)}`" @click.stop="searchMetadata('album', albumName(row.track), row.track)">{{ albumName(row.track) }}</button></template></span>
+            <span class="track-table__title"><strong>{{ row.track.name || '未命名歌曲' }}</strong><span class="track-table__details"><TrackBadges :track="row.track" /><button v-if="showAlbum(row.track)" type="button" class="track-table__metadata-link track-table__album-link" :aria-label="`搜索专辑 ${albumName(row.track)}`" @click.stop="searchMetadata('album', albumName(row.track), row.track)">{{ albumName(row.track) }}</button></span></span>
           </div>
           <span class="track-table__singer" :title="row.track.singer"><template v-if="artistNames(row.track).length"><template v-for="(artist, artistIndex) in artistNames(row.track)" :key="`${row.track.id}-${artist}`"><span v-if="artistIndex" aria-hidden="true">、</span><button type="button" class="track-table__metadata-link track-table__artist-link" :aria-label="`搜索歌手 ${artist}`" @click="searchMetadata('artist', artist, row.track)">{{ artist }}</button></template></template><span v-else>未知歌手</span></span>
           <span class="track-table__duration">{{ row.track.interval || '--:--' }}</span>
@@ -37,6 +37,7 @@ import { useProgressiveList } from '../useProgressiveList'
 import { useRoute, useRouter } from 'vue-router'
 import UiEmpty from './UiEmpty.vue'
 import TrackArtwork from './TrackArtwork.vue'
+import TrackBadges from './TrackBadges.vue'
 import { getCatalogSources } from '../services/catalogSearch'
 
 const props = withDefaults(defineProps<{ list: LX.Music.MusicInfo[], listId?: string | null, loading?: boolean, error?: string, emptyTitle?: string, offset?: number, removable?: boolean }>(), {
@@ -91,6 +92,8 @@ const searchMetadata = (type: 'album' | 'artist', text: string, track: LX.Music.
 .track-table__name { display: flex; align-items: center; min-width: 0; gap: 10px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; font: inherit; cursor: pointer; outline: none; &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 3px; border-radius: 6px; } }
 .track-table__cover { display: grid; place-items: center; width: 34px; height: 34px; flex: none; overflow: hidden; border-radius: 9px; color: var(--modern-accent-ink); background: var(--modern-accent-soft); img { width: 100%; height: 100%; object-fit: cover; } svg { width: 19px; height: 19px; } }
 .track-table__title { display: flex; flex-direction: column; min-width: 0; gap: 4px; strong, small, .track-table__metadata-link { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } strong { font-size: 11px; font-weight: 500; } small { color: var(--modern-muted); font-size: 9px; } }
+.track-table__details { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 16px; }
+.track-table__details > .track-table__album-link { min-width: 0; color: var(--modern-muted); font-size: 11px; }
 .track-table__singer, .track-table__duration { min-width: 0; overflow: hidden; color: var(--modern-muted); white-space: nowrap; text-overflow: ellipsis; }
 .track-table__metadata-link { display: inline-block; max-width: 100%; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; cursor: pointer; &:hover { color: var(--modern-accent-ink); text-decoration-color: currentColor; } &:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 2px; border-radius: 3px; } }
 .track-table__artist-link { overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }

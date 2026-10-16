@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 // import '../../polyfill/array.find'
 
 import { httpFetch } from '../../request'
@@ -85,6 +86,7 @@ export default {
         //   ? `http://player.kuwo.cn/webmusic/sj/dtflagdate?flag=6&rid=MUSIC_160911.jpg`
         //   : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${info.album.mid}.jpg`
         songmid: songId,
+        isVip: songVip('kw', info),
         albumId: decodeName(info.ALBUMID || ''),
         interval: Number.isNaN(interval) ? 0 : formatPlayTime(interval),
         albumName: info.ALBUM ? decodeName(info.ALBUM) : '',

@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { httpFetch } from '../../request'
 import { sizeFormate, formatPlayTime } from '../../index'
 import { toMD5, formatSingerName } from '../utils'
@@ -179,6 +180,7 @@ export default {
           albumName: data.album,
           albumId: data.albumId,
           songmid: data.songId,
+          isVip: songVip('mg', data),
           copyrightId: data.copyrightId,
           source: 'mg',
           interval: formatPlayTime(data.duration),

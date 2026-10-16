@@ -22,6 +22,7 @@ declare namespace LX {
       songId: string | number // 歌曲ID，mg源为copyrightId，local为文件路径
       albumName: string // 歌曲专辑名称
       picUrl?: string | null // 歌曲图片链接
+      isVip?: boolean // 平台明确提供的歌曲会员标识；缺省表示未知
       recordingVersion?: string
       toggleMusicInfo?: MusicInfoOnline | null
     }

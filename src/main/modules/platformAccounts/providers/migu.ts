@@ -2,6 +2,7 @@ import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts
 import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 import { legacyQuality } from '@common/platformPlayback'
 import { chooseMatch } from '@common/platformMatching'
+import { songVip } from '@common/musicAccess'
 import type { PlatformProvider, ProviderContext } from './types'
 
 // The current music.migu.cn/v5 web SDK uses these same API paths and
@@ -66,6 +67,7 @@ function toTrack(value: any): (LX.Music.MusicInfo_mg & { meta: MiguMeta }) | nul
   const seconds = Number(song.duration ?? 0)
   const meta: MiguMeta = {
     songId,
+    isVip: songVip('mg', song),
     upstreamSongId,
     copyrightId: String(song.copyrightId ?? ''),
     contentId: String(song.contentId ?? ''),

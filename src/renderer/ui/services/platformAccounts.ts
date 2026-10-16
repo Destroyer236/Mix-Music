@@ -3,7 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 import type { PlatformId, PlatformLikeResult, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { platformNames } from '@common/platformAccounts'
 import { sameRecording } from '@common/platformMatching'
-import { addListMusics, getListMusics, removeListMusics } from '@renderer/store/list/action'
+import { addListMusics, getListMusics, removeListMusics, updateListMusics } from '@renderer/store/list/action'
 import { loveList } from '@renderer/store/list/state'
 import { startQishuiLogin, closeQishuiLogin } from './qishuiLogin'
 
@@ -54,7 +54,18 @@ async function mergePlatformFavorites() {
     await removeListMusics({ listId: loveList.id, ids: removed.map(item => item.id) })
     for (const item of removed) imported.delete(importKey(item))
   }
-  const ready = saved.filter(item => !removed.some(track => track.id === item.id))
+  const remoteById = new Map(remote.map(track => [importKey(track), track]))
+  const updates: LX.List.ListActionMusicUpdate = []
+  const ready = saved.filter(item => !removed.some(track => track.id === item.id)).map(item => {
+    const isVip = remoteById.get(importKey(item))?.meta.isVip
+    if (typeof isVip !== 'boolean' || item.meta.isVip === isVip) return item
+    // Membership belongs to a platform's song, not to every matching recording.
+    const musicInfo: LX.Music.MusicInfo = { ...item }
+    musicInfo.meta = { ...item.meta, isVip }
+    updates.push({ id: loveList.id, musicInfo })
+    return musicInfo
+  })
+  if (updates.length) await updateListMusics(updates)
   const missing: LX.Music.MusicInfoOnline[] = []
   for (const track of remote) {
     if (ready.some(item => sameRecording(item, track)) || missing.some(item => sameRecording(item, track))) continue

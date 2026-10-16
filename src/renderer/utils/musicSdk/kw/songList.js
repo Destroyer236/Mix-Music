@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { httpFetch } from '../../request'
 import { formatPlayTime, decodeName } from '../../index'
 import { formatSinger, objStr2JSON } from './util'
@@ -267,6 +268,7 @@ export default {
         albumName: item.album,
         albumId: item.albumId,
         songmid: item.id,
+        isVip: songVip('kw', item),
         source: 'kw',
         interval: formatPlayTime(item.duration),
         img: item.albumPic,
@@ -436,6 +438,7 @@ export default {
         albumName: decodeName(item.album),
         albumId: item.albumid,
         songmid: item.id,
+        isVip: songVip('kw', item),
         source: 'kw',
         interval: formatPlayTime(parseInt(item.duration)),
         img: null,

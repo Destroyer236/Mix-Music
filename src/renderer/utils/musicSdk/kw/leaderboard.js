@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { httpFetch } from '../../request'
 import { formatPlayTime, decodeName } from '../../index'
 import { formatSinger, wbdCrypto } from './util'
@@ -147,6 +148,7 @@ export default {
         albumName: decodeName(item.album),
         albumId: item.albumId,
         songmid: item.id,
+        isVip: songVip('kw', item),
         source: 'kw',
         interval: formatPlayTime(parseInt(item.duration)),
         img: item.pic,

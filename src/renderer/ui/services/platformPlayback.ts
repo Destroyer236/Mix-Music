@@ -1,31 +1,41 @@
 import { ipcRenderer } from 'electron'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { isPlatformQuality, type PlatformQuality, type ResolvedPlatformStream } from '@common/platformPlayback'
+import { isPreferredPlatformSource, type PreferredPlatformSource } from '@common/platformSources'
 import { playMusicInfo } from '@renderer/store/player/state'
 import { appSetting, mergeSetting } from '@renderer/store/setting'
 import { updateSetting } from '@renderer/utils/ipc'
 
 export const preferredQuality = computed(() => appSetting['player.playQuality'])
+export const preferredSource = computed(() => appSetting['player.preferredSource'])
 export const activeStream = shallowRef<(ResolvedPlatformStream & { requested: PlatformQuality, trackId: string }) | null>(null)
 export const qualityChanging = ref(false)
 export const qualityChangeError = ref('')
 let qualityReloadHandler: (() => Promise<void>) | null = null
 let pendingQualityReload = Promise.resolve()
 let qualityChangeGeneration = 0
+let reloadQueued = false
 
 async function reloadPreference(): Promise<void> {
   if (!qualityReloadHandler) return Promise.resolve()
+  // Backup imports can patch source and quality together. Coalesce the patch
+  // into one player resource transaction using the final saved preferences.
+  if (reloadQueued) return pendingQualityReload
   const reload = qualityReloadHandler
   const generation = ++qualityChangeGeneration
+  reloadQueued = true
   qualityChanging.value = true
   qualityChangeError.value = ''
-  pendingQualityReload = Promise.resolve().then(reload)
+  pendingQualityReload = Promise.resolve().then(async() => {
+    reloadQueued = false
+    if (qualityReloadHandler === reload) await reload()
+  })
   void pendingQualityReload.then(() => {
     if (generation === qualityChangeGeneration) qualityChanging.value = false
   }, (error: unknown) => {
     if (generation !== qualityChangeGeneration) return
     qualityChanging.value = false
-    qualityChangeError.value = error instanceof Error ? error.message : '切换音质失败，请重试。'
+    qualityChangeError.value = error instanceof Error ? error.message : '切换音质或音源失败，请重试。'
   })
   return pendingQualityReload
 }
@@ -34,7 +44,7 @@ async function reloadPreference(): Promise<void> {
 // all perform exactly one resource transaction without importing player actions.
 export const bindQualityReload = (reload: () => Promise<void>): (() => void) => {
   qualityReloadHandler = reload
-  const stop = watch(preferredQuality, () => { void reloadPreference().catch(() => {}) }, { flush: 'sync' })
+  const stop = watch([preferredQuality, preferredSource], () => { void reloadPreference().catch(() => {}) }, { flush: 'sync' })
   return () => {
     stop()
     if (qualityReloadHandler === reload) {
@@ -52,6 +62,17 @@ export const setPreferredQuality = async(quality: PlatformQuality): Promise<void
     return
   }
   const setting = { 'player.playQuality': quality }
+  await updateSetting(setting)
+  mergeSetting(setting)
+  await pendingQualityReload
+}
+export const setPreferredSource = async(source: PreferredPlatformSource): Promise<void> => {
+  if (!isPreferredPlatformSource(source)) throw new Error('请选择有效的首选音源。')
+  if (preferredSource.value === source) {
+    if (qualityChangeError.value) await reloadPreference()
+    return
+  }
+  const setting = { 'player.preferredSource': source }
   await updateSetting(setting)
   mergeSetting(setting)
   await pendingQualityReload

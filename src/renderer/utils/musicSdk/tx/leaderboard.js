@@ -1,3 +1,4 @@
+import { songVip } from '@common/musicAccess'
 import { httpFetch } from '../../request'
 import { formatPlayTime, sizeFormate } from '../../index'
 import { formatSingerName } from '../utils'
@@ -150,6 +151,7 @@ export default {
         albumMid: item.album.mid,
         strMediaMid: item.file.media_mid,
         songmid: item.mid,
+        isVip: songVip('tx', item),
         img: (item.album.name === '' || item.album.name === '空')
           ? item.singer?.length ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg` : ''
           : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`,

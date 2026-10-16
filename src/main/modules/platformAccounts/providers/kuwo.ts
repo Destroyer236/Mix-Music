@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 import type { PlatformProvider, ProviderContext } from './types'
+import { songVip } from '@common/musicAccess'
 
 const notice = '酷我官网仅支持网页登录；官网收藏与歌单操作要求使用酷我客户端，暂不支持账号收藏、歌单同步或同时加红心。'
 const secretCookie = 'Hm_Iuvt_cdb524f42f23cer9b268564v7y735ewrq2324'
@@ -42,7 +43,7 @@ function toTrack(song: any): LX.Music.MusicInfo_online_common | null {
   if (formats.includes('mp3')) qualitys.push({ type: '320k', size: null })
   if (formats.includes('flac')) qualitys.push({ type: 'flac', size: null })
   const seconds = Math.max(0, Number(song.duration) || 0)
-  return { id: `kw_${id}`, source: 'kw', name: String(song.name), singer: String(song.artist ?? ''), interval: String(song.songTimeMinutes ?? (seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : '')) || null, meta: { songId: id, albumName: String(song.album ?? ''), albumId: String(song.albumid ?? ''), picUrl: String(song.pic ?? song.albumpic ?? ''), qualitys, _qualitys: Object.fromEntries(qualitys.map(item => [item.type, { size: null }])) } }
+  return { id: `kw_${id}`, source: 'kw', name: String(song.name), singer: String(song.artist ?? ''), interval: String(song.songTimeMinutes ?? (seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : '')) || null, meta: { songId: id, isVip: songVip('kw', song), albumName: String(song.album ?? ''), albumId: String(song.albumid ?? ''), picUrl: String(song.pic ?? song.albumpic ?? ''), qualitys, _qualitys: Object.fromEntries(qualitys.map(item => [item.type, { size: null }])) } }
 }
 const ranks: Record<PlatformQuality, number> = { auto: 100, '64k': 0, '128k': 1, '192k': 2, dolby: 2, '320k': 3, flac: 4, ape: 4, wav: 4, flac24bit: 5, jyeffect: 6, sky: 7, jymaster: 8 }
 export const kuwoProvider: PlatformProvider = {

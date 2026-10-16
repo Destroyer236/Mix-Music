@@ -2,6 +2,7 @@ import defaultSetting from '@common/defaultSetting'
 import { windowSizeList } from '@common/config'
 import { langList } from '@root/lang'
 import { qualityLabels } from '@common/platformPlayback'
+import { platformSourceLabels } from '@common/platformSources'
 import labels from './labels.json'
 
 export type SettingKey = keyof LX.AppSetting
@@ -22,7 +23,7 @@ export const categories = [
   { id: 'accounts', name: '平台账号与红心', description: '连接各平台账号，汇总红心与创建歌单。', keywords: '登录 账号 密码 扫码 QR 红心 收藏 歌单 平台 同步 QQ 网易云 酷狗 酷我 咪咕 哔哩哔哩 Bilibili' },
   { id: 'general', name: '常规与外观', description: '窗口、字体、语言与主题，调整熟悉的音乐空间。', keywords: '主题 颜色 圆角 外观 窗口 间距 面板 关闭 后台 播放 托盘 退出 不再询问 硬件 加速 内存 性能 GPU 重启' },
   { id: 'sources', name: '音源管理', description: '导入并选择你使用的音乐接口，管理其更新提醒。', keywords: '接口 脚本 API 导入 音源' },
-  { id: 'playback', name: '播放', description: '音质、播放顺序、恢复进度与定时停止。', keywords: '定时 睡眠 音质' },
+  { id: 'playback', name: '播放', description: '首选音源、音质、播放顺序、恢复进度与定时停止。', keywords: '定时 睡眠 音质 音源 平台 首选' },
   { id: 'audio', name: '声音与设备', description: '输出设备、音量、均衡器、空间音效与音高。', keywords: 'EQ 音效 环境 环绕 扬声器' },
   { id: 'lyrics', name: '歌词', description: '翻译、罗马音、播放详情与桌面歌词的显示方式。', keywords: '歌词 桌面 翻译' },
   { id: 'search', name: '搜索', description: '热门搜索、历史记录与搜索页面行为。', keywords: '搜索 记录' },
@@ -47,6 +48,7 @@ const enums: Partial<Record<SettingKey, Option[]>> = {
   'common.playBarProgressStyle': choices([['mini', '简洁'], ['middle', '居中'], ['full', '完整宽度']]),
   'player.togglePlayMethod': choices([['listLoop', '列表循环'], ['random', '随机播放'], ['list', '顺序播放'], ['singleLoop', '单曲循环'], ['none', '播放一次']]),
   'player.playQuality': choices(Object.entries(qualityLabels)),
+  'player.preferredSource': choices(Object.entries(platformSourceLabels)),
   'playDetail.style.align': align,
   'desktopLyric.style.align': align,
   'desktopLyric.scrollAlign': choices([['top', '顶部'], ['center', '居中']]),
@@ -90,6 +92,7 @@ const hints: Partial<Record<SettingKey, string>> = {
   'desktopLyric.y': '留空时由应用自动定位；支持负坐标。',
   'player.mediaDeviceId': '开启高级音效后，音频输出固定为系统默认设备。',
   'player.playQuality': '默认使用账号最高音质，按平台、账号权限与歌曲版权自动选择。与播放栏共享同一偏好，修改后会切换当前歌曲并保留进度。',
+  'player.preferredSource': '自动时跟随歌曲来源。选择平台后，优先查找该平台的同版本歌曲；无版权或无播放权限时自动换源，完整歌曲优先于试听。修改后会切换当前歌曲并保留进度。',
   'player.soundEffect.convolution.mainGain': '数值 10 表示原声增益 100%。',
   'player.soundEffect.convolution.sendGain': '数值 10 表示环境音增益 100%。',
   'player.waitPlayEndStopTime': '以分钟计，例如 30；点击启动定时按钮开始倒计时。',

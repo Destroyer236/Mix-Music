@@ -1,6 +1,7 @@
 import type { PlatformProvider, ProviderContext } from './types'
 import type { PlatformQuality } from '@common/platformPlayback'
 import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts'
+import { songVip } from '@common/musicAccess'
 
 // Use the maintained SDK's protocol encryption with Electron's isolated cookie jar.
 import encryption from 'NeteaseCloudMusicApi/util/crypto'
@@ -19,7 +20,7 @@ const request = async(context: ProviderContext, path: string, data: Record<strin
   return body
 }
 
-const toTrack = (song: any): LX.Music.MusicInfoOnline => {
+const toTrack = (song: any, privilege?: unknown): LX.Music.MusicInfoOnline => {
   const duration = Math.round(Number(song.dt ?? song.duration ?? 0) / 1000)
   const album = song.al ?? song.album ?? {}
   // A liked song does not include bitrate fields in the playlist/detail
@@ -34,7 +35,7 @@ const toTrack = (song: any): LX.Music.MusicInfoOnline => {
     name: song.name ?? '',
     singer: (song.ar ?? song.artists ?? []).map((artist: any) => artist.name).join('、'),
     interval: `${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`,
-    meta: { songId: song.id, albumName: album.name ?? '', albumId: album.id, picUrl: album.picUrl ?? '', qualitys, _qualitys: { '128k': { size: null } } },
+    meta: { songId: song.id, isVip: songVip('wy', song, privilege), albumName: album.name ?? '', albumId: album.id, picUrl: album.picUrl ?? '', qualitys, _qualitys: { '128k': { size: null } } },
   }
 }
 
@@ -82,7 +83,7 @@ async function playlistTracks(context: ProviderContext, profile: PlatformProfile
     const batch = ids.slice(offset, offset + 500)
     const details = await request(context, 'v3/song/detail', { c: JSON.stringify(batch.map(id => ({ id }))) })
     if (!Array.isArray(details.songs)) throw new Error('无法读取网易云歌单歌曲详情')
-    for (const song of details.songs) if (batch.includes(Number(song.id))) songs.set(Number(song.id), toTrack(song))
+    for (const song of details.songs) if (batch.includes(Number(song.id))) songs.set(Number(song.id), toTrack(song, details.privileges?.find((item: any) => item.id === song.id)))
   }
   return ids.flatMap(id => { const song = songs.get(id); return song ? [song] : [] })
 }
@@ -110,13 +111,13 @@ export const neteaseProvider: PlatformProvider = {
       const ids = body.ids.slice(offset, offset + 500)
       const details = await request(context, 'v3/song/detail', { c: JSON.stringify(ids.map((id: number) => ({ id }))) })
       if (!Array.isArray(details.songs)) throw new Error('无法读取网易云歌曲详情')
-      tracks.push(...details.songs.map(toTrack))
+      tracks.push(...details.songs.map((song: any) => toTrack(song, details.privileges?.find((item: any) => item.id === song.id))))
     }
     return tracks
   },
   async search(context, track) {
     const body = await request(context, 'cloudsearch/pc', { s: `${track.name} ${track.singer}`, type: 1, limit: 30, offset: 0, total: true })
-    return (body.result?.songs ?? []).map(toTrack)
+    return (body.result?.songs ?? []).map((song: any) => toTrack(song))
   },
   async available(context, track) {
     const body = await request(context, 'v3/song/detail', { c: JSON.stringify([{ id: Number(track.meta.songId) }]) })
@@ -152,9 +153,10 @@ export const neteaseProvider: PlatformProvider = {
     const item = Array.isArray(body.data) ? body.data.find((entry: any) => String(entry.id) === String(songId)) ?? body.data[0] : null
     const url = typeof item?.url === 'string' ? item.url : ''
     if (!url) throw new Error('网易云没有返回可播放音频，可能没有版权或登录已失效')
-    if (item.freeTrialInfo) throw new Error('该歌曲仅提供试听，请检查网易云会员或购买权限')
     const type = Number(item.br) >= 1_999_000 ? 'flac24bit' : Number(item.br) >= 999_000 ? 'flac' : Number(item.br) >= 320_000 ? '320k' : Number(item.br) >= 192_000 ? '192k' : '128k'
-    return { url, type, quality: qualitiesByLevel[item.level] ?? type, expires: Number(item.expi ?? 1200), bitrate: Number(item.br ?? 0) }
+    // The player API returns a separate, clipped preview URL for a non-member.
+    // Keep its status with the resource, rather than inferring it from fee/VIP.
+    return { url, type, quality: qualitiesByLevel[item.level] ?? type, expires: Number(item.expi ?? 1200), bitrate: Number(item.br ?? 0), isTrial: Boolean(item.freeTrialInfo) }
   },
   async like(context, profile, track, liked) {
     await request(context, 'radio/like', { alg: 'itembased', trackId: Number(track.meta.songId), like: liked, time: '3' })

@@ -1,5 +1,6 @@
 import type { I18n } from '../../lang/i18n'
 import type { PlatformQuality } from '../platformPlayback'
+import type { PreferredPlatformSource } from '../platformSources'
 import type { WindowCloseAction } from '../windowClose'
 
 declare global {
@@ -105,6 +106,9 @@ declare global {
        * 优先播放的音质
        */
       'player.playQuality': PlatformQuality
+
+      /** 优先匹配播放的音乐平台，自动时跟随歌曲来源 */
+      'player.preferredSource': PreferredPlatformSource
 
       /**
        * 是否显示任务栏进度条

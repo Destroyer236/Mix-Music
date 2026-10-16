@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { ProviderContext } from './types'
+import { songVip } from '@common/musicAccess'
 
 export type Json = Record<string, any>
 export const object = (value: unknown): Json => value != null && typeof value === 'object' && !Array.isArray(value) ? value as Json : {}
@@ -86,6 +87,7 @@ export function toTrack(value: unknown, fallbackName = ''): LX.Music.MusicInfo_o
     interval: seconds ? `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : null,
     meta: {
       songId: id,
+      isVip: songVip('qs', track),
       albumName: text(album.name),
       albumId: itemId(album.id),
       picUrl: imageUrl(album.url_cover) || imageUrl(track.url_cover) || imageUrl(artists[0]?.url_avatar),

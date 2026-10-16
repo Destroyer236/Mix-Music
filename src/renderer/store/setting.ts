@@ -1,6 +1,7 @@
 import { reactive, computed } from '@common/utils/vueTools'
 import defaultSetting from '@common/defaultSetting'
 import { isPlatformQuality } from '@common/platformPlayback'
+import { isPreferredPlatformSource } from '@common/platformSources'
 import { updateSetting as saveSetting } from '@renderer/utils/ipc'
 
 export const appSetting = window.lxData.appSetting = reactive<LX.AppSetting>({ ...defaultSetting })
@@ -20,6 +21,7 @@ export const initSetting = (newSetting: LX.AppSetting) => {
 export const mergeSetting = (newSetting: Partial<LX.AppSetting>) => {
   for (const [key, value] of Object.entries(newSetting)) {
     if (key === 'player.playQuality' && !isPlatformQuality(value)) continue
+    if (key === 'player.preferredSource' && !isPreferredPlatformSource(value)) continue
     // @ts-expect-error
     appSetting[key] = value
   }

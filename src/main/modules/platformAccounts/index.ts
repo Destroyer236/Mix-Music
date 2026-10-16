@@ -35,7 +35,7 @@ let saveQueue = Promise.resolve()
 const cachePath = () => path.join(app.getPath('userData'), 'platform-favorites.json')
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : '平台请求失败，请重试'
 const hasAuthentication = (provider: PlatformProvider, cookies: Record<string, string>) => provider.authenticated?.(cookies) ?? Boolean(provider.id === 'qq' ? cookies.qqmusic_key || cookies.qm_keyst : provider.id === 'netease' ? cookies.MUSIC_U : Object.keys(cookies).length)
-const playback = createPlaybackResolver(() => [...states.values()])
+const playback = createPlaybackResolver(() => [...states.values()], () => global.lx.appSetting['player.preferredSource'])
 const snapshot = (): PlatformSnapshot => ({
   accounts: [...states.values()].map(state => ({ ...state.account })),
   favorites: aggregateFavorites([...states.values()].map(state => ({ platform: state.provider.id, tracks: state.tracks }))),
@@ -317,7 +317,12 @@ const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | nu
     interval: null,
     meta: { songId, albumName: '', qualitys: [], _qualitys: {}, strMediaMid: params.mediaMid ?? '', albumId: params.albumId ?? '', id: params.id },
   } as LX.Music.MusicInfoOnline
-  return state.provider.musicUrl(state.context, track, params.quality ?? '128k')
+  const stream = await state.provider.musicUrl(state.context, track, params.quality ?? '128k')
+  // The legacy SDK contract carries only url/type. Reject previews here so
+  // they cannot lose isTrial, get cached as full audio, or skip custom sources.
+  // Official previews are still available through platform_playback_resolve.
+  if (stream.isTrial) throw new Error(`${state.provider.name}仅返回试听音频，继续尝试其他完整音源`)
+  return stream
 }
 
 export default () => {
