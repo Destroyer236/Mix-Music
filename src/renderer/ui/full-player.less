@@ -11,9 +11,11 @@
   // Keep the native drag strip in place while immersive mode hides its controls.
   .ll-full-header { position: relative; z-index: 3; flex: 0 0 56px; align-self: stretch; display: flex; align-items: center; justify-content: space-between; height: 56px; min-height: 56px; padding: 0 24px; border: 0; transform: none; cursor: default; user-select: none; -webkit-app-region: drag; > * { transition: opacity .35s, visibility .35s; } button, a, input, [role="button"] { -webkit-app-region: no-drag; } }
   .ll-full-window-tools { display: flex; align-items: center; gap: 14px; -webkit-app-region: drag; .ui-window-controls { gap: 8px; } }
-  .ui-full-queue-heading { height: auto; min-height: 65px; padding: 4px 6px 20px; border: 0; -webkit-app-region: no-drag; }
-  .fpl-menu > header { height: auto; min-height: 32px; padding: 0 4px 6px 8px; border: 0; font-size: inherit; -webkit-app-region: no-drag; }
-  .ll-full-stage { container-type: size; position: relative; flex: 1; min-height: 0; margin: 0 4%; }
+  .ui-full-queue-heading { height: auto; min-height: 65px; padding: 4px 6px 20px; border: 0; }
+  .fpl-menu > header { height: auto; min-height: 32px; padding: 0 4px 6px 8px; border: 0; font-size: inherit; }
+  // Native drag regions ignore overflow clipping. Keep scrolled rows from cutting into the title bar.
+  // Use initial for neutral descendants; Chromium treats an explicit none as no-drag.
+  .ll-full-stage { container-type: size; position: relative; flex: 1; min-height: 0; margin: 0 4%; -webkit-app-region: no-drag; * { -webkit-app-region: initial; } }
   .ll-full-song { position: absolute; inset: 0 auto 0 0; width: 45%; display: flex; align-items: center; justify-content: center; transition: transform .6s cubic-bezier(.22,1,.36,1); }
   .ll-full-album { width: min(84%, calc(100vh - 300px), 570px); min-width: 180px; }
   .ll-full-artwork { position: relative; width: 100%; aspect-ratio: 1; border-radius: 30px; filter: drop-shadow(0 12px 28px #0002); transition: transform .5s cubic-bezier(.34,1.56,.64,1), border-radius .5s; transform: scale(1); &.is-paused { transform: scale(.9); } }
