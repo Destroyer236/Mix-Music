@@ -24,7 +24,14 @@
     </aside>
     <div class="ui-workspace">
       <header class="ui-topbar"><div class="ui-breadcrumb"><button type="button" class="ui-icon-button" aria-label="返回上一页" @click="router.back()"><UiIcon name="back" /></button></div><SearchBox v-model="query" @submit="search" /><router-link to="/setting" class="ui-icon-button ui-settings-entry" aria-label="设置与偏好" title="设置与偏好" :class="{ 'ui-active': route.path === '/setting' }"><UiIcon name="gear" /></router-link><button type="button" class="ui-icon-button" aria-label="外观定制" title="外观定制" @click="appearancePanelOpen = true"><UiIcon name="palette" /></button><button type="button" class="ui-icon-button" :aria-label="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" :title="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" @click="toggleAppearanceMode"><UiIcon :name="resolvedAppearanceMode === 'light' ? 'moon' : 'sun'" /></button><button type="button" class="ui-icon-button linkline-update-topbar" :class="{ 'ui-active': updateAvailable, spinning: updateChecking }" :title="updateButtonLabel" :aria-label="updateButtonLabel" :aria-busy="updateChecking" @click="openUpdateCenter"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" /><span v-if="updateAvailable" class="linkline-update-dot" aria-hidden="true" /></button><WindowControls /></header>
-      <main id="view" class="ui-main-panel"><RecentPlayback v-if="recentVisible" :tracks="recentTracks" :persistence-error="musicLinksError" /><router-view v-else /></main>
+      <main id="view" class="ui-main-panel">
+        <router-view v-slot="{ Component }">
+          <Transition name="ll-module-fade" :mode="isShowAnimation ? 'out-in' : undefined" :css="isShowAnimation">
+            <RecentPlayback v-if="recentVisible" key="RecentPlayback" :tracks="recentTracks" :persistence-error="musicLinksError" />
+            <component :is="Component" v-else :key="route.name || route.path" />
+          </Transition>
+        </router-view>
+      </main>
       <UpdateCenter />
     </div>
     <PlayerBar />
@@ -42,6 +49,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { isShowAnimation } from '@renderer/store/setting'
 import { userLists } from '@renderer/store/list/state'
 import { LOCAL_LIBRARY_ID } from '@common/localMusic'
 import { platformPlaylists, favoriteTracks, loadPlatformPlaylist } from './services/platformAccounts'
@@ -65,8 +73,11 @@ import WindowControls from './components/WindowControls.vue'
 import UpdateCenter from './components/UpdateCenter.vue'
 import { checkUpdateOnStartup, openUpdateCenter, updateAvailable, updateChecking, updateResult } from './services/appUpdate'
 import { migratePlayerProgressStyle } from './services/preferences'
+import { initializePlayerSessionTools } from './services/playerSessionTools'
 import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
 void migratePlayerProgressStyle()
+const disposeSessionTools = initializePlayerSessionTools()
+onBeforeUnmount(disposeSessionTools)
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
@@ -166,6 +177,10 @@ const search = () => { if (query.value.trim()) void router.push({ path: '/search
 </script>
 
 <style lang="less">
+.ll-module-fade-enter-active { transition: opacity .15s ease; }
+.ll-module-fade-leave-active { transition: opacity .1s ease; pointer-events: none; }
+.ll-module-fade-enter-from, .ll-module-fade-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .ll-module-fade-enter-active, .ll-module-fade-leave-active { transition: none; } }
 .linkline-update-topbar { position: relative; svg { width: 18px; height: 18px; } }
 .linkline-update-dot { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--modern-accent-ink); box-shadow: 0 0 0 2px var(--modern-bg); }
 .ui-topbar .ui-breadcrumb > strong { overflow: hidden; text-overflow: ellipsis; }

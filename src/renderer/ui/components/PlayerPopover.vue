@@ -13,9 +13,12 @@ function place() {
   const width = Math.min(props.width, innerWidth - 32)
   const trigger = props.trigger?.getBoundingClientRect()
   if (props.anchor === 'trigger' && trigger) {
-    const bottom = Math.max(16, innerHeight - trigger.top + 8)
     const left = Math.max(16, Math.min(trigger.left, innerWidth - width - 16))
-    position.value = { left: `${left}px`, bottom: `${bottom}px`, width: `${width}px`, maxHeight: `${Math.max(0, innerHeight - bottom - 16)}px` }
+    const above = trigger.top - 24
+    const below = innerHeight - trigger.bottom - 24
+    position.value = above >= Math.min(320, below)
+      ? { left: `${left}px`, bottom: `${Math.max(16, innerHeight - trigger.top + 8)}px`, width: `${width}px`, maxHeight: `${Math.max(0, above)}px` }
+      : { left: `${left}px`, top: `${Math.max(16, trigger.bottom + 8)}px`, width: `${width}px`, maxHeight: `${Math.max(0, below)}px` }
     return
   }
   const player = props.trigger?.closest('.ui-player')?.getBoundingClientRect()
@@ -44,5 +47,6 @@ watch(() => props.show, async show => {
   await nextTick()
   if (props.show) panel.value?.focus()
 }, { immediate: true })
+watch(() => [props.width, props.anchor, props.trigger], () => { if (props.show) place() })
 onBeforeUnmount(removeListeners)
 </script>

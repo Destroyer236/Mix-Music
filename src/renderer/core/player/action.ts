@@ -23,6 +23,8 @@ import { addDislikeInfo } from '@renderer/core/dislikeList'
 import { samePlayTrack } from '@common/platformMatching'
 import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
 import { notifyPlaybackIntent } from './playbackIntent'
+import { watch } from 'vue'
+import { repeatMode } from '@renderer/store/player/repeatMode'
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
 let gettingUrlId = ''
@@ -223,6 +225,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
 const handlePlay = () => {
   window.lx.isPlayedStop &&= false
 
+  removedQueueTrack = null
   resetRandomNextMusicInfo()
   if (window.lx.restorePlayInfo) {
     void handleRestorePlay(window.lx.restorePlayInfo)
@@ -327,6 +330,34 @@ export const resetRandomNextMusicInfo = () => {
   }
 }
 
+watch([() => appSetting['player.togglePlayMethod'], repeatMode], resetRandomNextMusicInfo, { flush: 'sync' })
+
+let removedQueueTrack: LX.Player.PlayMusicInfo | null = null
+/** Keep a removed playing resource alive, but resume the queue after it ends. */
+export const detachCurrentQueueTrack = () => {
+  removedQueueTrack = playMusicInfo.musicInfo ? { ...(playMusicInfo as LX.Player.PlayMusicInfo) } : null
+}
+const isDetachedQueueTrack = () => removedQueueTrack?.musicInfo === playMusicInfo.musicInfo && removedQueueTrack?.listId === playMusicInfo.listId
+const getAutomaticRepeatTrack = (): LX.Player.PlayMusicInfo | null => {
+  const mode = appSetting['player.togglePlayMethod']
+  if (!playMusicInfo.musicInfo || isDetachedQueueTrack() || (mode === 'random' ? repeatMode.value !== 'singleLoop' : mode !== 'singleLoop')) return null
+  return { ...(playMusicInfo as LX.Player.PlayMusicInfo) }
+}
+const filterNextQueue = async(currentListId: string, currentList: Array<LX.Music.MusicInfo | LX.Download.ListItem>, generation: number) => {
+  const isRandomOnce = appSetting['player.togglePlayMethod'] === 'random' && repeatMode.value === 'list'
+  let result = await filterList({
+    listId: currentListId,
+    list: currentList,
+    // Preserve the completed cycle in repeat-off mode instead of resetting it.
+    playedList: isRandomOnce ? [] : playedList,
+    playerMusicInfo: currentList[playInfo.playerPlayIndex],
+    isNext: true,
+    valid: () => generation === navigationGeneration,
+  })
+  if (isRandomOnce) result.filteredList = result.filteredList.filter(track => !playedList.some(entry => entry.listId === currentListId && !entry.isTempPlay && samePlayTrack(entry.musicInfo, track)))
+  return result
+}
+
 export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | null> => {
   const generation = navigationGeneration
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
@@ -335,6 +366,9 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
   }
 
   if (playMusicInfo.musicInfo == null) return null
+
+  const repeated = getAutomaticRepeatTrack()
+  if (repeated) return repeated
 
   if (!await ensureQueueContinuation() || generation !== navigationGeneration) return null
 
@@ -361,14 +395,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     if (index < playedList.length) return playedList[index]
   }
   // const isCheckFile = findNum > 2 // 针对下载列表，如果超过两次都碰到无效歌曲，则过滤整个列表内的无效歌曲
-  let { filteredList, playerIndex } = await filterList({ // 过滤已播放歌曲
-    listId: currentListId,
-    list: currentList,
-    playedList,
-    playerMusicInfo: currentList[playInfo.playerPlayIndex],
-    isNext: true,
-    valid: () => generation === navigationGeneration,
-  })
+  let { filteredList, playerIndex } = await filterNextQueue(currentListId, currentList, generation)
   if (generation !== navigationGeneration) return null
 
   filteredList = filterQueueContinuation(filteredList)
@@ -378,6 +405,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
   let nextIndex = Math.max(0, playerIndex)
 
   let togglePlayMethod = appSetting['player.togglePlayMethod']
+  if (togglePlayMethod === 'singleLoop' && isDetachedQueueTrack()) togglePlayMethod = 'listLoop'
   switch (togglePlayMethod) {
     case 'listLoop':
       nextIndex = playerIndex === filteredList.length - 1 ? 0 : playerIndex + 1
@@ -435,6 +463,12 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     return
   }
 
+  const repeated = isAutoToggle ? getAutomaticRepeatTrack() : null
+  if (repeated) {
+    handlePlayNext(repeated)
+    return
+  }
+
   // console.log(playInfo.playerListId)
   const currentListId = playInfo.playerListId
   if (!currentListId) {
@@ -475,19 +509,16 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     return
   }
   // const isCheckFile = findNum > 2 // 针对下载列表，如果超过两次都碰到无效歌曲，则过滤整个列表内的无效歌曲
-  let { filteredList, playerIndex } = await filterList({ // 过滤已播放歌曲
-    listId: currentListId,
-    list: currentList,
-    playedList,
-    playerMusicInfo: currentList[playInfo.playerPlayIndex],
-    isNext: true,
-    valid: () => generation === navigationGeneration,
-  })
+  let { filteredList, playerIndex } = await filterNextQueue(currentListId, currentList, generation)
   if (generation !== navigationGeneration) return
 
   filteredList = filterQueueContinuation(filteredList)
 
   if (!filteredList.length) {
+    if (appSetting['player.togglePlayMethod'] === 'random' && repeatMode.value === 'list' && currentList.length) {
+      pause()
+      return
+    }
     handleToggleStop()
     console.log('filtered list empty')
     return
@@ -496,6 +527,7 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
   let nextIndex = Math.max(0, playerIndex)
 
   let togglePlayMethod = appSetting['player.togglePlayMethod']
+  if (togglePlayMethod === 'singleLoop' && isDetachedQueueTrack()) togglePlayMethod = 'listLoop'
   if (!isAutoToggle) {
     switch (togglePlayMethod) {
       case 'list':

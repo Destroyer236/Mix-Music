@@ -6,8 +6,9 @@
       <div class="track-table__head" role="row">
         <span class="track-table__index">#</span><span>歌曲</span><span class="track-table__singer">歌手</span><span class="track-table__duration">时长</span><span v-if="$slots.selection" aria-hidden="true" />
       </div>
-      <div ref="scrollContainer" class="track-table__rows">
-        <div v-for="row in rows" :key="row.key" class="track-table__row" :class="{ 'track-table__row--playing': currentTrack?.id === row.track.id && currentTrack?.source === row.track.source, 'track-table__row--selected': selectedIds?.has(row.track.id) }" :data-track-key="`${row.track.source}:${row.track.id}`" role="row">
+      <div ref="scrollContainer" class="track-table__rows" :style="virtualized ? { overflowAnchor: 'none' } : undefined">
+        <div v-if="topPadding" class="track-table__spacer" :style="{ height: topPadding + 'px' }" aria-hidden="true" />
+        <div v-for="row in rows" :key="row.key" class="track-table__row" :class="{ 'track-table__row--playing': currentTrack?.id === row.track.id && currentTrack?.source === row.track.source, 'track-table__row--selected': selectedIds?.has(row.track.id), 'track-table__row--even': row.index % 2 === 1, 'track-table__row--top-three': row.index < 3 }" :data-track-key="`${row.track.source}:${row.track.id}`" :data-track-index="row.index" role="row">
           <span class="track-table__index">{{ row.number }}</span>
           <div class="track-table__song">
             <div class="track-table__name">
@@ -26,7 +27,8 @@
           <span class="track-table__duration">{{ row.track.interval || '--:--' }}</span>
           <span v-if="$slots.selection" class="track-table__selection"><slot name="selection" :track="row.track" :index="row.index" /></span>
         </div>
-        <LazyListEnd v-if="hasMore" @more="loadMore" /><div v-if="hasMore" class="ui-lazy-list-reserve" :style="{ height: reservedHeight + 'px' }" aria-hidden="true" />
+        <div v-if="bottomPadding" class="track-table__spacer" :style="{ height: bottomPadding + 'px' }" aria-hidden="true" />
+        <template v-if="!virtualized"><LazyListEnd v-if="progressiveList.hasMore.value" @more="progressiveList.loadMore" /><div v-if="progressiveList.hasMore.value" class="ui-lazy-list-reserve" :style="{ height: progressiveList.reservedHeight.value + 'px' }" aria-hidden="true" /></template>
       </div>
     </template>
   </div>
@@ -37,29 +39,42 @@ import { computed, ref, watch } from 'vue'
 import { playMusicInfo } from '@renderer/store/player/state'
 import LazyListEnd from './LazyListEnd.vue'
 import { useProgressiveList } from '../useProgressiveList'
+import { useVirtualTrackList } from '../useVirtualTrackList'
 import { useRoute, useRouter } from 'vue-router'
 import UiEmpty from './UiEmpty.vue'
 import TrackArtwork from './TrackArtwork.vue'
 import TrackTitle from './TrackTitle.vue'
 import { getCatalogSources } from '../services/catalogSearch'
 
-const props = withDefaults(defineProps<{ list: LX.Music.MusicInfo[], listId?: string | null, loading?: boolean, error?: string, emptyTitle?: string, offset?: number, removable?: boolean, selectedIds?: ReadonlySet<string> }>(), {
+const props = withDefaults(defineProps<{ list: LX.Music.MusicInfo[], listId?: string | null, loading?: boolean, error?: string, emptyTitle?: string, offset?: number, removable?: boolean, selectedIds?: ReadonlySet<string>, virtualized?: boolean }>(), {
   listId: null,
   loading: false,
   error: '',
   emptyTitle: '没有找到歌曲',
   offset: 0,
   removable: false,
+  virtualized: false,
   selectedIds: () => new Set<string>(),
 })
 const router = useRouter()
 const route = useRoute()
 const scrollContainer = ref<HTMLElement>()
-const { visibleItems, hasMore, reservedHeight, loadMore, reset } = useProgressiveList<LX.Music.MusicInfo>(computed(() => props.list), 24, scrollContainer, '.track-table__row')
-watch(() => [props.listId, route.fullPath], reset, { flush: 'post' })
+const items = computed(() => props.list)
+const progressiveList = useProgressiveList<LX.Music.MusicInfo>(items, 24, computed(() => props.virtualized ? undefined : scrollContainer.value), '.track-table__row')
+const virtualList = useVirtualTrackList<LX.Music.MusicInfo>(items, computed(() => props.virtualized ? scrollContainer.value : undefined), '.track-table__row')
+const visibleItems = computed(() => props.virtualized ? virtualList.visibleItems.value : progressiveList.visibleItems.value)
+const startIndex = computed(() => props.virtualized ? virtualList.startIndex.value : 0)
+const topPadding = computed(() => props.virtualized ? virtualList.topPadding.value : 0)
+const bottomPadding = computed(() => props.virtualized ? virtualList.bottomPadding.value : 0)
+const { scrollToIndex, scrollToTop } = virtualList
+watch(() => [props.listId, route.fullPath, props.virtualized], () => { progressiveList.reset(); virtualList.reset() }, { flush: 'post' })
+defineExpose({ scrollToIndex, scrollToTop })
 const currentTrack = computed(() => { const track = playMusicInfo.musicInfo; return track && 'metadata' in track ? track.metadata.musicInfo : track })
 interface TrackRow { track: LX.Music.MusicInfo, index: number, key: string, number: string }
-const rows = computed<TrackRow[]>(() => visibleItems.value.map((track: LX.Music.MusicInfo, index: number) => ({ track, index, key: `${track.source}-${track.id}-${index}`, number: String(index + 1 + props.offset).padStart(2, '0') })))
+const rows = computed<TrackRow[]>(() => visibleItems.value.map((track: LX.Music.MusicInfo, visibleIndex: number) => {
+  const index = startIndex.value + visibleIndex
+  return { track, index, key: `${track.source}-${track.id}-${index}`, number: String(index + 1 + props.offset).padStart(2, '0') }
+}))
 defineEmits<{
   play: [track: LX.Music.MusicInfo, index: number]
   add: [track: LX.Music.MusicInfo, index: number]
@@ -89,6 +104,7 @@ const searchMetadata = (type: 'album' | 'artist', text: string, track: LX.Music.
 .track-table--selectable { .track-table__head, .track-table__row { grid-template-columns: 36px minmax(0, 1.7fr) minmax(80px, .65fr) 55px 24px; } }
 .track-table__head { flex: none; }
 .track-table__rows { flex: 1; min-height: 0; overflow: auto; }
+.track-table__spacer { flex: none; pointer-events: none; overflow-anchor: none; }
 .ui-library-results .track-table { height: 100%; }
 .track-table__head { min-height: 38px; color: var(--modern-muted); font-size: 10px; letter-spacing: .3px; }
 .track-table__row { min-height: calc(var(--modern-row-height) + 12px); font-size: 11px; transition: background .15s; &:hover { background: var(--modern-hover); } &:is(:hover, :focus-within), &--selected { .track-table__actions, .track-table__selection { opacity: 1; pointer-events: auto; } } }

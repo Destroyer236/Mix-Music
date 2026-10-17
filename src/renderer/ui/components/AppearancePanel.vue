@@ -2,12 +2,8 @@
   <Teleport to="body">
     <Transition name="appearance-float">
       <div v-if="appearancePanelOpen" class="appearance-overlay" @click.self="close">
-        <section ref="panel" class="appearance-panel" role="dialog" aria-modal="true" aria-labelledby="appearance-title" tabindex="-1" @keydown="handleKeydown">
+        <section ref="panel" class="appearance-panel" role="dialog" aria-modal="true" aria-label="外观设置" tabindex="-1" @keydown="handleKeydown">
           <header class="appearance-header">
-            <div>
-              <h2 id="appearance-title">你的音乐，你的风格</h2>
-              <p>把这里调整成最自在的样子。</p>
-            </div>
             <button class="appearance-close" type="button" aria-label="关闭外观设置" @click="close">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
             </button>
@@ -73,24 +69,11 @@
               <button type="button" class="appearance-toggle" role="switch" :aria-checked="appearance.showScrollbars" aria-labelledby="appearance-scrollbars-label" @click="appearance.showScrollbars = !appearance.showScrollbars"><span /></button>
             </div>
 
-            <fieldset class="appearance-section">
-              <legend>列表密度</legend>
-              <div class="appearance-density">
-                <button type="button" :class="{ selected: appearance.density === 'comfortable' }" :aria-pressed="appearance.density === 'comfortable'" @click="appearance.density = 'comfortable'">舒适</button>
-                <button type="button" :class="{ selected: appearance.density === 'compact' }" :aria-pressed="appearance.density === 'compact'" @click="appearance.density = 'compact'">紧凑</button>
-              </div>
-            </fieldset>
-
             <div class="appearance-section appearance-toggle-row">
               <div><label id="appearance-explore-label">显示发现推荐</label><p>在发现页展示氛围与灵感卡片</p></div>
               <button type="button" class="appearance-toggle" role="switch" :aria-checked="appearance.showExplore" aria-labelledby="appearance-explore-label" @click="appearance.showExplore = !appearance.showExplore"><span /></button>
             </div>
 
-            <div class="appearance-live-preview" aria-hidden="true">
-              <div class="appearance-preview-art"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2.5" /><ellipse cx="17" cy="16" rx="3" ry="2.5" /></svg></div>
-              <div><strong>留一点时间，给音乐</strong><span>实时预览 · 即刻生效</span></div>
-              <span class="appearance-preview-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 6 10 6-10 6z" /></svg></span>
-            </div>
           </div>
           <footer class="appearance-footer">
             <button type="button" class="appearance-reset" @click="resetAppearance">恢复默认</button>
@@ -210,14 +193,12 @@ onBeforeUnmount(() => { previousFocus?.focus() })
   font-size: 13px;
   line-height: 1.5;
 }
-.appearance-header {
+.appearance-panel > .appearance-header {
   display: flex;
-  justify-content: space-between;
-  padding: 24px 24px 20px;
+  justify-content: flex-end;
+  padding: 12px 18px 0;
   flex: none;
-  border-bottom: 1px solid var(--modern-border);
-  h2 { margin: 7px 0 5px; font-size: 19px; font-weight: 600; letter-spacing: -.5px; }
-  p { color: var(--modern-muted); font-size: 12px; }
+  border: 0;
 }
 .appearance-close {
   border: 0;
@@ -299,15 +280,6 @@ onBeforeUnmount(() => { previousFocus?.focus() })
 .appearance-range { width: 100%; margin: 0; height: 18px; cursor: pointer; accent-color: var(--modern-accent); }
 .appearance-range-labels { display: flex; justify-content: space-between; margin-top: 4px; color: var(--modern-muted); font-size: 10px; }
 .appearance-control-hint { margin-top: 8px; color: var(--modern-muted); font-size: 10px; }
-.appearance-density {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--modern-hover);
-  border-radius: 10px;
-  button { flex: 1; border: 0; padding: 7px; border-radius: 7px; color: var(--modern-muted); background: transparent; cursor: pointer; font-size: 12px; }
-  button.selected { color: var(--modern-text); background: var(--modern-panel); box-shadow: 0 1px 4px rgba(0, 0, 0, .05); }
-}
 .appearance-toggle-row {
   display: flex;
   align-items: center;
@@ -329,19 +301,6 @@ onBeforeUnmount(() => { previousFocus?.focus() })
   span { width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
   &[aria-checked='true'] { background: var(--modern-accent); span { transform: translateX(14px); } }
 }
-.appearance-live-preview {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--modern-border);
-  border-radius: var(--modern-radius-small);
-  background: var(--modern-bg);
-  strong { display: block; font-size: 11px; font-weight: 500; }
-  span { display: block; font-size: 9px; color: var(--modern-muted); margin-top: 3px; }
-}
-.appearance-preview-art { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 9px; background: var(--modern-accent-soft); color: var(--modern-accent-ink); svg { width: 18px; height: 18px; } }
-.appearance-live-preview .appearance-preview-play { display: grid; place-items: center; width: 27px; height: 27px; margin: 0 0 0 auto; border-radius: 50%; color: var(--modern-panel); background: var(--modern-text); svg { width: 16px; height: 16px; } }
 .appearance-footer {
   display: flex;
   justify-content: space-between;

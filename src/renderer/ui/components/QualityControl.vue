@@ -1,6 +1,6 @@
 <template>
   <div class="ui-quality-control">
-    <button ref="trigger" type="button" class="ui-icon-button ui-quality-trigger" :class="{ 'ui-active': open }" :aria-label="`切换音质，${streamSummary}`" :title="streamSummary" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" :disabled="!track || track.source === 'local'" @click="toggle" @keydown="onTriggerKeydown"><UiIcon name="quality" /></button>
+    <button ref="trigger" type="button" class="ui-icon-button ui-quality-trigger" :class="{ 'ui-active': open }" :aria-label="`切换音质，${streamSummary}`" :title="streamSummary" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" :disabled="!track || track.source === 'local' || localFile" @click="toggle" @keydown="onTriggerKeydown"><span v-if="label">{{ label }}</span><UiIcon v-else name="quality" /></button>
     <Teleport to="body">
       <section v-if="open" :id="panelId" ref="panel" class="ui-quality-panel scroll" role="dialog" aria-modal="false" aria-label="播放音质" :style="position" @keydown="onPanelKeydown">
         <header><div><strong>播放音质</strong><span>{{ platformLabel }}</span></div><button type="button" class="ui-icon-button" aria-label="关闭音质设置" @click="close(true)"><UiIcon name="close" /></button></header>
@@ -24,7 +24,7 @@ import { sourceNames } from '@renderer/store'
 import { activeStream, getPlatformQualitys, preferredQuality, qualityChanging, qualityChangeError, setPreferredQuality } from '../services/platformPlayback'
 import UiIcon from './UiIcon.vue'
 
-const props = defineProps<{ track: LX.Music.MusicInfo | null, deferLoad?: boolean }>()
+const props = defineProps<{ track: LX.Music.MusicInfo | null, deferLoad?: boolean, label?: string, localFile?: boolean, playbackId?: string }>()
 const panelId = `ui-quality-panel-${crypto.randomUUID()}`
 const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
@@ -38,7 +38,7 @@ const qualitys = ref<PlatformQuality[]>([])
 const position = ref<Record<string, string>>({ visibility: 'hidden' })
 const options = computed<PlatformQuality[]>(() => ['auto', ...qualitys.value.filter(quality => quality !== 'auto')])
 const unavailablePreference = computed(() => preferredQuality.value !== 'auto' && !options.value.includes(preferredQuality.value))
-const stream = computed(() => activeStream.value?.trackId === props.track?.id ? activeStream.value : null)
+const stream = computed(() => activeStream.value?.trackId === (props.playbackId ?? props.track?.id) ? activeStream.value : null)
 const qualityTrack = computed(() => stream.value?.musicInfo ?? props.track)
 const platformNames: Record<string, string> = { qq: 'QQ 音乐', tx: 'QQ 音乐', netease: '网易云音乐', wy: '网易云音乐', kugou: '酷狗音乐', kg: '酷狗音乐', kuwo: '酷我音乐', kw: '酷我音乐', migu: '咪咕音乐', mg: '咪咕音乐', bilibili: '哔哩哔哩', bi: '哔哩哔哩', qishui: '汽水音乐', qs: '汽水音乐', bodian: '波点音乐', bo: '波点音乐' }
 const platformLabel = computed(() => {
@@ -48,7 +48,7 @@ const platformLabel = computed(() => {
 })
 const streamSummary = computed(() => {
   if (!props.track) return '选择歌曲后可切换音质'
-  if (props.track.source === 'local') return '本地文件音质由音频文件决定'
+  if (props.track.source === 'local' || props.localFile) return '本地文件音质由音频文件决定'
   return stream.value ? `${platformLabel.value} · ${stream.value.qualityLabel ?? qualityLabels[stream.value.quality ?? stream.value.type]}` : `音质偏好 · ${qualityLabels[preferredQuality.value]}`
 })
 const streamDetails = computed(() => {
@@ -104,7 +104,7 @@ function outside(event: Event) {
 }
 async function toggle() {
   if (open.value) { close(true); return }
-  if (!props.track || props.track.source === 'local') return
+  if (!props.track || props.track.source === 'local' || props.localFile) return
   position.value = { visibility: 'hidden' }
   open.value = true
   if (props.deferLoad) void loadQualitys()
@@ -117,7 +117,7 @@ async function toggle() {
   panel.value?.querySelector<HTMLButtonElement>('button[aria-checked="true"]')?.focus()
 }
 async function choose(quality: PlatformQuality) {
-  if (changing.value || !props.track || props.track.source === 'local') return
+  if (changing.value || !props.track || props.track.source === 'local' || props.localFile) return
   if (preferredQuality.value === quality && !qualityChangeError.value) { close(true); return }
   saving.value = true
   queryError.value = ''

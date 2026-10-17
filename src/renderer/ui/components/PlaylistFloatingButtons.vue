@@ -3,7 +3,7 @@
     <button v-if="canJumpCurrent" type="button" class="playlist-floating-buttons__button" aria-label="跳转到当前播放歌曲" title="当前播放歌曲" @click="jumpCurrent">
       <UiIcon name="focus" />
     </button>
-    <button type="button" class="playlist-floating-buttons__button" aria-label="回到歌单顶部" title="回到顶部" @click="scrollToTop">
+    <button type="button" class="playlist-floating-buttons__button" aria-label="回到歌单顶部" title="回到顶部" @click="$emit('scrollToTop')">
       <UiIcon name="arrowUp" />
     </button>
   </div>
@@ -15,8 +15,11 @@ import { playMusicInfo } from '@renderer/store/player/state'
 import UiIcon from './UiIcon.vue'
 
 const props = defineProps<{
-  container: HTMLElement | null
   tracks: LX.Music.MusicInfo[]
+}>()
+const emit = defineEmits<{
+  jumpCurrent: [index: number]
+  scrollToTop: []
 }>()
 
 const currentTrack = computed(() => {
@@ -31,42 +34,9 @@ const currentIndex = computed(() => {
 const hasTracks = computed(() => props.tracks.length > 0)
 const canJumpCurrent = computed(() => currentIndex.value >= 0)
 
-function rowsContainer() {
-  return (props.container?.querySelector('.track-table__rows') as HTMLElement | null) ?? null
-}
-
-function scrollToTop() {
-  rowsContainer()?.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
 function jumpCurrent() {
-  const root = rowsContainer()
   const index = currentIndex.value
-  if (!root || index < 0) return
-
-  const row = [...root.querySelectorAll('.track-table__row')].find(item => item instanceof HTMLElement && item.dataset.trackKey === trackKey(props.tracks[index]))
-  if (row) {
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    return
-  }
-
-  // TrackTable progressively mounts rows. Move close to the target first so
-  // its lazy-list observer mounts the row, then center it once available.
-  const first = root.querySelector('.track-table__row')
-  const stride = first instanceof HTMLElement ? first.offsetHeight : 72
-  root.scrollTo({ top: Math.max(0, index * stride - root.clientHeight / 2), behavior: 'smooth' })
-  const key = trackKey(props.tracks[index])
-  let attempts = 0
-  const reveal = () => {
-    const target = [...root.querySelectorAll('.track-table__row')].find(item => item instanceof HTMLElement && item.dataset.trackKey === key)
-    if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); return }
-    if (++attempts < 12) window.requestAnimationFrame(reveal)
-  }
-  window.requestAnimationFrame(reveal)
-}
-
-function trackKey(track: LX.Music.MusicInfo | undefined) {
-  return track ? `${track.source}:${track.id}` : ''
+  if (index >= 0) emit('jumpCurrent', index)
 }
 </script>
 

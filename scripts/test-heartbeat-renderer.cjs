@@ -107,6 +107,7 @@ function harness(loggedIn = true) {
   state.api = load('src/renderer/ui/services/heartbeat.ts', { ...dependencies, './music': state.music })
   state.list = listAction
   state.core = load('src/renderer/core/player/action.ts', {
+    '@renderer/store/player/repeatMode': { repeatMode: vue.ref('listLoop') },
     ...dependencies,
     '@renderer/plugins/player': {},
     '@renderer/store/player/action': {

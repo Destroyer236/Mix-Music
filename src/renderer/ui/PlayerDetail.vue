@@ -1,143 +1,197 @@
 <template>
-  <Transition name="ui-detail">
-    <section v-if="isShowPlayerDetail" class="ui-player-detail ui-player-detail--immersive ui-player-detail--record" :style="coverColors" aria-label="播放详情">
-      <header class="ui-detail-header">
-        <button type="button" class="ui-detail-back" aria-label="收起播放详情" title="返回 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
-        <div class="ui-detail-header-tools">
-          <ExternalLyricsMenu />
-          <WindowControls />
-        </div>
+  <Transition name="ll-player-reveal" @after-enter="contentReady = true" @before-leave="contentReady = false">
+    <section v-if="isShowPlayerDetail" ref="player" class="ui-player-detail ll-full-player" :class="[{ 'is-idle': idle, 'is-centered': coverCentered, 'is-playing': isPlay }, `ll-cover-${playerPresentation.coverLayout}`, `ll-background-${playerPresentation.background}`]" :style="auraStyle" aria-label="播放详情" @pointermove="wake" @pointerdown="wake" @focusin="wake">
+      <div class="ll-full-background" aria-hidden="true"><Transition name="ll-background-fade"><div v-if="backgroundUrl && playerPresentation.background !== 'theme'" :key="backgroundUrl" class="ll-full-background-image" :style="{ backgroundImage: `url(${JSON.stringify(backgroundUrl)})` }" /></Transition><div class="ll-full-background-glow" /><div class="ll-full-background-veil" /></div>
+      <FullPlayerSpectrum v-if="contentReady && playerPresentation.spectrum" @notice="notify" />
+      <header class="ll-full-header" @pointerenter="toolbarHover = true" @pointerleave="toolbarHover = false; wake()">
+        <button type="button" class="ui-icon-button" :aria-label="showLyrics ? '隐藏歌词' : '显示歌词'" :title="showLyrics ? '隐藏歌词' : '显示歌词'" :aria-pressed="showLyrics" @click="toggleLyrics"><UiIcon name="lyric" /></button>
+        <div class="ll-full-window-tools"><button type="button" class="ui-icon-button" :aria-label="isFullscreen ? '退出全屏' : '进入全屏'" :title="isFullscreen ? '退出全屏' : '进入全屏'" @click="toggleFullscreen"><UiIcon :name="isFullscreen ? 'restore' : 'expand'" /></button><WindowControls /></div>
       </header>
-      <div class="ui-detail-body">
-        <div class="ui-detail-song">
-          <RecordPlayer :track="currentTrack" :src="musicInfo.pic" :alt="musicInfo.name || '专辑封面'" :playing="isPlay" @loaded="readCover" />
+      <div class="ll-full-stage">
+        <div class="ll-full-song">
+          <Transition name="ll-song-change" mode="out-in">
+            <div :key="musicInfo.id || 'empty'" class="ll-full-album">
+              <div class="ll-full-artwork" :class="{ 'is-paused': !isPlay }"><div class="ll-full-artwork-spin"><TrackArtwork :track="currentTrack" :src="musicInfo.pic" :alt="musicInfo.name || '专辑封面'" @loaded="readCover" /></div></div>
+              <div class="ll-full-metadata">
+                <h1 ref="songHeading" :class="{ 'll-title-marquee': titleOverflow }" :style="titleStyle" :title="musicInfo.name"><TrackTitle :track="currentTrack" :text="musicInfo.name || '静候一首好歌'" :show-badges="false" focusable /><small v-if="playbackRate !== 1">{{ playbackRate }}×</small></h1>
+                <div class="ll-full-badges" aria-label="歌曲与音源信息">
+                  <span v-if="currentTrack" class="ll-full-source" :title="sourceTitle"><UiIcon name="headphones" />{{ sourceLabel }}</span>
+                  <span v-if="currentTrack" class="ll-full-quality" :title="`播放音质 · ${qualityLabel}`">{{ qualityLabel }}</span>
+                  <span v-if="currentStream?.isTrial" class="ll-full-trial">试听</span>
+                </div>
+                <p class="ll-full-artists"><UiIcon name="micVocal" /><span v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" class="ll-metadata-divider"> / </span><button type="button" :title="`查看歌手 ${artist}`" @click="searchMetadata('artist', artist)">{{ artist }}</button></template></span><span v-else>{{ currentTrack ? '未知歌手' : '从你的音乐库开始聆听' }}</span></p>
+                <p class="ll-full-album-name"><UiIcon name="disc" /><button v-if="musicInfo.album" type="button" :title="`查看专辑 ${musicInfo.album}`" @click="searchMetadata('album', musicInfo.album)">{{ musicInfo.album }}</button><span v-else>{{ currentTrack ? '未知专辑' : 'LinkLine' }}</span></p>
+              </div>
+            </div>
+          </Transition>
         </div>
-        <div class="ui-detail-lyric-stage">
-          <div class="ui-detail-metadata">
-            <h1><TrackTitle :track="currentTrack" :text="musicInfo.name || '静候一首好歌'" focusable /></h1>
-            <p class="ui-detail-artists">
-              <template v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" aria-hidden="true"> / </span><button type="button" class="ui-detail-metadata-link" :aria-label="`搜索歌手 ${artist}`" @click="searchMetadata('artist', artist)">{{ artist }}</button></template></template>
-              <span v-else>从你的音乐库开始聆听</span>
-            </p>
-          </div>
-          <div ref="lyricPanel" class="ui-detail-lyrics scroll" :style="{ '--ui-lyric-size': (appSetting['playDetail.style.fontSize'] / 100) + 'rem' }">
-            <div v-if="!lyric.lines.length" class="ui-lyric-empty"><UiIcon name="lyric" /><p>{{ musicInfo.name ? '纯粹聆听，暂无歌词' : '歌词会随音乐在这里展开' }}</p></div>
-            <button v-for="(line, index) in lyric.lines" :key="index" type="button" :data-line="index" :class="{ 'ui-lyric-current': lyric.line === index }" :aria-current="lyric.line === index ? 'true' : undefined" @click="seekLine(line)"><span>{{ line.text || '♪' }}</span><template v-if="showExtended"><small v-for="(extended, i) in line.extendedLyrics" :key="i">{{ extended }}</small></template></button>
-          </div>
-          <div v-if="lyric.lines.length" class="ui-detail-lyric-tools">
-            <button type="button" aria-label="复制歌词" title="复制歌词" @click="copyLyric"><UiIcon name="copy" /></button>
-            <button ref="offsetTrigger" type="button" aria-label="调整歌词延迟" title="歌词延迟" aria-haspopup="dialog" :aria-expanded="offsetOpen" @click="offsetOpen = !offsetOpen"><UiIcon name="clock" /></button>
-            <button v-if="hasExtended" type="button" class="ui-detail-translation" :class="{ active: showExtended }" :aria-pressed="showExtended" :aria-label="showExtended ? '隐藏翻译与音译' : '显示翻译与音译'" title="翻译与音译" @click="showExtended = !showExtended">译</button>
-          </div>
+        <div class="ll-full-right" :class="{ 'is-hidden': coverCentered }" :inert="coverCentered || undefined">
+          <Transition name="ll-panel-switch" mode="out-in"><FullPlayerQueue v-if="queueOpen && contentReady" @close="queueOpen = false" @notice="notify" /><FullPlayerLyrics v-else-if="contentReady && showLyrics && !coverCentered" @notice="notify" /></Transition>
         </div>
       </div>
-      <PlayerBar />
-      <PlayerPopover :show="offsetOpen" title="歌词延迟" :width="230" :trigger="offsetTrigger" anchor="trigger" @close="offsetOpen = false"><div class="ui-detail-offset" aria-label="调整歌词延迟"><button type="button" aria-label="歌词提前半秒" @click="setLyricOffset(lyric.offset + lyric.tempOffset - 500)"><UiIcon name="minimize" /></button><small>{{ ((lyric.offset + lyric.tempOffset) / 1000).toFixed(1) }}s</small><button type="button" aria-label="歌词延后半秒" @click="setLyricOffset(lyric.offset + lyric.tempOffset + 500)"><UiIcon name="plus" /></button></div></PlayerPopover>
+      <footer class="ll-full-toolbar" @pointerenter="toolbarHover = true" @pointerleave="toolbarHover = false; wake()">
+        <div class="ll-full-actions">
+          <button type="button" class="ui-icon-button" aria-label="收起播放详情" title="收起 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
+          <button type="button" class="ui-icon-button" :class="{ 'ui-active': collected }" :aria-pressed="collected" :aria-label="collected ? '取消收藏当前歌曲' : '收藏当前歌曲'" :title="collected ? '取消喜欢' : '喜欢'" :disabled="!currentTrack || favoritePending.has(currentTrack.id)" @click="toggleCollect"><UiIcon name="heart" :filled="collected" /></button>
+          <button type="button" class="ui-icon-button" aria-label="查看歌曲评论" title="评论" :disabled="!currentTrack" @click="openComments"><UiIcon name="comment" /></button>
+          <button type="button" class="ui-icon-button" aria-label="添加到歌单" title="添加到歌单" :disabled="!currentTrack" @click="trackAction = 'add'"><UiIcon name="plus" /></button>
+        </div>
+        <div class="ll-full-transport">
+          <div class="ll-full-controls">
+            <button type="button" class="ui-icon-button ll-full-play-mode" :class="{ 'ui-active': playMode !== 'list' }" :aria-label="playModeLabel" :title="playModeLabel" @click="cyclePlayMode"><UiIcon :name="playModeIcon" /></button>
+            <button type="button" class="ui-icon-button ll-full-skip" aria-label="上一首" title="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button>
+            <button type="button" class="ll-full-play" :aria-label="isPlay ? '暂停' : '播放'" :title="isPlay ? '暂停' : '播放'" @click="togglePlay"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button>
+            <button type="button" class="ui-icon-button ll-full-skip" aria-label="下一首" title="下一首" @click="playNext()"><UiIcon name="next" filled /></button>
+            <FullPlayerVolume />
+          </div>
+          <div class="ll-full-progress"><button type="button" aria-label="切换进度时间显示" :title="timeMode ? '显示已播放时间' : '显示剩余时间'" @click="timeMode = !timeMode">{{ timeMode ? '-' + formatTime(Math.max(0, playProgress.maxPlayTime - displayedTime)) : formatTime(displayedTime) }}</button><UiRange :model-value="displayedTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div>
+        </div>
+        <div class="ll-full-tools"><QualityControl :track="currentTrack" :label="qualityLabel" :local-file="playingFile" :playback-id="playMusicInfo.musicInfo?.id" defer-load /><ExternalLyricsMenu /><button type="button" class="ui-icon-button" :class="{ 'ui-active': queueOpen }" aria-label="播放队列" title="播放队列" :aria-pressed="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button><FullPlayerMore :track="currentTrack" @notice="notify" /></div>
+      </footer>
+      <TrackActionModal v-if="trackAction && currentTrack" :show="Boolean(trackAction)" :action="trackAction" :tracks="[currentTrack]" :from-list-id="playMusicInfo.listId || ''" @close="trackAction = null" @success="notify" />
+      <Transition name="ll-toast"><div v-if="notice" class="ll-full-notice" role="status" aria-live="polite">{{ notice }}</div></Transition>
     </section>
   </Transition>
 </template>
 <script setup>
-import RecordPlayer from './components/RecordPlayer.vue'
-import { ref, watch, nextTick, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { getCatalogSources } from './services/catalogSearch'
 import { musicInfo, playMusicInfo, isShowPlayerDetail, isPlay } from '@renderer/store/player/state'
 import { setShowPlayerDetail } from '@renderer/store/player/action'
+import { playProgress } from '@renderer/store/player/playProgress'
+import { playbackRate } from '@renderer/store/player/playbackRate'
+import { repeatMode } from '@renderer/store/player/repeatMode'
 import { lyric } from '@renderer/store/player/lyric'
-import { setLyricOffset } from '@renderer/core/lyric'
-import { appSetting } from '@renderer/store/setting'
-import { clipboardWriteText } from '@common/utils/electron'
-import { extractWallpaperPalette, wallpaperColors, rgb, hex, tone, contrast } from './wallpaperPalette'
+import { togglePlay, playPrev, playNext } from '@renderer/core/player'
+import { appSetting, mergeSetting, setTogglePlayMode } from '@renderer/store/setting'
+import { isFullscreen, sourceNames } from '@renderer/store'
+import { setFullScreen } from '@renderer/utils/ipc'
+import { qualityLabels } from '@common/platformPlayback'
+import { favoritePending, isFavorite, requestFavorite } from './services/platformAccounts'
+import { activePlaybackResource, activeStream, preferredQuality } from './services/platformPlayback'
+import { heartbeatActive, toggleHeartbeat } from './services/heartbeat'
+import { playerPresentation } from './services/playerPresentation'
+import { getCatalogSources } from './services/catalogSearch'
+import { extractWallpaperPalette } from './wallpaperPalette'
 import UiIcon from './components/UiIcon.vue'
-import PlayerBar from './PlayerBar.vue'
-import WindowControls from './components/WindowControls.vue'
-import PlayerPopover from './components/PlayerPopover.vue'
+import UiRange from './components/UiRange.vue'
+import TrackArtwork from './components/TrackArtwork.vue'
 import TrackTitle from './components/TrackTitle.vue'
+import WindowControls from './components/WindowControls.vue'
+import QualityControl from './components/QualityControl.vue'
 import ExternalLyricsMenu from './components/ExternalLyricsMenu.vue'
-import { appearance } from '@renderer/composables/useAppearance'
+import TrackActionModal from './components/TrackActionModal.vue'
+import FullPlayerLyrics from './components/FullPlayerLyrics.vue'
+import FullPlayerQueue from './components/FullPlayerQueue.vue'
+import FullPlayerMore from './components/FullPlayerMore.vue'
+import FullPlayerSpectrum from './components/FullPlayerSpectrum.vue'
+import FullPlayerVolume from './components/FullPlayerVolume.vue'
+import './full-player.less'
 
-const seekLine = line => { window.app_event.setProgress(line.time / 1000) }
-const currentTrack = computed(() => { const item = playMusicInfo.musicInfo; return item && 'metadata' in item ? item.metadata.musicInfo : item })
 const router = useRouter()
-const artistNames = computed(() => String(musicInfo.singer || '').split(/\s*、\s*|\s+\/\s+/).map(name => name.trim()).filter(Boolean))
-const searchMetadata = (type, text) => {
-  text = String(text || '').trim()
-  if (!text) return
-  const preferredSource = currentTrack.value?.source
-  const source = getCatalogSources(type).includes(preferredSource) ? preferredSource : 'all'
-  setShowPlayerDetail(false)
-  void router.push({ path: '/search', query: { text, type, source, page: '1' } })
+const player = ref(null)
+const songHeading = ref(null)
+const titleOverflow = ref(false)
+const titleStyle = ref({})
+let titleObserver
+function measureTitle() {
+  const title = songHeading.value?.querySelector('.ui-track-title')
+  const text = title?.querySelector('.ui-track-title-text')
+  const distance = text && title ? text.scrollWidth - title.clientWidth : 0
+  titleOverflow.value = distance > 4
+  titleStyle.value = { '--ll-title-distance': `${Math.max(0, distance)}px`, '--ll-title-duration': `${Math.max(10, distance / 20 + 5)}s` }
 }
-const lyricPanel = ref(null)
-const offsetTrigger = ref(null)
-const offsetOpen = ref(false)
-const showExtended = ref(true)
-const hasExtended = computed(() => lyric.lines.some(line => line.extendedLyrics?.length))
-const copyLyric = () => { clipboardWriteText(lyric.lines.map(line => line.text).join('\n')) }
-
-// Read only the displayed cover. No extra request or change to saved wallpaper.
-const fallbackPalette = { seed: '#637989', average: '#475764', dark: true }
-const palette = ref(fallbackPalette)
-const paletteCache = new Map()
-function readCover(image) {
-  if (!image.naturalWidth || !image.naturalHeight || !isShowPlayerDetail.value) return
-  const key = image.currentSrc || image.src
-  const cached = paletteCache.get(key)
-  if (cached) { palette.value = cached; return }
-  try {
-    const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 64
-    const context = canvas.getContext('2d', { willReadFrequently: true })
-    if (!context) return
-    context.drawImage(image, 0, 0, 64, 64)
-    const result = extractWallpaperPalette(context.getImageData(0, 0, 64, 64).data)
-    paletteCache.set(key, result)
-    if (paletteCache.size > 24) paletteCache.delete(paletteCache.keys().next().value)
-    palette.value = result
-  } catch { palette.value = fallbackPalette }
-}
-const coverColors = computed(() => {
-  const colors = wallpaperColors(palette.value, true)
-  const seed = rgb(palette.value.seed)
-  const average = rgb(palette.value.average)
-  const chosenAccent = rgb(appearance.accent)
-  const accent = contrast(chosenAccent, tone(average, 0.32, 0.045)) >= 4.5 ? chosenAccent : tone(chosenAccent, 0.8, 0.14)
-  return {
-    '--detail-bg': hex(tone(average, 0.24, 0.035)),
-    '--detail-glow': hex(tone(seed, 0.4, 0.065)),
-    '--detail-glow-secondary': hex(tone(average, 0.32, 0.045)),
-    '--record-tint': hex(tone(seed, 0.57, 0.065)),
-    '--record-highlight': hex(tone(seed, 0.76, 0.04)),
-    '--record-shade': hex(tone(seed, 0.37, 0.04)),
-    '--modern-bg': hex(colors.bg),
-    '--modern-panel': hex(colors.panel),
-    '--modern-text': hex(colors.text),
-    '--modern-muted': hex(colors.muted),
-    '--modern-accent': hex(accent),
-    '--modern-accent-ink': hex(accent),
-    '--modern-accent-contrast': hex(colors.bg),
-    '--modern-accent-soft': `rgba(${accent.join(',')}, .14)`,
-    '--modern-border': `rgba(${colors.text.join(',')}, .12)`,
-    '--modern-hover': `rgba(${colors.text.join(',')}, .07)`,
-  }
+watch(songHeading, async heading => {
+  titleObserver?.disconnect()
+  if (!heading) return
+  titleObserver = new ResizeObserver(measureTitle)
+  titleObserver.observe(heading)
+  const text = heading.querySelector('.ui-track-title-text')
+  if (text) titleObserver.observe(text)
+  await nextTick(); measureTitle()
 })
-watch(() => musicInfo.id, () => { palette.value = fallbackPalette })
-async function centerLyric(smooth = false) {
-  await nextTick()
-  const panel = lyricPanel.value
-  const line = panel?.querySelector(`[data-line="${lyric.line}"]`)
-  if (!panel || !line) return
-  const top = panel.scrollTop + line.getBoundingClientRect().top - panel.getBoundingClientRect().top - panel.clientHeight / 2 + line.clientHeight / 2
-  panel.scrollTo({ top, behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' })
+const contentReady = ref(false)
+const showLyrics = ref(true)
+const queueOpen = ref(false)
+const coverCentered = computed(() => !queueOpen.value && (!showLyrics.value || (playerPresentation.autoCenterCover && !lyric.lines.length)))
+const currentTrack = computed(() => { const item = playMusicInfo.musicInfo; return item && 'metadata' in item ? item.metadata.musicInfo : item })
+const playingFile = computed(() => activePlaybackResource.value && activePlaybackResource.value.trackId === playMusicInfo.musicInfo?.id ? activePlaybackResource.value.local : Boolean(playMusicInfo.musicInfo && 'metadata' in playMusicInfo.musicInfo) || currentTrack.value?.source === 'local')
+const currentStream = computed(() => activeStream.value?.trackId === playMusicInfo.musicInfo?.id ? activeStream.value : null)
+const platformNames = { netease: '网易云音乐', qq: 'QQ 音乐', kugou: '酷狗音乐', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩', qishui: '汽水音乐', bodian: '波点音乐' }
+const sourceLabel = computed(() => playingFile.value ? '本地音乐' : currentStream.value ? platformNames[currentStream.value.platform] ?? currentStream.value.platform : sourceNames.value[currentTrack.value?.source] ?? '等待音源')
+const sourceTitle = computed(() => playingFile.value ? '实际播放音源 · 本地文件' : currentStream.value ? `实际播放音源 · ${sourceLabel.value}` : `歌曲平台 · ${sourceLabel.value}，播放后显示实际音源`)
+const qualityLabel = computed(() => playingFile.value ? '本地' : currentStream.value?.qualityLabel ?? (currentStream.value ? qualityLabels[currentStream.value.quality ?? currentStream.value.type] : preferredQuality.value === 'auto' ? '自动' : qualityLabels[preferredQuality.value]))
+const artistNames = computed(() => [...new Set(String(musicInfo.singer || '').split(/\s*、\s*|\s+\/\s+/).map(name => name.trim()).filter(Boolean))])
+const searchMetadata = (type, text) => {
+  if (!String(text).trim()) return
+  const preferred = currentTrack.value?.source
+  setShowPlayerDetail(false)
+  void router.push({ path: '/search', query: { text, type, source: getCatalogSources(type).includes(preferred) ? preferred : 'all', page: '1' } })
 }
-watch(() => lyric.line, () => { if (isShowPlayerDetail.value) void centerLyric(true) })
-watch(() => lyric.lines, () => { if (isShowPlayerDetail.value) void centerLyric() })
-watch(isShowPlayerDetail, show => { if (show) void centerLyric(); else offsetOpen.value = false })
-watch(showExtended, () => { if (isShowPlayerDetail.value) void centerLyric() })
+const collected = computed(() => isFavorite(currentTrack.value))
+const toggleCollect = () => { if (currentTrack.value && !favoritePending.value.has(currentTrack.value.id)) requestFavorite(currentTrack.value, !collected.value) }
+function openComments() {
+  if (!currentTrack.value) return
+  setShowPlayerDetail(false)
+  void router.push({ path: '/comment', query: { id: playMusicInfo.musicInfo.id, listId: playMusicInfo.listId ?? undefined } })
+}
+const trackAction = ref(null)
+const seeking = ref(null)
+const displayedTime = computed(() => seeking.value ?? playProgress.nowPlayTime)
+const timeMode = ref(false)
+const formatTime = value => { const seconds = Math.max(0, Math.floor(value || 0)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` }
+function seek(value) { window.app_event.setProgress(value); seeking.value = null }
+const playModes = ['listLoop', 'random', 'singleLoop', 'list']
+const playMode = computed(() => appSetting['player.togglePlayMethod'])
+const playModeNames = { listLoop: '列表循环', random: '随机播放', singleLoop: '单曲循环', list: '顺序播放' }
+const playModeIcon = computed(() => ({ listLoop: 'repeat', random: 'shuffle', singleLoop: 'repeatOne', list: 'listPlay' }[playMode.value]))
+const playModeLabel = computed(() => `播放模式：${heartbeatActive.value ? '心动模式 · ' : ''}${playModeNames[playMode.value]}，点击切换`)
+async function cyclePlayMode() {
+  if (heartbeatActive.value) { const result = await toggleHeartbeat(); if (result) notify(result.message) }
+  const mode = playModes[(playModes.indexOf(playMode.value) + 1) % playModes.length]
+  // Random uses a full shuffled cycle; it must not inherit an earlier repeat-one setting.
+  if (mode === 'random') repeatMode.value = 'listLoop'
+  mergeSetting({ 'player.togglePlayMethod': mode })
+  setTogglePlayMode(mode)
+}
+function toggleLyrics() { queueOpen.value = false; showLyrics.value = !showLyrics.value; wake() }
+async function toggleFullscreen() { try { isFullscreen.value = await setFullScreen(!isFullscreen.value) } catch { notify('暂时无法切换全屏，请重试') } }
+const notice = ref('')
+let noticeTimer
+function notify(message) { clearTimeout(noticeTimer); notice.value = message; noticeTimer = setTimeout(() => { notice.value = '' }, 3200); wake() }
+const backgroundUrl = ref('')
+const aura = ref('')
+const auraStyle = computed(() => aura.value ? { '--ll-player-aura': aura.value } : {})
+function readCover(image) {
+  if (!image.naturalWidth || !isShowPlayerDetail.value) return
+  backgroundUrl.value = image.currentSrc || image.src
+  try {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 32
+    const context = canvas.getContext('2d', { willReadFrequently: true }); if (!context) return
+    context.drawImage(image, 0, 0, 32, 32)
+    aura.value = extractWallpaperPalette(context.getImageData(0, 0, 32, 32).data).seed
+  } catch { aura.value = '' }
+}
+const idle = ref(false)
+const toolbarHover = ref(false)
+let idleTimer
+function wake() {
+  idle.value = false
+  clearTimeout(idleTimer)
+  if (!isShowPlayerDetail.value || !playerPresentation.immersive) return
+  idleTimer = setTimeout(() => {
+    if (toolbarHover.value || player.value?.querySelector('.ll-full-toolbar:focus-within, .ll-full-header:focus-within, .fpl-actions:focus-within, .fpl-actions:hover') || document.querySelector('.ui-player-popover, .ui-dialog-backdrop, .ui-volume-panel, .ui-quality-panel, .fpl-menu')) { wake(); return }
+    idle.value = true
+  }, 3000)
+}
+watch(() => playerPresentation.immersive, wake)
+watch(() => musicInfo.id, () => { seeking.value = null; backgroundUrl.value = ''; wake() })
+watch(isShowPlayerDetail, show => { if (show) wake(); else { contentReady.value = false; queueOpen.value = false; trackAction.value = null; idle.value = false; clearTimeout(idleTimer) } })
 function onKey(event) {
-  if (event.key === 'Escape' && isShowPlayerDetail.value && !event.defaultPrevented && !document.querySelector('.ui-player-popover, .ui-dialog-backdrop, .ui-volume-panel')) setShowPlayerDetail(false)
+  if (event.key !== 'Escape' || !isShowPlayerDetail.value || event.defaultPrevented || document.querySelector('.ui-player-popover, .ui-dialog-backdrop, .ui-volume-panel, .ui-quality-panel, .fpl-menu')) return
+  if (queueOpen.value) queueOpen.value = false
+  else setShowPlayerDetail(false)
 }
-function resizeLyrics() { if (isShowPlayerDetail.value) void centerLyric() }
-onMounted(() => { window.addEventListener('keydown', onKey); window.addEventListener('resize', resizeLyrics) })
-onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); window.removeEventListener('resize', resizeLyrics) })
+onMounted(() => { window.addEventListener('keydown', onKey); if (isShowPlayerDetail.value) { contentReady.value = true; wake() } })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); clearTimeout(idleTimer); clearTimeout(noticeTimer); titleObserver?.disconnect() })
 </script>

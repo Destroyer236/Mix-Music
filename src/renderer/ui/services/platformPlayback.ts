@@ -9,6 +9,7 @@ import { updateSetting } from '@renderer/utils/ipc'
 export const preferredQuality = computed(() => appSetting['player.playQuality'])
 export const preferredSource = computed(() => appSetting['player.preferredSource'])
 export const activeStream = shallowRef<(ResolvedPlatformStream & { requested: PlatformQuality, trackId: string }) | null>(null)
+export const activePlaybackResource = shallowRef<{ trackId: string, local: boolean } | null>(null)
 export const qualityChanging = ref(false)
 export const qualityChangeError = ref('')
 let qualityReloadHandler: (() => Promise<void>) | null = null
@@ -91,6 +92,10 @@ export const acceptStream = (track: LX.Music.MusicInfoOnline, stream: ResolvedPl
 }
 // Only the player resource transaction commits display state. Preloading only caches.
 export const commitStream = (track: LX.Music.MusicInfo | LX.Download.ListItem, url: string, requested: PlatformQuality) => {
-  const stream = resolvedStreams.get(streamKey(track.id, url, requested))
-  if (playMusicInfo.musicInfo?.id === track.id && preferredQuality.value === requested) activeStream.value = stream ? { ...stream, requested, trackId: track.id } : null
+  if (playMusicInfo.musicInfo?.id !== track.id || preferredQuality.value !== requested) return
+  const original = 'metadata' in track ? track.metadata.musicInfo : track
+  const local = !/^https?:\/\//i.test(url)
+  const stream = local ? null : resolvedStreams.get(streamKey(track.id, url, requested)) ?? resolvedStreams.get(streamKey(original.id, url, requested))
+  activePlaybackResource.value = { trackId: track.id, local }
+  activeStream.value = stream ? { ...stream, requested, trackId: track.id } : null
 }

@@ -8,8 +8,8 @@
     </PlaylistHeader>
     <div v-if="message" class="ui-inline-message" role="status"><span>{{ message }}</span><button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
     <div class="ui-section-heading"><h2>歌单里的声音</h2><button type="button" :disabled="loading" @click="load(true)"><UiIcon name="refresh" />刷新</button></div>
-    <div class="ui-track-panel"><TrackTable :list="detail?.list || []" :loading="loading" :error="error" :offset="(page - 1) * (detail?.limit || 30)" empty-title="这份歌单暂时没有歌曲" @play="playCollection($event)" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="load(true)" /></div>
-    <PlaylistFloatingButtons :container="pageContainer" :tracks="detail?.list || []" />
+    <div class="ui-track-panel"><TrackTable ref="trackTable" virtualized :list="detail?.list || []" :loading="loading" :error="error" :offset="(page - 1) * (detail?.limit || 30)" empty-title="这份歌单暂时没有歌曲" @play="playCollection($event)" @add="openAction($event, 'add')" @download="openAction($event, 'download')" @retry="load(true)" /></div>
+    <PlaylistFloatingButtons :tracks="detail?.list || []" @jump-current="trackTable?.scrollToIndex($event)" @scroll-to-top="trackTable?.scrollToTop()" />
     <UiPagination :page="page" :pages="pages" :loading="loading" @change="changePage" />
     <TrackActionModal :show="actionOpen" :tracks="actionTracks" :action="action" @close="actionOpen = false" @success="message = $event" />
   </div>
@@ -43,6 +43,7 @@ const sources = musicSdk.sources.filter(item => musicSdk[item.id as LX.OnlineSou
 const source = computed(() => sources.includes(queryValue(route.query.source) as LX.OnlineSource) ? route.query.source as LX.OnlineSource : sources[0] || 'kw')
 const playlistId = computed(() => queryValue(route.query.id))
 const page = computed(() => Math.max(1, Number.parseInt(queryValue(route.query.page), 10) || 1))
+const trackTable = ref<{ scrollToIndex: (index: number) => void, scrollToTop: () => void } | null>(null)
 const pageContainer = usePaginationScroll([page, playlistId, source], '.track-table__rows')
 const headerCompact = useCollapsingPlaylistHeader(pageContainer, [page, playlistId, source], '.track-table__rows')
 const detail = ref<ListDetailInfo | null>(null)

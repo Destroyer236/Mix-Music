@@ -6,6 +6,7 @@ import { musicInfo } from '@renderer/store/player/state'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@renderer/core/player'
 import { getMusicUrl } from '@renderer/core/music'
 import { appSetting } from '@renderer/store/setting'
+import { repeatMode } from '@renderer/store/player/repeatMode'
 
 let audio: HTMLAudioElement
 const initAudio = () => {
@@ -69,7 +70,9 @@ const preloadMusicInfo = {
   preProgress: 0,
   info: null as LX.Player.PlayMusicInfo | null,
 }
+let preloadGeneration = 0
 const resetPreloadInfo = () => {
+  preloadGeneration++
   preloadMusicInfo.preProgress = 0
   preloadMusicInfo.info = null
   preloadMusicInfo.isLoading = false
@@ -77,17 +80,22 @@ const resetPreloadInfo = () => {
 const preloadNextMusicUrl = async(curTime: number) => {
   if (preloadMusicInfo.isLoading || curTime - preloadMusicInfo.preProgress < 3) return
   preloadMusicInfo.isLoading = true
+  const generation = preloadGeneration
   console.log('preload next music url')
   try {
     const info = await getNextPlayMusicInfo()
+    if (generation !== preloadGeneration) return
     if (info) {
       preloadMusicInfo.info = info
       const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
+      if (generation !== preloadGeneration) return
       if (url) {
         console.log('preload url', url)
         const result = await checkMusicUrl(url)
+        if (generation !== preloadGeneration) return
         if (!result) {
           const refreshUrl = await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => '')
+          if (generation !== preloadGeneration) return
           await checkMusicUrl(refreshUrl)
           console.log('preload url refresh', refreshUrl)
         }
@@ -98,7 +106,7 @@ const preloadNextMusicUrl = async(curTime: number) => {
     // next progress window to retry after a transient resolver failure.
     console.warn('preload next music failed', error)
   } finally {
-    preloadMusicInfo.isLoading = false
+    if (generation === preloadGeneration) preloadMusicInfo.isLoading = false
   }
 }
 
@@ -112,12 +120,11 @@ export default () => {
     resetPreloadInfo()
   }
 
-  watch(() => appSetting['player.togglePlayMethod'], () => {
-    if (!preloadMusicInfo.info || preloadMusicInfo.info.isTempPlay) return
+  watch([() => appSetting['player.togglePlayMethod'], repeatMode], () => {
     resetRandomNextMusicInfo()
-    preloadMusicInfo.info = null
+    resetPreloadInfo()
     preloadMusicInfo.preProgress = playProgress.nowPlayTime
-  })
+  }, { flush: 'sync' })
 
   window.app_event.on('setProgress', setProgress)
   window.app_event.on('musicToggled', handleSetPlayInfo)

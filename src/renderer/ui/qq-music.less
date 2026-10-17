@@ -3403,7 +3403,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
   .track-table__row { min-height: 65px; }
   .track-table__cover { border-radius: 4px; }
   .track-table__index { font-variant-numeric: tabular-nums; }
-  .track-table__row:nth-child(-n+3) > .track-table__index { color: var(--modern-accent-ink); font-weight: 600; }
+  .track-table__row--top-three > .track-table__index { color: var(--modern-accent-ink); font-weight: 600; }
 }
 .qq-board-tabs-skeleton { display: flex; gap: 22px; margin: 25px 0; > span { width: 80px; height: 12px; border-radius: 4px; } }
 .qq-chart-skeleton-head { display: flex; gap: 24px; align-items: center; margin: 30px 0; > .qq-skeleton-block { width: 124px; height: 124px; border-radius: 4px; flex: none; } > div:last-child { width: 230px; } }
@@ -3790,7 +3790,7 @@ body .ui-search-suggestions {
 .ui-shell .track-table__title strong { display: flex; min-width: 0; font-size: 13px; font-weight: 500; color: var(--modern-text); }
 .ui-shell .track-table__title > .track-table__album-link { display: block; color: var(--modern-muted); font-size: 11px; font-weight: 400; }
 .ui-shell .track-table__cover { width: 40px; height: 40px; border-radius: 8px; }
-.ui-shell .track-table__row:nth-child(even) { background: color-mix(in srgb, var(--modern-text) 1.5%, transparent); }
+.ui-shell .track-table__row--even { background: color-mix(in srgb, var(--modern-text) 1.5%, transparent); }
 .ui-shell .track-table__row:is(:hover, :focus-within) { background: color-mix(in srgb, var(--modern-accent) 7%, transparent); }
 .ui-shell .track-table__row--playing { background: var(--modern-accent-soft); }
 .ui-shell .track-table__row--playing :is(.track-table__index, .track-table__title strong) { color: var(--modern-accent-ink); }
