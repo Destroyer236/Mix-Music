@@ -106,7 +106,9 @@ async function main() {
   await assert.rejects(resolver.resolve(track('tx')), /no rights/)
   calls.length = 0
 
-  const defaultSetting = load('src/common/defaultSetting.ts').default
+  const defaultSetting = load('src/common/defaultSetting.ts', {
+    './externalLyric': load('src/common/externalLyric.ts'),
+  }).default
   assert.equal(defaultSetting['player.preferredSource'], 'auto')
   const schema = load('src/renderer/ui/settings/schema.ts', {
     '@common/defaultSetting': { default: defaultSetting, __esModule: true },
@@ -115,7 +117,7 @@ async function main() {
     '@common/platformPlayback': load('src/common/platformPlayback.ts'),
   })
   const field = schema.settingFields.find(item => item.key === 'player.preferredSource')
-  assert.equal(field.category, 'playback')
+  assert.equal(field.category, 'sources')
   assert.equal(field.type, 'select')
   assert.equal(field.options.length, 9)
   assert.deepEqual(field.options.find(option => option.value === 'bo'), { value: 'bo', label: '波点音乐' })
