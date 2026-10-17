@@ -7,17 +7,17 @@
       </div>
     </div>
     <div class="ui-player-center"><div class="ui-player-control-row"><button type="button" class="ui-icon-button ui-play-mode-button" :aria-label="modeLabel" :title="modeLabel" @click="cyclePlayMode"><UiIcon :name="currentMode.icon" /></button><div class="ui-transport"><button type="button" class="ui-icon-button" aria-label="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button><button type="button" class="ui-play-button" :aria-label="isPlay ? '暂停' : '播放'" @click="togglePlay"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button><button type="button" class="ui-icon-button" aria-label="下一首" @click="playNext()"><UiIcon name="next" filled /></button></div><VolumeControl /></div><div class="ui-seek"><span>{{ playProgress.nowPlayTimeStr }}</span><UiRange :model-value="seeking ?? playProgress.nowPlayTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div></div>
-    <div class="ui-player-right-tools"><QualityControl :track="currentTrack" defer-load /><button type="button" class="ui-icon-button" :class="{ 'ui-active': appSetting['desktopLyric.enable'] }" :aria-pressed="appSetting['desktopLyric.enable']" aria-label="切换桌面歌词" title="桌面歌词" @click="toggleDesktopLyric"><UiIcon name="lyric" /></button><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
+    <div class="ui-player-right-tools"><QualityControl :track="currentTrack" defer-load /><button type="button" class="ui-icon-button" :class="{ 'ui-active': appSetting['desktopLyric.enable'] }" :aria-pressed="appSetting['desktopLyric.enable']" aria-label="切换桌面歌词" title="桌面歌词" @click="toggleDesktopLyric"><UiIcon name="lyric" /></button><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button><button v-if="isShowPlayerDetail" type="button" class="ui-icon-button" :class="{ 'ui-active': appSetting['player.audioVisualization'] }" :aria-pressed="appSetting['player.audioVisualization']" aria-label="音频可视化" title="音频可视化" @click="toggleAudioVisualization"><UiIcon name="chart" /></button></div>
     <PlayerPopover :show="queueOpen" title="播放列表" :subtitle="`${queue.length} 首歌曲`" :width="380" :trigger="queueTrigger" panel-class="ui-player-queue-panel" @close="queueOpen = false"><div v-if="!queue.length" class="ui-empty">选择歌曲后，播放队列会出现在这里。</div><button v-for="(item, index) in queue" :key="item.source + ':' + item.id" type="button" class="ui-queue-track" :class="{ 'ui-active': item.id === playMusicInfo.musicInfo?.id && item.source === currentTrack?.source }" @click="playList(playInfo.playerListId, index)"><span>{{ String(index + 1).padStart(2, '0') }}</span><strong>{{ item.name }}</strong><small>{{ item.singer }}</small></button><template v-if="tempPlayList.length"><h3 class="ui-queue-heading">稍后播放</h3><div v-for="item in tempPlayList" :key="item.musicInfo.id" class="ui-queue-track">{{ item.musicInfo.name }} · {{ item.musicInfo.singer }}</div></template></PlayerPopover>
   </section>
 </template>
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { musicInfo, isPlay, playInfo, playMusicInfo, tempPlayList } from '@renderer/store/player/state'
+import { musicInfo, isPlay, isShowPlayerDetail, playInfo, playMusicInfo, tempPlayList } from '@renderer/store/player/state'
 import { setShowPlayerDetail } from '@renderer/store/player/action'
 import { playProgress } from '@renderer/store/player/playProgress'
-import { appSetting, setTogglePlayMode } from '@renderer/store/setting'
+import { appSetting, setEnableAudioVisualization, setTogglePlayMode } from '@renderer/store/setting'
 import { togglePlay, playNext, playPrev, playList } from '@renderer/core/player'
 import { getListMusics } from '@renderer/store/list/action'
 import { favoritePending, isFavorite, requestFavorite } from './services/platformAccounts'
@@ -31,6 +31,7 @@ import VolumeControl from './components/VolumeControl.vue'
 import PlayerOptions from './components/PlayerOptions.vue'
 import TrackArtwork from './components/TrackArtwork.vue'
 import { getCatalogSources } from './services/catalogSearch'
+import { showPlayerNotice } from './services/playerNotice'
 const playModes = [{ value: 'listLoop', label: '列表循环', icon: 'repeat' }, { value: 'random', label: '随机播放', icon: 'shuffle' }, { value: 'singleLoop', label: '单曲循环', icon: 'repeatOne' }, { value: 'list', label: '顺序播放', icon: 'listPlay' }]
 const normalizePlayMode = mode => { if (mode === 'none') setTogglePlayMode('listLoop') }
 watch(() => appSetting['player.togglePlayMethod'], normalizePlayMode, { immediate: true })
@@ -39,6 +40,14 @@ const currentMode = computed(() => playModes[modeIndex.value])
 const modeLabel = computed(() => `播放模式：${currentMode.value.label}，点击切换为${playModes[(modeIndex.value + 1) % playModes.length].label}`)
 const cyclePlayMode = () => { setTogglePlayMode(playModes[(modeIndex.value + 1) % playModes.length].value) }
 const { toggleDesktopLyric } = useToggleDesktopLyric()
+const toggleAudioVisualization = () => {
+  const enabled = !appSetting['player.audioVisualization']
+  if (enabled && appSetting['player.mediaDeviceId'] !== 'default') {
+    showPlayerNotice('音频可视化需要系统默认输出设备，请先在设置中切换')
+    return
+  }
+  setEnableAudioVisualization(enabled)
+}
 const currentTrack = computed(() => { const item = playMusicInfo.musicInfo; return item && 'metadata' in item ? item.metadata.musicInfo : item })
 const artistNames = computed(() => [...new Set(String(musicInfo.singer || '').split(/\s*、\s*|\s+\/\s+/).map(name => name.trim()).filter(Boolean))])
 const artistLocation = text => ({ path: '/search', query: { text, type: 'artist', source: getCatalogSources('artist').includes(currentTrack.value?.source) ? currentTrack.value.source : 'all', page: '1' } })

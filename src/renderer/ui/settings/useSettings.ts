@@ -1,4 +1,4 @@
-import { onBeforeUnmount, reactive, ref, toRaw } from 'vue'
+import { onBeforeUnmount, reactive, ref, toRaw, watch } from 'vue'
 import { appSetting, mergeSetting } from '@renderer/store/setting'
 import { defaultList, loveList, userLists } from '@renderer/store/list/state'
 import { getListMusics, overwriteListFull, overwriteListMusics } from '@renderer/store/list/action'
@@ -12,7 +12,7 @@ import { gzipData, readFile, saveStrToFile } from '@common/utils/nodejs'
 import { sizeFormate } from '@common/utils/common'
 import migrateSetting from '@common/utils/migrateSetting'
 import { appearance, validateAppearance } from '@renderer/composables/useAppearance'
-import { dislikeInfo } from '@renderer/store/dislikeList'
+import { dislikeInfo, dislikeRulesVersion } from '@renderer/store/dislikeList'
 import { overwirteDislikeInfo } from '@renderer/core/dislikeList'
 import { parseSettingValue, validateSettingBackup, type SettingField } from './schema'
 import { setPreferredQuality } from '@renderer/ui/services/platformPlayback'
@@ -32,6 +32,11 @@ export function useSettings() {
   const syncDevices = ref<LX.Sync.ServerDevices>([])
   const caches = reactive({ resources: '…', sources: 0, urls: 0, lyrics: 0, edited: 0 })
   const rules = ref(dislikeInfo.rules)
+  let savedRules = dislikeInfo.rules
+  watch(dislikeRulesVersion, () => {
+    if (rules.value === savedRules) rules.value = dislikeInfo.rules
+    savedRules = dislikeInfo.rules
+  })
   const confirmation = ref<{ title: string, message: string, danger: boolean, confirmLabel: string, cancelLabel: string } | null>(null)
   let resolveConfirmation: ((value: boolean) => void) | null = null
   let deviceEnumerationActive = false

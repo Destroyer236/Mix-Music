@@ -5,7 +5,7 @@
     </button>
 
     <Teleport to="body">
-      <div v-if="open" :id="panelId" ref="panel" class="ui-volume-panel" role="dialog" aria-modal="false" aria-label="音量设置" :style="position" @keydown="onPanelKeydown">
+      <div v-if="open" :id="panelId" ref="panel" class="ui-volume-panel" role="dialog" aria-modal="false" aria-label="音量设置" :style="[detailTheme, position]" @keydown="onPanelKeydown">
         <output class="ui-volume-panel__value" aria-live="polite">{{ percentage }}%</output>
         <div class="ui-volume-panel__range">
           <UiRange vertical :model-value="volume" :min="0" :max="1" :step="0.01" aria-label="音量" @input="setVolume" />
@@ -20,12 +20,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, ref } from 'vue'
+import { playerDetailThemeKey } from '../playerDetailPalette'
 import { isMute, setMute, setVolume, volume } from '@renderer/store/player/volume'
 import UiIcon from './UiIcon.vue'
 import UiRange from './UiRange.vue'
 
 const panelId = `ui-volume-panel-${crypto.randomUUID()}`
+const detailTheme = inject(playerDetailThemeKey, undefined)
 const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const open = ref(false)

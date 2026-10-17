@@ -1,14 +1,14 @@
 <template>
   <Transition name="ui-detail">
-    <section v-if="isShowPlayerDetail" class="ui-player-detail ui-player-detail--immersive ui-player-detail--record" :style="coverColors" aria-label="播放详情">
+    <section v-if="isShowPlayerDetail" class="ui-player-detail ui-player-detail--immersive ui-player-detail--record" :data-detail-theme="backgroundPalette.dark ? 'dark' : 'light'" :style="detailColors" aria-label="播放详情">
       <header class="ui-detail-header">
-        <button type="button" class="ui-detail-back" aria-label="收起播放详情" title="返回 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
+        <button type="button" class="ui-detail-back" aria-label="收起播放详情" title="收起 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
         <div class="ui-detail-header-tools">
-          <button type="button" class="ui-icon-button" aria-label="切换桌面歌词" title="桌面歌词" :aria-pressed="appSetting['desktopLyric.enable']" @click="toggleDesktopLyric"><UiIcon name="lyric" /></button>
           <WindowControls />
         </div>
       </header>
       <div class="ui-detail-body">
+        <AudioVisualizer v-if="appSetting['player.audioVisualization']" class="ui-detail-visualizer" />
         <div class="ui-detail-song">
           <RecordPlayer :track="currentTrack" :src="musicInfo.pic" :alt="musicInfo.name || '专辑封面'" :playing="isPlay" @loaded="readCover" />
         </div>
@@ -38,7 +38,8 @@
 </template>
 <script setup>
 import RecordPlayer from './components/RecordPlayer.vue'
-import { ref, watch, nextTick, computed, onMounted, onBeforeUnmount } from 'vue'
+import AudioVisualizer from '@renderer/components/common/AudioVisualizer.vue'
+import { ref, watch, nextTick, computed, onMounted, onBeforeUnmount, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCatalogSources } from './services/catalogSearch'
 import { musicInfo, playMusicInfo, isShowPlayerDetail, isPlay } from '@renderer/store/player/state'
@@ -47,13 +48,14 @@ import { lyric } from '@renderer/store/player/lyric'
 import { setLyricOffset } from '@renderer/core/lyric'
 import { appSetting } from '@renderer/store/setting'
 import { clipboardWriteText } from '@common/utils/electron'
-import { extractWallpaperPalette, wallpaperColors, rgb, hex, tone, contrast } from './wallpaperPalette'
+import { extractWallpaperPalette } from './wallpaperPalette'
+import { playerDetailColors, playerDetailThemeKey } from './playerDetailPalette'
+import { wallpaper, wallpaperUrl } from './useWallpaper'
 import UiIcon from './components/UiIcon.vue'
 import PlayerBar from './PlayerBar.vue'
 import WindowControls from './components/WindowControls.vue'
 import PlayerPopover from './components/PlayerPopover.vue'
-import useToggleDesktopLyric from '@renderer/utils/compositions/useToggleDesktopLyric'
-import { appearance } from '@renderer/composables/useAppearance'
+import { appearance, resolvedAppearanceMode } from '@renderer/composables/useAppearance'
 
 const seekLine = line => { window.app_event.setProgress(line.time / 1000) }
 const currentTrack = computed(() => { const item = playMusicInfo.musicInfo; return item && 'metadata' in item ? item.metadata.musicInfo : item })
@@ -72,18 +74,22 @@ const offsetTrigger = ref(null)
 const offsetOpen = ref(false)
 const showExtended = ref(true)
 const hasExtended = computed(() => lyric.lines.some(line => line.extendedLyrics?.length))
-const { toggleDesktopLyric } = useToggleDesktopLyric()
 const copyLyric = () => { clipboardWriteText(lyric.lines.map(line => line.text).join('\n')) }
 
-// Read only the displayed cover. No extra request or change to saved wallpaper.
-const fallbackPalette = { seed: '#637989', average: '#475764', dark: true }
-const palette = ref(fallbackPalette)
+// Track changes must never alter the wallpaper-derived background or mode.
+// Without an active wallpaper, use neutral surfaces in the application mode.
+const coverPalette = ref(null)
+const backgroundPalette = computed(() => appearance.mode === 'custom' && wallpaper.value && wallpaperUrl.value
+  ? wallpaper.value.palette
+  : { seed: '#808080', average: '#808080', dark: resolvedAppearanceMode.value === 'dark' })
+const detailColors = computed(() => playerDetailColors(backgroundPalette.value, coverPalette.value, appearance.accent))
+provide(playerDetailThemeKey, detailColors)
 const paletteCache = new Map()
 function readCover(image) {
   if (!image.naturalWidth || !image.naturalHeight || !isShowPlayerDetail.value) return
   const key = image.currentSrc || image.src
   const cached = paletteCache.get(key)
-  if (cached) { palette.value = cached; return }
+  if (cached) { coverPalette.value = cached; return }
   try {
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 64
@@ -93,35 +99,10 @@ function readCover(image) {
     const result = extractWallpaperPalette(context.getImageData(0, 0, 64, 64).data)
     paletteCache.set(key, result)
     if (paletteCache.size > 24) paletteCache.delete(paletteCache.keys().next().value)
-    palette.value = result
-  } catch { palette.value = fallbackPalette }
+    coverPalette.value = result
+  } catch { coverPalette.value = null }
 }
-const coverColors = computed(() => {
-  const colors = wallpaperColors(palette.value, true)
-  const seed = rgb(palette.value.seed)
-  const average = rgb(palette.value.average)
-  const chosenAccent = rgb(appearance.accent)
-  const accent = contrast(chosenAccent, tone(average, 0.32, 0.045)) >= 4.5 ? chosenAccent : tone(chosenAccent, 0.8, 0.14)
-  return {
-    '--detail-bg': hex(tone(average, 0.24, 0.035)),
-    '--detail-glow': hex(tone(seed, 0.4, 0.065)),
-    '--detail-glow-secondary': hex(tone(average, 0.32, 0.045)),
-    '--record-tint': hex(tone(seed, 0.57, 0.065)),
-    '--record-highlight': hex(tone(seed, 0.76, 0.04)),
-    '--record-shade': hex(tone(seed, 0.37, 0.04)),
-    '--modern-bg': hex(colors.bg),
-    '--modern-panel': hex(colors.panel),
-    '--modern-text': hex(colors.text),
-    '--modern-muted': hex(colors.muted),
-    '--modern-accent': hex(accent),
-    '--modern-accent-ink': hex(accent),
-    '--modern-accent-contrast': hex(colors.bg),
-    '--modern-accent-soft': `rgba(${accent.join(',')}, .14)`,
-    '--modern-border': `rgba(${colors.text.join(',')}, .12)`,
-    '--modern-hover': `rgba(${colors.text.join(',')}, .07)`,
-  }
-})
-watch(() => musicInfo.id, () => { palette.value = fallbackPalette })
+watch(() => [currentTrack.value?.source, musicInfo.id, musicInfo.pic], () => { coverPalette.value = null })
 async function centerLyric(smooth = false) {
   await nextTick()
   const panel = lyricPanel.value

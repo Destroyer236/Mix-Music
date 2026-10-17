@@ -2,7 +2,7 @@
   <div class="ui-quality-control">
     <button ref="trigger" type="button" class="ui-icon-button ui-quality-trigger" :class="{ 'ui-active': open }" :aria-label="`切换音质，${streamSummary}`" :title="streamSummary" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" :disabled="!track || track.source === 'local'" @click="toggle" @keydown="onTriggerKeydown"><UiIcon name="quality" /></button>
     <Teleport to="body">
-      <section v-if="open" :id="panelId" ref="panel" class="ui-quality-panel scroll" role="dialog" aria-modal="false" aria-label="播放音质" :style="position" @keydown="onPanelKeydown">
+      <section v-if="open" :id="panelId" ref="panel" class="ui-quality-panel scroll" role="dialog" aria-modal="false" aria-label="播放音质" :style="[detailTheme, position]" @keydown="onPanelKeydown">
         <header><div><strong>播放音质</strong><span>{{ platformLabel }}</span></div><button type="button" class="ui-icon-button" aria-label="关闭音质设置" @click="close(true)"><UiIcon name="close" /></button></header>
         <p v-if="stream" class="ui-quality-current" role="status">实际播放 · {{ stream.qualityLabel || qualityLabels[stream.quality ?? stream.type] }}<small v-if="streamDetails">{{ streamDetails }}</small></p>
         <p v-else class="ui-quality-current">{{ streamSummary }}</p>
@@ -18,13 +18,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { playerDetailThemeKey } from '../playerDetailPalette'
 import { qualityLabels, type PlatformQuality } from '@common/platformPlayback'
 import { sourceNames } from '@renderer/store'
 import { activeStream, getPlatformQualitys, preferredQuality, qualityChanging, qualityChangeError, setPreferredQuality } from '../services/platformPlayback'
 import UiIcon from './UiIcon.vue'
 
 const props = defineProps<{ track: LX.Music.MusicInfo | null, deferLoad?: boolean }>()
+const detailTheme = inject(playerDetailThemeKey, undefined)
 const panelId = `ui-quality-panel-${crypto.randomUUID()}`
 const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)

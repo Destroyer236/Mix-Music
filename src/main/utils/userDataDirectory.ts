@@ -4,6 +4,7 @@ import path from 'node:path'
 interface UserDataOptions {
   appDataPath: string
   env: { LINKLINE_DATA_DIR?: string, LX_STUDIO_DATA_DIR?: string }
+  developmentPath?: string
   portablePath?: string
   acquireLegacyLock: (legacyPath: string) => boolean
   releaseLegacyLock: () => void
@@ -18,6 +19,7 @@ export interface UserDataDirectory {
 export function prepareUserDataDirectory(options: UserDataOptions): UserDataDirectory {
   const override = options.env.LINKLINE_DATA_DIR?.trim() ? options.env.LINKLINE_DATA_DIR : options.env.LX_STUDIO_DATA_DIR
   if (override) return { userDataPath: path.resolve(override), migration: 'none' }
+  if (options.developmentPath) return { userDataPath: path.resolve(options.developmentPath), migration: 'none' }
   if (options.portablePath && fs.existsSync(options.portablePath)) {
     return { userDataPath: path.join(options.portablePath, 'userData'), appDataPath: options.portablePath, migration: 'none' }
   }
