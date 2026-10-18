@@ -157,7 +157,13 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
         if (state.generation !== generation || !matched) return null
         candidate = matched
       }
-      return accept(await streamFor(state, candidate, quality, refresh))
+      const stream = await streamFor(state, candidate, quality, refresh)
+      if (!rejected.has(stream.url) || quality === '128k') return accept(stream)
+      // A full URL can pass the platform API but fail in the audio element.
+      // Ask the standard endpoint before giving up on this platform so its
+      // official preview can remain the final fallback. Keep the saved quality
+      // preference and reject any URL that has already failed playback.
+      return accept(await streamFor(state, candidate, '128k', refresh))
     }
     if (automaticSource) {
       // An authenticated original retains its direct-play fast path. Only a

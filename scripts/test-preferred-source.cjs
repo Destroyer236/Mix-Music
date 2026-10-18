@@ -119,6 +119,25 @@ async function main() {
   assert.equal(preview.musicInfo.source, 'wy')
   assert.equal(preview.isTrial, true)
   calls.length = 0
+  // A native URL can resolve successfully but fail in the media element. Its
+  // standard endpoint may still provide an official preview for the same song.
+  {
+    const native = state('tx')
+    native.provider.musicUrl = async(_context, _track, quality) => {
+      calls.push(`play:tx:${quality}`)
+      return quality === '128k'
+        ? { url: 'https://example.test/tx-preview.mp3', type: '128k', isTrial: true }
+        : full('tx')
+    }
+    const brokenImport = { id: 'user_api_unavailable', name: 'Unavailable import', resolve: async() => { throw new Error('import unavailable') } }
+    const recovery = createPlaybackResolver(() => [native], () => 'auto', () => [brokenImport])
+    const recovered = await recovery.resolve(track('tx'), 'auto', true, true, { rejectedUrls: [full('tx').url] })
+    assert.equal(recovered.isTrial, true, 'a rejected complete stream must not discard an available standard preview')
+    assert.match(recovered.url, /tx-preview/)
+    assert.deepEqual(calls.splice(0), ['play:tx:auto', 'play:tx:128k'])
+    await assert.rejects(recovery.resolve(track('tx'), 'auto', true, true, { rejectedUrls: [full('tx').url, recovered.url] }), /已失效/)
+    calls.length = 0
+  }
   // Explicit source-only calls cannot search or play another platform.
   assert.equal((await resolver.resolve(track('tx'), 'auto', true, false)).musicInfo.source, 'tx')
   assert.deepEqual(calls.splice(0), ['play:tx:auto'])

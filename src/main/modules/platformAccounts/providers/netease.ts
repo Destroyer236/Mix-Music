@@ -197,13 +197,19 @@ export const neteaseProvider: PlatformProvider = {
   async musicUrl(context, track, quality) {
     const songId = Number(track.meta.songId)
     if (!Number.isSafeInteger(songId) || songId <= 0) throw new Error('网易云歌曲缺少有效 ID')
-    const body = await request(context, 'song/enhance/player/url/v1', {
-      ids: JSON.stringify([songId]),
-      level: quality === '64k' ? 'standard' : quality === 'dolby' ? 'sky' : levels[quality] ?? 'lossless',
-      encodeType: 'flac',
-      ...(quality === 'sky' || quality === 'dolby' ? { immerseType: 'c51' } : {}),
-    })
-    const item = Array.isArray(body.data) ? body.data.find((entry: any) => String(entry.id) === String(songId)) ?? body.data[0] : null
+    const level = quality === '64k' ? 'standard' : quality === 'dolby' ? 'sky' : levels[quality] ?? 'lossless'
+    const playerItem = async(level: string) => {
+      const body = await request(context, 'song/enhance/player/url/v1', {
+        ids: JSON.stringify([songId]),
+        level,
+        encodeType: ['standard', 'higher', 'exhigh'].includes(level) ? 'mp3' : 'flac',
+        ...(level === 'sky' ? { immerseType: 'c51' } : {}),
+      })
+      return Array.isArray(body.data) ? body.data.find((entry: any) => String(entry.id) === String(songId)) ?? body.data[0] : null
+    }
+    let item = await playerItem(level)
+    // A denied premium format can still have a platform-provided MP3 preview.
+    if (!item?.url && level !== 'standard') item = await playerItem('standard')
     const url = typeof item?.url === 'string' ? item.url : ''
     if (!url) throw new Error('网易云没有返回可播放音频，可能没有版权或登录已失效')
     const type = Number(item.br) >= 1_999_000 ? 'flac24bit' : Number(item.br) >= 999_000 ? 'flac' : Number(item.br) >= 320_000 ? '320k' : Number(item.br) >= 192_000 ? '192k' : '128k'

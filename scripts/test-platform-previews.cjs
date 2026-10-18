@@ -34,6 +34,21 @@ async function main() {
   const entitled = await netease.musicUrl(context({ code: 200, data: [{ ...item, freeTrialInfo: null }] }), wy, 'auto')
   assert.equal(entitled.isTrial, false, 'VIP metadata does not mean an entitled full stream is a preview')
   await assert.rejects(netease.musicUrl(context({ code: 200, data: [{ ...item, url: null, freeTrialInfo: { start: 0, end: 30 } }] }), wy, 'auto'), /没有返回/)
+  const neteaseRequests = []
+  const standardPreview = await netease.musicUrl(context((_url, options) => {
+    const params = Object.fromEntries(new URLSearchParams(options.body))
+    neteaseRequests.push(params)
+    return { code: 200, data: [{ ...item, url: params.level === 'standard' && params.encodeType === 'mp3' ? item.url : null, freeTrialInfo: { start: 0, end: 30 } }] }
+  }), wy, 'flac')
+  assert.equal(standardPreview.isTrial, true, 'a denied premium tier still falls back to the official standard preview')
+  assert.deepEqual(neteaseRequests.map(params => [params.level, params.encodeType]), [['lossless', 'flac'], ['standard', 'mp3']])
+  const standardRequests = []
+  await netease.musicUrl(context((_url, options) => {
+    standardRequests.push(Object.fromEntries(new URLSearchParams(options.body)))
+    return { code: 200, data: [{ ...item, freeTrialInfo: { start: 0, end: 30 } }] }
+  }), wy, '128k')
+  assert.equal(standardRequests.length, 1, 'standard playback does not issue a redundant fallback request')
+  assert.equal(standardRequests[0].encodeType, 'mp3')
 
   let requests = 0
   const qqContext = context((_url, options) => {
@@ -54,6 +69,61 @@ async function main() {
   const retainedTrial = await qq.musicUrl(context((_url, options) => ({ req: { data: { midurlinfo: JSON.parse(options.body).req.param.filename.map(filename => ({ filename, purl: filename.startsWith('F000') ? 'RS02preview.mp3' : '' })) } } })), track, 'flac')
   assert.equal(retainedTrial.isTrial, true, 'retain the official preview when lower tiers are denied')
   await assert.rejects(qq.musicUrl(context({ req: { data: { midurlinfo: [] } } }), track, '128k'), /没有返回/)
+  for (const file of [{}, { size_flac: 1000 }]) {
+    const requests = []
+    const autoPreview = await qq.musicUrl(context((_url, options) => {
+      const request = JSON.parse(options.body).req
+      if (request.module === 'music.pf_song_detail_svr') return { code: 0, req: { code: 0, data: { track_info: { file } } } }
+      requests.push(request.param.filename)
+      return { req: { data: { midurlinfo: request.param.filename.map(filename => ({ filename, purl: filename.startsWith('M500') ? 'RS02preview.mp3' : '' })) } } }
+    }), track, 'auto')
+    assert.equal(autoPreview.isTrial, true, 'missing or premium-only quality metadata must not exclude the official standard preview')
+    assert.equal(requests.length, 1)
+    assert.ok(requests[0].includes('M500media.mp3'))
+  }
+  const previewCalls = []
+  const previewDetails = { mid: 'test', type: 0, action: { switch: 1 << 14 }, vs: ['preview-media'], file: { media_mid: 'full-media', size_try: 960887 } }
+  let previewPurl = 'RS02preview-media.mp3?fromtag=0'
+  let previewSongmid = 'test'
+  const explicitPreviewContext = context((_url, options) => {
+    const request = JSON.parse(options.body).req
+    previewCalls.push(request)
+    if (request.module === 'music.pf_song_detail_svr') return { code: 0, req: { code: 0, data: { track_info: previewDetails } } }
+    if (request.module === 'music.vkey.GetEVkey') return { code: 0, req: { code: 0, data: { sip: ['https://preview.example.test/'], midurlinfo: [{ songmid: previewSongmid, purl: previewPurl }] } } }
+    return { req: { data: { midurlinfo: [] } } }
+  })
+  const explicitPreview = await qq.musicUrl(explicitPreviewContext, track, '128k')
+  assert.equal(explicitPreview.isTrial, true, 'an explicitly requested official RS02 stream remains available after full stream failure')
+  assert.equal(explicitPreview.url, 'https://preview.example.test/RS02preview-media.mp3?fromtag=0')
+  const previewRequest = previewCalls.find(request => request.module === 'music.vkey.GetEVkey')
+  assert.equal(previewRequest.method, 'GetUrl')
+  assert.deepEqual(previewRequest.param.filename, ['RS02preview-media.mp3'], 'the audition uses vs[0], which may differ from the full audio media ID')
+  assert.deepEqual(previewRequest.param.songmid, ['test'])
+  previewSongmid = 'another-song'
+  await assert.rejects(qq.musicUrl(explicitPreviewContext, track, '128k'), /没有返回/, 'a returned preview for a different song is rejected')
+  previewSongmid = undefined
+  assert.equal((await qq.musicUrl(explicitPreviewContext, track, '128k')).isTrial, true, 'a single official result may omit its song ID')
+  previewSongmid = 'test'
+  previewCalls.length = 0
+  previewPurl = ''
+  await assert.rejects(qq.musicUrl(explicitPreviewContext, track, '128k'), /没有返回/, 'an advertised audition with an empty URL must not produce a guessed URL')
+  previewDetails.action.switch = 0
+  previewCalls.length = 0
+  await assert.rejects(qq.musicUrl(explicitPreviewContext, track, '128k'), /没有返回/)
+  assert.equal(previewCalls.some(request => request.module === 'music.vkey.GetEVkey'), false, 'a stored trial file does not override the platform audition permission')
+  previewDetails.action.switch = 1 << 14
+  previewDetails.file.size_try = 0
+  previewCalls.length = 0
+  await assert.rejects(qq.musicUrl(explicitPreviewContext, track, '128k'), /没有返回/)
+  assert.equal(previewCalls.some(request => request.module === 'music.vkey.GetEVkey'), false, 'songs without an official preview resource do not issue a preview request')
+  let fullRequests = 0
+  const fullOnly = await qq.musicUrl(context((_url, options) => {
+    fullRequests++
+    assert.equal(JSON.parse(options.body).req.module, 'vkey.GetVkeyServer', 'an available full stream does not request preview metadata or URL')
+    return { req: { data: { midurlinfo: [{ purl: 'M500media.mp3' }] } } }
+  }), track, '128k')
+  assert.equal(fullOnly.isTrial, undefined)
+  assert.equal(fullRequests, 1)
 
   let accepted
   let response = { ...qqTrial, musicInfo: track, platform: 'QQ 音乐' }
