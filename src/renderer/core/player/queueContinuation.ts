@@ -3,6 +3,7 @@ interface QueueContinuation {
   notify: () => void
   ensure: (manual: boolean) => Promise<boolean>
   filter: (tracks: Array<LX.Music.MusicInfo | LX.Download.ListItem>) => Array<LX.Music.MusicInfo | LX.Download.ListItem>
+  excludes?: (track: LX.Music.MusicInfo | LX.Download.ListItem) => boolean
   dispose: () => void
 }
 
@@ -21,6 +22,7 @@ function current() {
 export function notifyQueueContinuation() { current()?.notify() }
 
 export function hasQueueContinuation() { return current() !== null }
+export function isQueueTrackDisliked(track: LX.Music.MusicInfo | LX.Download.ListItem) { return current()?.excludes?.(track) ?? false }
 
 /** Ordinary lists always continue through the player's existing navigation. */
 export async function ensureQueueContinuation(manual = false) {

@@ -1,11 +1,12 @@
 import { getLocalMusicFileLyric, getLocalMusicFilePic } from '@renderer/utils/music'
 import path from 'node:path'
 import os from 'node:os'
+import { env as runtimeEnv } from 'node:process'
 import fs from 'node:fs/promises'
 import { checkPath } from '@common/utils/nodejs'
 
 const getTempDir = async() => {
-  const tempDir = path.join(os.tmpdir(), 'lxmusic_temp')
+  const tempDir = path.join(runtimeEnv.LINKLINE_TEMP_DIR ?? os.tmpdir(), 'lxmusic_temp')
   if (!await checkPath(tempDir)) {
     await fs.mkdir(tempDir, { recursive: true })
   }

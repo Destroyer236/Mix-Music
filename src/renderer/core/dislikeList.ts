@@ -15,6 +15,10 @@ export const hasDislike = (info: LX.Music.MusicInfo | LX.Download.ListItem | nul
 
 export const addDislikeInfo = async(infos: LX.Dislike.DislikeMusicInfo[]) => {
   await rendererInvoke<LX.Dislike.DislikeMusicInfo[]>(DISLIKE_EVENT_NAME.add_dislike_music_infos, infos)
+  // The IPC reply and broadcast can arrive separately. Make a successful save
+  // visible before callers advance playback or refill recommendation buffers.
+  const missing = infos.filter(info => !action.hasDislike(info))
+  if (missing.length) action.addDislikeInfo(missing)
 }
 
 export const overwirteDislikeInfo = async(rules: string) => {

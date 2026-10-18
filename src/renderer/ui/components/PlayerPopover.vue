@@ -1,11 +1,13 @@
 <template>
-  <Teleport to="body"><section v-if="show" :id="id" ref="panel" class="ui-player-popover" :class="panelClass" :style="position" role="dialog" aria-modal="false" :aria-label="title" tabindex="-1" @keydown="onKey"><header v-if="showHeader"><div><h2>{{ title }}</h2><p v-if="subtitle">{{ subtitle }}</p></div><button type="button" class="ui-icon-button" :aria-label="'关闭' + title" @click="emit('close')"><UiIcon name="close" /></button></header><div class="ui-player-popover-content scroll"><slot /></div></section></Teleport>
+  <Teleport to="body"><section v-if="show" :id="id" ref="panel" class="ui-player-popover" :class="panelClass" :style="[detailTheme, position]" role="dialog" aria-modal="false" :aria-label="title" tabindex="-1" @keydown="onKey"><header v-if="showHeader"><div><h2>{{ title }}</h2><p v-if="subtitle">{{ subtitle }}</p></div><button type="button" class="ui-icon-button" :aria-label="'关闭' + title" @click="emit('close')"><UiIcon name="close" /></button></header><div class="ui-player-popover-content scroll"><slot /></div></section></Teleport>
 </template>
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { playerDetailThemeKey } from '../playerDetailPalette'
 import UiIcon from './UiIcon.vue'
 const props = withDefaults(defineProps<{ show: boolean, title: string, subtitle?: string, showHeader?: boolean, id?: string, width?: number, trigger?: HTMLElement | null, panelClass?: string, anchor?: 'right' | 'trigger' }>(), { subtitle: '', showHeader: true, id: undefined, width: 360, trigger: null, panelClass: '', anchor: 'right' })
 const emit = defineEmits<{ close: [] }>()
+const detailTheme = inject(playerDetailThemeKey, undefined)
 const panel = ref<HTMLElement | null>(null)
 const position = ref<Record<string, string>>({})
 let previousFocus: HTMLElement | null = null

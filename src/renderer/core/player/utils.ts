@@ -3,6 +3,8 @@ import { toRaw, markRawList } from '@common/utils/vueTools'
 import { clearPlayedList } from '@renderer/store/player/action'
 import { appSetting } from '@renderer/store/setting'
 import { dislikeInfo } from '@renderer/store/dislikeList'
+import { SPLIT_CHAR } from '@common/constants'
+import { isQueueTrackDisliked } from './queueContinuation'
 import { setPowerSaveBlocker as setPowerSaveBlockerRemote } from '@renderer/utils/ipc'
 
 // export const getPlayType = (highQuality: boolean, musicInfo: LX.Music.MusicInfo | LX.Download.ListItem): LX.Quality | null => {
@@ -26,13 +28,22 @@ export const filterList = async({ playedList, listId, list, playerMusicInfo, isN
 }) => {
   // if (this.list.listName === null) return
   // console.log(isCheckFile)
+  // Let the worker remove disliked songs while retaining the current position
+  // as its navigation anchor, including other-platform copies in radio queues.
+  const names = new Set(dislikeInfo.names)
+  const normalize = (text: string) => text.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim()
+  for (const item of list) {
+    if (!isQueueTrackDisliked(item)) continue
+    const track = 'metadata' in item ? item.metadata.musicInfo : item
+    names.add(`${normalize(track.name)}${SPLIT_CHAR.DISLIKE_NAME}${normalize(track.singer)}`)
+  }
   let { filteredList, canPlayList, playerIndex } = await window.lx.worker.main.filterMusicList({
     listId,
     list: list.map(m => toRaw(m)),
     playedList: toRaw(playedList),
     // savePath: appSetting['download.savePath'],
     playerMusicInfo: toRaw(playerMusicInfo),
-    dislikeInfo: { names: toRaw(dislikeInfo.names), musicNames: toRaw(dislikeInfo.musicNames), singerNames: toRaw(dislikeInfo.singerNames) },
+    dislikeInfo: { names, musicNames: toRaw(dislikeInfo.musicNames), singerNames: toRaw(dislikeInfo.singerNames) },
     isNext,
   })
   if (!valid()) return { filteredList: [], playerIndex: -1 }

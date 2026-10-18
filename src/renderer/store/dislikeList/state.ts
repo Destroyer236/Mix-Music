@@ -11,3 +11,5 @@ export const dislikeInfo: LX.Dislike.DislikeInfo = markRaw({
 })
 
 export const dislikeRuleCount = ref(0)
+// Rule edits can keep the same count; consumers must still invalidate caches.
+export const dislikeRulesVersion = ref(0)

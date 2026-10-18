@@ -35,6 +35,7 @@
       <UpdateCenter />
     </div>
     <PlayerBar />
+    <Teleport to="body"><p v-if="playerNotice" class="ui-player-notice" role="status" aria-live="polite">{{ playerNotice }}</p></Teleport>
     <Teleport to="body"><div id="sidebar-playlist-group-menu" ref="playlistGroupMenu" popover="auto" class="ui-playlist-context-menu ui-playlist-group-menu" :style="playlistGroupPosition" role="menu" aria-label="我的歌单" @toggle="playlistGroupOpen = $event.newState === 'open'" @keydown="playlistGroupKey">
       <button type="button" role="menuitemradio" :aria-checked="playlistTab === 'created'" autofocus @click="selectPlaylistGroup('created')"><UiIcon name="list" /><span>自建歌单</span><UiIcon v-if="playlistTab === 'created'" name="check" /></button>
       <button type="button" role="menuitemradio" :aria-checked="playlistTab === 'collected'" @click="selectPlaylistGroup('collected')"><UiIcon name="heart" /><span>收藏歌单</span><UiIcon v-if="playlistTab === 'collected'" name="check" /></button>
@@ -74,6 +75,7 @@ import UpdateCenter from './components/UpdateCenter.vue'
 import { checkUpdateOnStartup, openUpdateCenter, updateAvailable, updateChecking, updateResult } from './services/appUpdate'
 import { migratePlayerProgressStyle } from './services/preferences'
 import { initializePlayerSessionTools } from './services/playerSessionTools'
+import { playerNotice } from './services/playerNotice'
 import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
 void migratePlayerProgressStyle()
 const disposeSessionTools = initializePlayerSessionTools()

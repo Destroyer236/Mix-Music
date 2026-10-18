@@ -19,9 +19,9 @@ import { requestMsg } from '@renderer/utils/message'
 import { getRandom } from '@renderer/utils/index'
 import { requestFavorite } from '@renderer/ui/services/platformAccounts'
 import { activeStream, commitStream, preferredQuality, preferredSource } from '@renderer/ui/services/platformPlayback'
-import { addDislikeInfo } from '@renderer/core/dislikeList'
+import { addDislikeInfo, hasDislike } from '@renderer/core/dislikeList'
 import { samePlayTrack } from '@common/platformMatching'
-import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
+import { ensureQueueContinuation, filterQueueContinuation, isQueueTrackDisliked, notifyQueueContinuation } from './queueContinuation'
 import { notifyPlaybackIntent } from './playbackIntent'
 import { watch } from 'vue'
 import { repeatMode } from '@renderer/store/player/repeatMode'
@@ -322,6 +322,7 @@ const randomNextMusicInfo = {
   info: null as LX.Player.PlayMusicInfo | null,
   // index: -1,
 }
+const excludedFromPlayback = (track: LX.Music.MusicInfo | LX.Download.ListItem) => hasDislike(track) || isQueueTrackDisliked(track)
 export const resetRandomNextMusicInfo = () => {
   navigationGeneration++
   if (randomNextMusicInfo.info) {
@@ -360,6 +361,7 @@ const filterNextQueue = async(currentListId: string, currentList: Array<LX.Music
 
 export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | null> => {
   const generation = navigationGeneration
+  while (tempPlayList.length && excludedFromPlayback(tempPlayList[0].musicInfo)) removeTempPlayList(0)
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = tempPlayList[0]
     return playMusicInfo
@@ -372,7 +374,8 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 
   if (!await ensureQueueContinuation() || generation !== navigationGeneration) return null
 
-  if (randomNextMusicInfo.info) return randomNextMusicInfo.info
+  if (randomNextMusicInfo.info && !excludedFromPlayback(randomNextMusicInfo.info.musicInfo)) return randomNextMusicInfo.info
+  randomNextMusicInfo.info = null
 
   // console.log(playInfo.playerListId)
   const currentListId = playInfo.playerListId
@@ -385,7 +388,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     let index
     for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) + 1; index < playedList.length; index++) {
       const playMusicInfo = playedList[index]
-      if (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo))) {
+      if (excludedFromPlayback(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
         removePlayedList(index)
         continue
       }
@@ -449,6 +452,7 @@ const handlePlayNext = (playMusicInfo: LX.Player.PlayMusicInfo) => {
 export const playNext = async(isAutoToggle = false): Promise<void> => {
   const generation = ++navigationGeneration
   console.log('skip next', isAutoToggle)
+  while (tempPlayList.length && excludedFromPlayback(tempPlayList[0].musicInfo)) removeTempPlayList(0)
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = tempPlayList[0]
     removeTempPlayList(0)
@@ -491,7 +495,7 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     let index
     for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) + 1; index < playedList.length; index++) {
       const playMusicInfo = playedList[index]
-      if (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo))) {
+      if (excludedFromPlayback(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
         removePlayedList(index)
         continue
       }
@@ -504,10 +508,11 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
       return
     }
   }
-  if (randomNextMusicInfo.info) {
+  if (randomNextMusicInfo.info && !excludedFromPlayback(randomNextMusicInfo.info.musicInfo)) {
     handlePlayNext(randomNextMusicInfo.info)
     return
   }
+  randomNextMusicInfo.info = null
   // const isCheckFile = findNum > 2 // 针对下载列表，如果超过两次都碰到无效歌曲，则过滤整个列表内的无效歌曲
   let { filteredList, playerIndex } = await filterNextQueue(currentListId, currentList, generation)
   if (generation !== navigationGeneration) return
@@ -590,7 +595,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
     let index
     for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) - 1; index > -1; index--) {
       const playMusicInfo = playedList[index]
-      if (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo))) {
+      if (excludedFromPlayback(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
         removePlayedList(index)
         continue
       }
