@@ -3,10 +3,10 @@
     <article class="linkline-update-card linkline-update-overview" :class="{ available: updateAvailable, failed: updateResult?.status === 'error' && !updateChecking }">
       <div class="linkline-update-product"><img :src="linklineLogo" alt="LinkLine 标志"><div><h3>LinkLine</h3><p>当前版本 {{ currentVersion }}</p></div></div>
       <div class="linkline-update-status" role="status" aria-live="polite"><UiIcon :name="updateChecking ? 'refresh' : statusIcon" :class="{ spinning: updateChecking }" /><div><strong>{{ statusTitle }}</strong><p>{{ statusDescription }}</p></div></div>
-      <div class="linkline-update-actions"><button type="button" class="linkline-update-button" :class="{ primary: !installer }" :disabled="updateChecking" @click="checkAppUpdate(true)"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" :class="{ spinning: updateChecking }" />{{ updateChecking ? '正在检查…' : updateResult?.status === 'error' ? '重试检查' : '检查更新' }}</button><button v-if="installer && !downloadReady" type="button" class="linkline-update-button primary linkline-update-download" :disabled="downloadState === 'downloading' || installing" @click="downloadInstaller"><UiIcon :name="downloadState === 'downloading' ? 'refresh' : 'download'" :class="{ spinning: downloadState === 'downloading' }" />{{ downloadState === 'downloading' ? '正在下载…' : downloadState === 'error' ? '重试下载' : '下载 Windows x64 安装包' }}</button><button v-if="installer && downloadReady" type="button" class="linkline-update-button primary linkline-update-install" :disabled="installing" @click="installUpdate"><UiIcon :name="installing ? 'refresh' : 'check'" :class="{ spinning: installing }" />{{ installing ? '正在启动安装…' : '安装更新' }}</button><button v-if="hasBackupDownload && !downloadReady" type="button" class="linkline-update-button linkline-update-download-backup" :disabled="downloadState === 'downloading' || installing" @click="downloadBackup"><UiIcon name="download" />国内备用下载</button><button type="button" class="linkline-update-button" @click="openOfficialPage"><UiIcon name="arrowUpRight" />打开官方下载页</button></div>
+      <div class="linkline-update-actions"><button type="button" class="linkline-update-button" :class="{ primary: !installer }" :disabled="updateChecking" @click="checkAppUpdate(true)"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" :class="{ spinning: updateChecking }" />{{ updateChecking ? '正在检查…' : updateResult?.status === 'error' ? '重试检查' : '检查更新' }}</button><button v-if="installer && !downloadReady" type="button" class="linkline-update-button primary linkline-update-download" :disabled="downloadState === 'downloading' || installing" @click="downloadInstaller"><UiIcon :name="downloadState === 'downloading' ? 'refresh' : 'download'" :class="{ spinning: downloadState === 'downloading' }" />{{ downloadState === 'downloading' ? '正在下载…' : downloadState === 'error' ? '重试下载' : '下载更新' }}</button><button v-if="installer && downloadReady" type="button" class="linkline-update-button primary linkline-update-install" :disabled="installing" @click="installUpdate"><UiIcon :name="installing ? 'refresh' : 'check'" :class="{ spinning: installing }" />{{ installing ? '正在启动安装…' : '安装更新' }}</button><button v-if="hasBackupDownload && !downloadReady" type="button" class="linkline-update-button linkline-update-download-backup" :disabled="downloadState === 'downloading' || installing" @click="downloadBackup"><UiIcon name="download" />国内备用下载</button><button type="button" class="linkline-update-button" @click="openOfficialPage"><UiIcon name="arrowUpRight" />打开官方下载页</button></div>
       <p v-if="installer" class="linkline-update-download-details">{{ installerLabel }} · {{ downloadSourceLabel }}</p>
       <div v-if="installer && downloadState === 'downloading'" class="linkline-update-download-progress" role="status" aria-live="polite"><div class="linkline-update-progress-track"><span :style="{ width: `${downloadPercent}%` }" /></div><span>{{ downloadProgressText }}</span></div>
-      <p v-if="downloadState === 'error'" class="linkline-update-download-error" role="alert">下载失败，请重试。</p>
+      <p v-if="downloadState === 'error'" class="linkline-update-download-error" role="alert">{{ updateDownloadError || '下载失败，请重试。' }}</p>
       <p v-if="downloadReady" class="linkline-update-download-ready" role="status">安装包已下载到本机，点击“安装更新”后 LinkLine 将退出并启动安装程序。</p>
       <p v-if="installError" class="linkline-update-download-error" role="alert">{{ installError }}</p>
       <details v-if="installerChecksum" class="linkline-update-checksum"><summary>查看 SHA-256 校验值<UiIcon name="chevronDown" /></summary><code>{{ installerChecksum }}</code></details>
@@ -21,22 +21,23 @@
 
     <article class="linkline-update-card linkline-update-notes">
       <div class="linkline-update-card-heading"><div><h3>更新日志</h3><p>查看新版本的变化与改进。</p></div><button type="button" class="linkline-update-button compact" :disabled="updateChecking" aria-label="刷新更新日志" @click="checkAppUpdate(true)"><UiIcon name="refresh" :class="{ spinning: updateChecking }" /></button></div>
-      <template v-if="latestRelease"><div class="linkline-update-release-heading"><strong>{{ releaseName }}</strong><time>{{ releaseDate }}</time></div><pre class="linkline-update-release-body">{{ releaseBody }}</pre><p v-if="updateResult?.status === 'error'" class="linkline-update-note">上次成功获取的更新日志。检查失败后可重试获取最新内容。</p></template>
+      <template v-if="latestRelease"><div class="linkline-update-release-heading"><strong>{{ releaseName }}</strong><time>{{ releaseDate }}</time></div><ReleaseNotes :text="releaseBody" /><p v-if="updateResult?.status === 'error'" class="linkline-update-note">上次成功获取的更新日志。检查失败后可重试获取最新内容。</p></template>
       <p v-else class="linkline-update-empty">{{ updateChecking ? '正在获取更新日志…' : updateResult?.status === 'error' ? '暂时无法获取更新日志，请重试或在官方下载页查看。' : updateResult?.status === 'unpublished' ? '尚未发布正式版本，发布后将在这里显示更新日志。' : '检查更新后将在这里显示版本说明。' }}</p>
-      <details v-if="history.length" class="linkline-update-history"><summary>历史版本<span>{{ history.length }}</span><UiIcon name="chevronDown" /></summary><article v-for="release in history" :key="release.pageUrl"><div class="linkline-update-release-heading"><button type="button" @click="openUrl(release.pageUrl)">{{ release.name || `LinkLine ${release.version}` }}<UiIcon name="arrowUpRight" /></button><time>{{ formatDate(release.publishedAt) }}</time></div><pre class="linkline-update-release-body">{{ release.body || '此版本未提供更新说明。' }}</pre></article></details>
+      <details v-if="history.length" class="linkline-update-history"><summary>历史版本<span>{{ history.length }}</span><UiIcon name="chevronDown" /></summary><article v-for="release in history" :key="release.pageUrl"><div class="linkline-update-release-heading"><button type="button" @click="openUrl(release.pageUrl)">{{ release.name || `LinkLine ${release.version}` }}<UiIcon name="arrowUpRight" /></button><time>{{ formatDate(release.publishedAt) }}</time></div><ReleaseNotes :text="release.body || '此版本未提供更新说明。'" /></article></details>
     </article>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { LINKLINE_BACKUP_MIRROR, LINKLINE_RELEASES_URL, LINKLINE_REPOSITORY, releaseAssetDownloadUrl, UPDATE_SOURCES } from '@common/appUpdate'
 import { openUrl } from '@common/utils/electron'
 import { versionInfo } from '@renderer/store'
 import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
 import UiIcon from './UiIcon.vue'
 import UiSelect from './UiSelect.vue'
-import { checkAppUpdate, downloadUpdateInstaller, installDownloadedUpdate, resetUpdateDownload, selectUpdateSource, updateAvailable, updateChecking, updateDownloadedFile, updateDownloadProgress, updateDownloadState, updateResult } from '@renderer/ui/services/appUpdate'
+import ReleaseNotes from './ReleaseNotes'
+import { checkAppUpdate, downloadUpdateInstaller, installDownloadedUpdate, selectUpdateSource, updateAvailable, updateChecking, updateDownloadedFile, updateDownloadError, updateDownloadProgress, updateDownloadState, updateDownloadTarget, updateResult } from '@renderer/ui/services/appUpdate'
 import { preferredUpdateSource, updateSourceSaveError } from '@renderer/ui/services/updatePreferences'
 
 const currentVersion = computed(() => updateResult.value?.currentVersion ?? versionInfo.version)
@@ -59,6 +60,10 @@ const fallbackMessage = computed(() => {
 })
 const successfulResult = computed(() => !updateChecking.value && updateResult.value?.requestedSource === preferredUpdateSource.value && (updateResult.value?.status === 'available' || updateResult.value?.status === 'latest'))
 const installer = computed(() => {
+  // The task belongs to the shared service, so a version refresh or a new
+  // instance of this panel always shows the same active/completed download.
+  const task = updateDownloadTarget.value
+  if (task && updateDownloadState.value !== 'idle') return { name: task.fileName, downloadUrl: task.url, size: task.size ?? 0, sha256: task.sha256, backupUrl: task.backupUrl ?? null, source: task.source }
   if (!successfulResult.value) return null
   const source = preferredUpdateSource.value
   const release = latestRelease.value
@@ -66,16 +71,12 @@ const installer = computed(() => {
   const asset = release?.assets.find(asset => asset.name.toLowerCase() === expectedName)
   const url = asset ? releaseAssetDownloadUrl(asset.url, source) : null
   const officialUrl = asset ? releaseAssetDownloadUrl(asset.url, 'github') : null
-  return asset && url && officialUrl ? { ...asset, downloadUrl: asset.downloadUrl ?? url, backupUrl: source === 'mirror' ? `${LINKLINE_BACKUP_MIRROR}${officialUrl}` : null } : null
+  return asset && url && officialUrl ? { ...asset, downloadUrl: asset.downloadUrl ?? url, backupUrl: source === 'mirror' ? `${LINKLINE_BACKUP_MIRROR}${officialUrl}` : null, source } : null
 })
 const hasBackupDownload = computed(() => Boolean(installer.value?.backupUrl))
-const installerIdentity = computed(() => {
-  const asset = installer.value
-  return asset ? `${asset.downloadUrl}|${asset.sha256 ?? ''}` : ''
-})
 const installerChecksum = computed(() => { const value = installer.value?.sha256; return value && /^[\da-f]{64}$/i.test(value) ? value : '' })
 const installerLabel = computed(() => { const asset = installer.value; return asset ? `${asset.name}${asset.size ? ` · ${formatSize(asset.size)}` : ''}` : '' })
-const downloadSourceLabel = computed(() => UPDATE_SOURCES[preferredUpdateSource.value].label)
+const downloadSourceLabel = computed(() => UPDATE_SOURCES[installer.value?.source ?? preferredUpdateSource.value].label)
 const downloadState = updateDownloadState
 const downloadProgress = updateDownloadProgress
 const downloadReady = computed(() => downloadState.value === 'downloaded' && updateDownloadedFile.value?.fileName === installer.value?.name)
@@ -118,14 +119,14 @@ const downloadInstaller = async() => {
   const asset = installer.value
   if (!asset) return
   installError.value = ''
-  await downloadUpdateInstaller({ url: asset.downloadUrl, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}) }).catch(() => {})
+  await downloadUpdateInstaller({ url: asset.downloadUrl, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}) }, { source: asset.source, size: asset.size, backupUrl: asset.backupUrl }).catch(() => {})
 }
 const downloadBackup = async() => {
   const asset = installer.value
   const url = asset?.backupUrl
   if (!asset || !url) return
   installError.value = ''
-  await downloadUpdateInstaller({ url, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}) }).catch(() => {})
+  await downloadUpdateInstaller({ url, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}) }, { source: asset.source, size: asset.size, backupUrl: asset.backupUrl }).catch(() => {})
 }
 const installUpdate = async() => {
   installError.value = ''
@@ -141,9 +142,6 @@ const openOfficialPage = async() => {
   const successful = !updateChecking.value && (result?.status === 'available' || result?.status === 'latest')
   await openUrl(successful ? result.latestRelease?.pageUrl ?? LINKLINE_RELEASES_URL : LINKLINE_RELEASES_URL)
 }
-watch(installerIdentity, (next, previous) => {
-  if (previous !== undefined && next !== previous) resetUpdateDownload()
-})
 onMounted(() => { if (!updateResult.value) void checkAppUpdate() })
 </script>
 
@@ -167,7 +165,7 @@ onMounted(() => { if (!updateResult.value) void checkAppUpdate() })
 .linkline-update-source { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; margin-top: 3px; padding: 0; border: 0; background: transparent; color: var(--modern-accent-ink); font: inherit; font-size: 10px; text-align: left; overflow-wrap: anywhere; cursor: pointer; svg { height: 12px; width: 12px; } }
 .linkline-update-source-card { .ui-select { margin-top: 11px; } > p { margin-top: 10px; font-size: 11px; } .linkline-update-actual-source { font-size: 10px; } .linkline-update-fallback { padding: 8px 10px; border-radius: 9px; background: var(--modern-accent-soft); color: var(--modern-accent-ink); font-size: 10px; } }
 .linkline-update-release-heading { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 18px 0 9px; strong, button { font-size: 12px; font-weight: 550; } time { font-size: 10px; color: var(--modern-muted); } button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 0; color: var(--modern-accent-ink); font-family: inherit; cursor: pointer; svg { width: 13px; height: 13px; } } }
-.linkline-update-release-body { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 11px; line-height: 1.9; color: var(--modern-muted); user-select: text; }
+.linkline-update-release-body { overflow-wrap: anywhere; font: inherit; font-size: 11px; line-height: 1.9; color: var(--modern-muted); user-select: text; > :first-child { margin-top: 0; } > :last-child { margin-bottom: 0; } p, ul, ol, blockquote, pre { margin: 8px 0; } p { white-space: pre-line; } h1, h2, h3, h4, h5, h6 { margin: 16px 0 6px; color: var(--modern-text); font-weight: 600; line-height: 1.6; } h1 { font-size: 17px; } h2 { font-size: 15px; } h3 { font-size: 13px; } h4, h5, h6 { font-size: 12px; } ul, ol { padding-left: 22px; list-style-position: outside; } ul { list-style-type: disc; } ol { list-style-type: decimal; } li + li { margin-top: 4px; } strong { color: var(--modern-text); font-weight: 600; } code { padding: 1px 4px; border-radius: 4px; background: var(--modern-hover); color: var(--modern-text); font-family: Consolas, monospace; font-size: .95em; } pre { padding: 10px 12px; border-radius: 8px; background: var(--modern-hover); overflow-x: auto; white-space: pre; code { padding: 0; background: transparent; } } blockquote { padding-left: 12px; border-left: 3px solid var(--modern-border); } hr { margin: 14px 0; border: 0; border-top: 1px solid var(--modern-border); } a { color: var(--modern-accent-ink); text-decoration: underline; text-underline-offset: 3px; &:hover { opacity: .8; } &:focus-visible { outline: 2px solid var(--modern-accent-ink); outline-offset: 3px; } } }
 .linkline-update-empty { padding: 18px 0 6px; font-size: 11px; }
 .linkline-update-note { margin-top: 12px; font-size: 10px; }
 .linkline-update-history { margin-top: 22px; border-top: 1px solid var(--modern-border); summary { display: flex; align-items: center; gap: 8px; padding-top: 15px; color: var(--modern-muted); cursor: pointer; font-size: 11px; list-style: none; &::-webkit-details-marker { display: none; } > span { font-size: 9px; background: var(--modern-hover); padding: 1px 6px; border-radius: 20px; } > svg { width: 16px; height: 16px; margin-left: auto; transition: transform .15s; } } &[open] > summary > svg { transform: rotate(180deg); } > article { padding-bottom: 15px; border-bottom: 1px solid var(--modern-border); &:last-child { border-bottom: 0; padding-bottom: 0; } } }

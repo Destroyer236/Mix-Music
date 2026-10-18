@@ -7,6 +7,9 @@ import USER_API_RENDERER_EVENT_NAME from './rendererEvent/name'
 import { getScript } from './utils'
 
 let browserWindow: Electron.BrowserWindow | null = null
+let windowGeneration = 0
+
+export const ownsApiEvent = (event: Electron.IpcMainEvent) => Boolean(browserWindow && !browserWindow.isDestroyed() && event.sender === browserWindow.webContents && event.senderFrame === browserWindow.webContents.mainFrame)
 
 let html: string | null = null
 let dir: string | null = null
@@ -48,21 +51,25 @@ const handleUpdateProxy = (keys: Array<keyof LX.AppSetting>) => {
   }
 }
 
-const winEvent = () => {
-  if (!browserWindow) return
-  browserWindow.on('closed', () => {
-    browserWindow = null
-  })
-}
-
 export const createWindow = async(userApi: LX.UserApi.UserApiInfo) => {
+  const generation = windowGeneration + 1
   await closeWindow()
+  if (generation !== windowGeneration) return
+  let script: string
+  try {
+    script = await getScript(userApi.id)
+  } catch (error) {
+    if (generation !== windowGeneration) return
+    throw error
+  }
+  if (generation !== windowGeneration) return
   dir ??= process.env.NODE_ENV !== 'production' ? webpackUserApiPath : path.join(__dirname, 'userApi')
 
   if (!html) {
     // eslint-disable-next-line require-atomic-updates
     html = await fs.promises.readFile(path.join(dir, 'renderer/user-api.html'), 'utf8')
   }
+  if (generation !== windowGeneration) return
   const preloadUrl = process.env.NODE_ENV !== 'production'
     ? `${path.join(__dirname, '../dist/user-api-preload.js')}`
     : `${path.join(__dirname, 'user-api-preload.js')}`
@@ -71,7 +78,7 @@ export const createWindow = async(userApi: LX.UserApi.UserApiInfo) => {
   /**
    * Initial window options
    */
-  browserWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     // enableRemoteModule: false,
     resizable: false,
     minimizable: false,
@@ -98,49 +105,66 @@ export const createWindow = async(userApi: LX.UserApi.UserApiInfo) => {
       preload: preloadUrl,
     },
   })
+  browserWindow = win
 
   for (const eventName of denyEvents) {
     // @ts-expect-error
-    browserWindow.webContents.on(eventName, (event: Electron.Event) => {
+    win.webContents.on(eventName, (event: Electron.Event) => {
       event.preventDefault()
     })
   }
-  browserWindow.webContents.session.setPermissionRequestHandler((webContents, permission, resolve) => {
-    if (webContents === browserWindow?.webContents) {
+  win.webContents.session.setPermissionRequestHandler((webContents, permission, resolve) => {
+    if (webContents === win.webContents) {
       resolve(false)
       return
     }
     resolve(true)
   })
-  browserWindow.webContents.setWindowOpenHandler(() => {
+  win.webContents.setWindowOpenHandler(() => {
     return { action: 'deny' }
   })
 
-  winEvent()
+  win.on('closed', () => {
+    if (browserWindow !== win) return
+    browserWindow = null
+    global.lx.event_app.off('updated_config', handleUpdateProxy)
+  })
+  // Register before loading: ready-to-show may fire before loadURL resolves.
+  win.once('ready-to-show', () => {
+    if (generation !== windowGeneration || browserWindow !== win || win.isDestroyed()) return
+    global.lx.event_app.on('updated_config', handleUpdateProxy)
+    mainSend(win, USER_API_RENDERER_EVENT_NAME.initEnv, { ...userApi, script, proxy: getProxy() })
+  })
 
   // console.log(html.replace('</body>', `<script>${userApi.script}</script></body>`))
   // const randomNum = Math.random().toString().substring(2, 10)
-  await browserWindow.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html))
-
-  browserWindow.on('ready-to-show', async() => {
-    global.lx.event_app.on('updated_config', handleUpdateProxy)
-    sendEvent(USER_API_RENDERER_EVENT_NAME.initEnv, { ...userApi, script: await getScript(userApi.id), proxy: getProxy() })
-  })
+  try {
+    await win.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html))
+  } catch (error) {
+    if (generation !== windowGeneration) return
+    await closeWindow()
+    throw error
+  }
 
   // global.modules.userApiWindow.loadFile(join(dir, 'renderer/user-api.html'))
   // global.modules.userApiWindow.webContents.openDevTools()
 }
 
 export const closeWindow = async() => {
+  windowGeneration++
   global.lx.event_app.off('updated_config', handleUpdateProxy)
-  if (!browserWindow) return
-  await Promise.all([
-    browserWindow.webContents.session.clearAuthCache(),
-    browserWindow.webContents.session.clearStorageData(),
-    browserWindow.webContents.session.clearCache(),
-  ])
-  browserWindow?.destroy()
+  const win = browserWindow
   browserWindow = null
+  if (!win || win.isDestroyed()) return
+  try {
+    await Promise.all([
+      win.webContents.session.clearAuthCache(),
+      win.webContents.session.clearStorageData(),
+      win.webContents.session.clearCache(),
+    ])
+  } finally {
+    if (!win.isDestroyed()) win.destroy()
+  }
 }
 
 export const sendEvent = <T = any>(name: string, params?: T) => {

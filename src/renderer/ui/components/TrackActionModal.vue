@@ -38,7 +38,7 @@ const newName = ref('')
 const targets = computed(() => [{ ...loveList, name: '我的收藏' }, ...userLists].filter(item => item.id !== props.fromListId && (item.id !== LOCAL_LIBRARY_ID || props.tracks.every(track => track.source === 'local'))))
 const onlineTracks = computed<LX.Music.MusicInfoOnline[]>(() => props.tracks.filter((track: LX.Music.MusicInfo): track is LX.Music.MusicInfoOnline => track.source !== 'local'))
 const qualities = computed<LX.Quality[]>(() => QUALITYS.filter((quality: LX.Quality) => onlineTracks.value.length && onlineTracks.value.every((track: LX.Music.MusicInfoOnline) => qualityList.value[track.source]?.includes(quality) && track.meta.qualitys.some((item: LX.Music.MusicQualityType) => item.type === quality))))
-const qualityLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'FLAC 无损', ape: 'APE 无损', wav: 'WAV 无损', '320k': '高品质 320 kbps', '192k': '清晰 192 kbps', '128k': '标准 128 kbps' }
+const qualityLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'SQ', ape: 'APE 无损', wav: 'WAV 无损', '320k': 'HQ', '192k': '清晰 192 kbps', '128k': 'SD' }
 function qualityLabel(quality: LX.Quality) { return qualityLabels[quality] }
 watch(() => props.show, show => {
   if (!show) return

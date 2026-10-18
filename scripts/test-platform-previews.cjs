@@ -56,22 +56,27 @@ async function main() {
   await assert.rejects(qq.musicUrl(context({ req: { data: { midurlinfo: [] } } }), track, '128k'), /没有返回/)
 
   let accepted
-  let full = true
-  let customCalls = 0
+  let response = { ...qqTrial, musicInfo: track, platform: 'QQ 音乐' }
+  let resolveArgs
   const online = load('src/renderer/core/music/online.ts', {
     '@renderer/store/list/action': {},
-    '@renderer/ui/services/platformPlayback': { preferredQuality: { value: 'auto' }, resolvePlatformStream: async() => ({ ...qqTrial, musicInfo: track, platform: 'QQ 音乐' }), acceptStream: (_track, stream) => { accepted = stream } },
-    '@renderer/utils/ipc': { getMusicUrl: async() => null, saveMusicUrl: async() => {} },
-    './utils': { getPlayQuality: () => '128k', handleGetOnlineMusicUrl: async() => { customCalls++; if (!full) throw Error('no custom source'); return { url: 'https://audio.example.test/full.mp3', quality: '128k', musicInfo: track, isFromCache: false } } },
+    '@renderer/ui/services/platformPlayback': {
+      preferredQuality: { value: 'auto' },
+      resolvePlatformStream: async(...args) => { resolveArgs = args; return response },
+      acceptStream: (_track, stream) => { accepted = stream },
+    },
+    '@renderer/utils/ipc': {}, './utils': {},
   })
-  assert.match(await online.getMusicUrl({ musicInfo: track, isRefresh: false }), /full/)
-  assert.equal(accepted.isTrial, undefined, 'a full custom stream wins over platform preview')
-  full = false
   assert.match(await online.getMusicUrl({ musicInfo: track, isRefresh: false }), /RS02/)
-  assert.equal(accepted.isTrial, true)
-  const before = customCalls
-  await online.getMusicUrl({ musicInfo: { ...track, source: 'qs' }, isRefresh: true })
-  assert.equal(customCalls, before, 'do not call an incompatible custom-source SDK for Qishui')
+  assert.equal(accepted.isTrial, true, 'renderer preserves the complete resolver result and preview metadata')
+  const rejectedUrls = [response.url]
+  response = { url: 'https://audio.example.test/imported-full.mp3', type: '128k', platform: 'Imported fixture', musicInfo: track }
+  assert.match(await online.getMusicUrl({ musicInfo: track, isRefresh: true, rejectedUrls }), /imported-full/)
+  assert.equal(accepted.isTrial, undefined)
+  assert.deepEqual(resolveArgs, [track, true, true, 'auto', { rejectedUrls }], 'media failures reach the single main-process source chain')
+  const qs = { ...track, source: 'qs' }
+  await online.getMusicUrl({ musicInfo: qs, isRefresh: false, allowToggleSource: false })
+  assert.deepEqual(resolveArgs, [qs, false, false, 'auto', { rejectedUrls: undefined }])
   console.log('Official preview contracts passed (Netease/QQ rights, quality fallback, full-stream priority, trial state).')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })

@@ -66,7 +66,7 @@ function harness(mode = 'random', initialIndex = 0, downloads = false) {
       '../music/index': { getMusicUrl: async() => 'stream', getPicPath: async() => '', getLyricInfo: async() => ({ rawlrcInfo: {} }) },
       './utils': filters, '@renderer/utils/message': {}, '@renderer/utils/index': { getRandom: () => 0 },
       '@renderer/ui/services/platformAccounts': {},
-      '@renderer/ui/services/platformPlayback': { activeStream: vue.ref(null), commitStream() {}, preferredQuality: vue.ref('128k'), preferredSource: vue.ref('auto') },
+      '@renderer/ui/services/platformPlayback': { activeStream: vue.ref(null), commitStream() {}, resetPlaybackFailures() {}, preferredQuality: vue.ref('128k'), preferredSource: vue.ref('auto') },
       '@renderer/core/dislikeList': {}, '@common/platformMatching': { samePlayTrack: same },
       './queueContinuation': { ensureQueueContinuation: async() => true, filterQueueContinuation: list => list, notifyQueueContinuation() {} },
       './playbackIntent': { notifyPlaybackIntent() {} },

@@ -19,6 +19,7 @@ import type { PlatformProvider, ProviderContext } from './providers/types'
 import { canNavigateAccount, registerAccountSession } from './navigation'
 import { createPlaybackResolver } from './playback'
 import type { PlatformQuality, ResolvedPlatformStream } from '@common/platformPlayback'
+import { getImportedPlaybackSources } from '../userApi/playback'
 
 interface ProviderState {
   provider: PlatformProvider
@@ -33,11 +34,14 @@ interface ProviderState {
 const providers = [qqProvider, neteaseProvider, qishuiProvider, bodianProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider]
 const states = new Map<PlatformId, ProviderState>()
 let initialized: Promise<void> | undefined
+let baseInitialized: Promise<void> | undefined
+const accountChecks = new Map<PlatformId, { generation: number, promise: Promise<void> }>()
+const playbackAccountChecks = new Map<PlatformId, { generation: number, promise: Promise<void> }>()
 let saveQueue = Promise.resolve()
 const cachePath = () => path.join(app.getPath('userData'), 'platform-favorites.json')
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : '平台请求失败，请重试'
 const hasAuthentication = (provider: PlatformProvider, cookies: Record<string, string>) => provider.authenticated?.(cookies) ?? Boolean(provider.id === 'qq' ? cookies.qqmusic_key || cookies.qm_keyst : provider.id === 'netease' ? cookies.MUSIC_U : Object.keys(cookies).length)
-const playback = createPlaybackResolver(() => [...states.values()], () => global.lx.appSetting['player.preferredSource'])
+const playback = createPlaybackResolver(() => [...states.values()], () => global.lx.appSetting['player.preferredSource'], getImportedPlaybackSources)
 const snapshot = (): PlatformSnapshot => ({
   accounts: [...states.values()].map(state => ({ ...state.account })),
   favorites: aggregateFavorites([...states.values()].map(state => ({ platform: state.provider.id, tracks: state.tracks }))),
@@ -53,8 +57,8 @@ const save = async() => {
   }).catch(error => { console.warn('LinkLine platform favorites cache could not be saved:', error) })
   return saveQueue
 }
-const init = async() => {
-  initialized ??= (async() => {
+const initBase = async() => {
+  baseInitialized ??= (async() => {
     for (const provider of providers) {
       const ses = session.fromPartition(`persist:linkline-account-${provider.id}`)
       registerAccountSession(ses, provider.domains)
@@ -93,19 +97,59 @@ const init = async() => {
         }
       }
     } catch {}
-    await Promise.all([...states.values()].map(async(state) => {
+  })()
+  await baseInitialized
+}
+const checkAccount = async(state: ProviderState): Promise<void> => {
+  const generation = state.generation
+  const existing = accountChecks.get(state.provider.id)
+  if (existing?.generation === generation) return existing.promise
+  const check = (async() => {
+    try {
+      const cookies = await state.context.cookies()
+      if (state.generation !== generation || state.provider.webOnly === true || !hasAuthentication(state.provider, cookies)) return
       try {
-        const cookies = await state.context.cookies()
-        if (state.provider.webOnly === true || !hasAuthentication(state.provider, cookies)) return
-        try {
-          acceptProfile(state, await state.provider.profile(state.context))
-          state.account.connected = true
-        } catch (error) { state.account.error = errorMessage(error) }
-      } catch (error) { state.account.error = errorMessage(error) }
-    }))
+        const profile = await state.provider.profile(state.context)
+        if (state.generation !== generation) return
+        acceptProfile(state, profile)
+        state.account.connected = true
+      } catch (error) { if (state.generation === generation) state.account.error = errorMessage(error) }
+    } catch (error) { if (state.generation === generation) state.account.error = errorMessage(error) }
+  })()
+  accountChecks.set(state.provider.id, { generation, promise: check })
+  return check
+}
+const init = async() => {
+  initialized ??= (async() => {
+    await initBase()
+    await Promise.all([...states.values()].map(checkAccount))
     await save()
   })()
   await initialized
+}
+/**
+ * Playback only needs the account owning the current track to be checked.
+ * Loading profile endpoints for every unrelated platform makes the first
+ * play wait on the slowest provider, while the resolver can already probe
+ * the remaining providers itself when fallback is needed.
+ */
+const initForPlayback = async(source?: LX.OnlineSource) => {
+  await initBase()
+  if (!source) return
+  const state = [...states.values()].find(item => item.provider.source === source)
+  if (!state || state.account.connected) return
+  const existing = playbackAccountChecks.get(state.provider.id)
+  if (existing?.generation === state.generation) return existing.promise
+  // A slow profile endpoint must not prevent requesting the actual stream.
+  // The existing check can finish in the background for later account views.
+  const promise = (async() => {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+      await Promise.race([checkAccount(state), new Promise<void>(resolve => { timeout = setTimeout(resolve, 2000) })])
+    } finally { clearTimeout(timeout) }
+  })()
+  playbackAccountChecks.set(state.provider.id, { generation: state.generation, promise })
+  await promise
 }
 const getState = async(id: PlatformId) => {
   await init()
@@ -340,7 +384,7 @@ const setLike = async(track: LX.Music.MusicInfo, liked: boolean): Promise<Platfo
 }
 
 const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality }) => {
-  await init()
+  await initBase()
   const state = [...states.values()].find(state => state.provider.source === params.source)
   if (!state) throw new Error('此平台暂不支持直接播放')
   if (!state.provider.musicUrl) throw new Error(`${state.provider.name}暂不支持直接播放`)
@@ -462,11 +506,13 @@ export default () => {
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getArtistTracks>>>('platform_qishui_artist', async({ params }) => getArtistTracks((await getState('qishui')).context, params?.id))
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getLyrics>>>('platform_qishui_lyric', async({ params }) => getLyrics((await getState('qishui')).context, params?.id))
   mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveShare>>>('platform_qishui_share', async({ params }) => resolveShare((await getState('qishui')).context, params?.text))
-  mainHandle<{ track: LX.Music.MusicInfoOnline, quality?: PlatformQuality, isRefresh?: boolean, allowToggleSource?: boolean }, ResolvedPlatformStream>('platform_playback_resolve', async({ params }) => {
-    await init()
-    return playback.resolve(params.track, params.quality ?? 'auto', Boolean(params.isRefresh), params.allowToggleSource !== false)
+  mainHandle<{ track: LX.Music.MusicInfoOnline, quality?: PlatformQuality, isRefresh?: boolean, allowToggleSource?: boolean, rejectedUrls?: string[] }, ResolvedPlatformStream>('platform_playback_resolve', async({ params }) => {
+    if (params.allowToggleSource !== false && global.lx.appSetting['player.preferredSource'] === 'auto') await initForPlayback(params?.track?.source)
+    else await initBase()
+    const rejectedUrls = Array.isArray(params.rejectedUrls) ? params.rejectedUrls.filter((url): url is string => typeof url === 'string' && /^https?:\/\//i.test(url) && url.length <= 2048).slice(0, 16) : []
+    return playback.resolve(params.track, params.quality ?? 'auto', Boolean(params.isRefresh), params.allowToggleSource !== false, { rejectedUrls })
   })
-  mainHandle<LX.Music.MusicInfoOnline, PlatformQuality[]>('platform_playback_qualitys', async({ params }) => { await init(); return playback.qualitys(params) })
+  mainHandle<LX.Music.MusicInfoOnline, PlatformQuality[]>('platform_playback_qualitys', async({ params }) => { await initBase(); return playback.qualitys(params) })
   mainHandle<PlatformSnapshot>('platform_accounts_snapshot', async() => { await init(); return snapshot() })
   mainHandle<PlatformId, PlatformSnapshot>('platform_accounts_login', async({ params }) => openLogin(params))
   mainHandle<PlatformId | null, PlatformSnapshot>('platform_accounts_sync', async({ params }) => {

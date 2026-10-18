@@ -1,7 +1,7 @@
 import { mainOn } from '@common/mainIpc'
 
 import USER_API_RENDERER_EVENT_NAME from './name'
-import { createWindow, getProxy, openDevTools, sendEvent } from '../main'
+import { createWindow, getProxy, openDevTools, ownsApiEvent, sendEvent } from '../main'
 import { getUserApis } from '../utils'
 import { sendShowUpdateAlert, sendStatusChange } from '@main/modules/winMain'
 
@@ -10,6 +10,7 @@ let apiStatus: LX.UserApi.UserApiStatus = { status: true }
 const requestQueue = new Map()
 const timeouts = new Map<string, NodeJS.Timeout>()
 interface InitParams {
+  event: Electron.IpcMainEvent
   params: {
     status: boolean
     message: string
@@ -17,6 +18,7 @@ interface InitParams {
   }
 }
 interface ResponseParams {
+  event: Electron.IpcMainEvent
   params: {
     status: boolean
     message: string
@@ -27,6 +29,7 @@ interface ResponseParams {
   }
 }
 interface UpdateInfoParams {
+  event: Electron.IpcMainEvent
   params: {
     data: {
       log: string
@@ -36,7 +39,8 @@ interface UpdateInfoParams {
 }
 
 export const init = () => {
-  const handleInit = ({ params: { status, message, data: apiInfo } }: InitParams) => {
+  const handleInit = ({ event, params: { status, message, data: apiInfo } }: InitParams) => {
+    if (!ownsApiEvent(event)) return
     // console.log('inited')
     // if (!status) {
     //   console.log('init failed:', message)
@@ -48,7 +52,8 @@ export const init = () => {
       : { status: false, apiInfo: userApi, message }
     sendStatusChange(apiStatus)
   }
-  const handleResponse = ({ params: { status, data: { requestKey, result }, message } }: ResponseParams) => {
+  const handleResponse = ({ event, params: { status, data: { requestKey, result }, message } }: ResponseParams) => {
+    if (!ownsApiEvent(event)) return
     const request = requestQueue.get(requestKey)
     if (!request) return
     requestQueue.delete(requestKey)
@@ -59,10 +64,12 @@ export const init = () => {
       request[1](new Error(message))
     }
   }
-  const handleOpenDevTools = () => {
+  const handleOpenDevTools = ({ event }: { event: Electron.IpcMainEvent }) => {
+    if (!ownsApiEvent(event)) return
     openDevTools()
   }
-  const handleShowUpdateAlert = ({ params: { data } }: UpdateInfoParams) => {
+  const handleShowUpdateAlert = ({ event, params: { data } }: UpdateInfoParams) => {
+    if (!ownsApiEvent(event)) return
     if (!userApi.allowShowUpdateAlert) return
     sendShowUpdateAlert({
       name: userApi.name,
@@ -71,7 +78,8 @@ export const init = () => {
       updateUrl: data.updateUrl,
     })
   }
-  const handleGetProxy = () => {
+  const handleGetProxy = ({ event }: { event: Electron.IpcMainEvent }) => {
+    if (!ownsApiEvent(event)) return
     sendEvent(USER_API_RENDERER_EVENT_NAME.proxyUpdate, getProxy())
   }
   mainOn(USER_API_RENDERER_EVENT_NAME.init, handleInit)
@@ -99,7 +107,15 @@ export const loadApi = async(apiId: string) => {
   if (!targetApi) throw new Error('api not found')
   userApi = targetApi
   console.log('load api', userApi.name)
-  await createWindow(userApi)
+  try {
+    await createWindow(targetApi)
+  } catch (error) {
+    if (userApi === targetApi && getUserApis().includes(targetApi)) {
+      apiStatus = { status: false, apiInfo: targetApi, message: error instanceof Error ? error.message : '音源加载失败' }
+      sendStatusChange(apiStatus)
+    }
+    throw error
+  }
   // if (!userApi) return global.lx_event.userApi.status(status = { status: false, message: 'api script is not found' })
   // if (!global.modules.userApiWindow) {
   //   global.lx_event.userApi.status(status = { status: false, message: 'user api runtime is not defined' })

@@ -39,7 +39,7 @@
           <div class="ui-local-empty-art" aria-hidden="true"><UiIcon name="music" /></div><h2>收藏在电脑里的好音乐</h2><p>导入歌曲，或选择一个音乐文件夹。<br>按歌手、专辑和文件夹，找到想听的声音。</p><div><button type="button" class="ui-local-button ui-local-primary" :disabled="importing" @click="importAudio('folder')"><UiIcon name="folder" />选择音乐目录</button><button type="button" class="ui-local-button" :disabled="importing" @click="importAudio('files')">选择音乐文件</button></div><small>音乐文件保留在原位置</small>
         </div>
         <LocalTrackTable v-else :list="filteredTracks" :list-id="LOCAL_LIBRARY_ID" :loading="loading" :error="error" :selected-ids="selected" empty-title="没有找到匹配的本地音乐" empty-description="试试其他关键词，或切换歌手、专辑和文件夹。" @play="playTrack" @add="addTrack" @edit="editTrack" @remove="removeTrack" @select="toggleSelected" @artist="chooseArtist" @album="chooseAlbum" @retry="loadTracks()" />
-        <footer v-if="filteredTracks.length && !loading" class="ui-local-pagination"><label><input type="checkbox" :checked="allSelected" aria-label="选择全部音乐" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
+        <footer v-if="filteredTracks.length && !loading && selected.size" class="ui-local-pagination"><label><input type="checkbox" :checked="allSelected" aria-label="选择全部音乐" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
       </main>
     </div>
     <TrackActionModal :show="addOpen" action="add" :tracks="actionTracks" :from-list-id="LOCAL_LIBRARY_ID" @close="addOpen = false" @success="handleSuccess" />

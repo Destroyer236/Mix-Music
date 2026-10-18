@@ -52,8 +52,8 @@
               <label v-for="option in presentationSwitches" :key="option.key" class="ui-full-more-switch"><span>{{ option.label }}</span><input :checked="playerPresentation[option.key]" type="checkbox" @change="changePresentation(option.key, $event)"></label>
             </div>
             <div v-else-if="page === 'source'" class="ui-full-more-items">
-              <p class="ui-full-more-note">优先查找所选平台的同版本歌曲，切换时保留播放进度。</p>
-              <button v-for="(label, source) in platformSourceLabels" :key="source" type="button" :disabled="busy" :aria-pressed="preferredSource === source" @click="chooseSource(source)"><span>{{ label }}</span><UiIcon v-if="preferredSource === source" name="check" /></button>
+              <p class="ui-full-more-note">优先使用所选平台或导入音源，不可用时自动换源，切换时保留播放进度。</p>
+              <button v-for="option in preferredSourceOptions" :key="option.value" type="button" :disabled="busy" :aria-pressed="preferredSource === option.value" @click="chooseSource(option.value)"><span>{{ option.label }}</span><UiIcon v-if="preferredSource === option.value" name="check" /></button>
             </div>
             <div v-else-if="page === 'device'" class="ui-full-more-items">
               <button type="button" :disabled="busy" :aria-pressed="appSetting['player.mediaDeviceId'] === 'default'" @click="chooseDevice('default')"><UiIcon name="headphones" /><span>系统默认设备</span><UiIcon v-if="appSetting['player.mediaDeviceId'] === 'default'" name="check" /></button>
@@ -90,6 +90,7 @@ import { updateSetting } from '@renderer/utils/ipc'
 import { toOldMusicInfo } from '@renderer/utils'
 import musicSdk from '@renderer/utils/musicSdk'
 import { activePlaybackResource, activeStream, preferredSource, setPreferredSource } from '../services/platformPlayback'
+import { preferredSourceOptions } from '../services/playbackSourceOptions'
 import { patchPlayerPresentation, playerPresentation, type PlayerBackground, type PlayerCoverLayout } from '../services/playerPresentation'
 import { cancelSleepTimer, playerSessionTools, resetABLoop, setABEnabled, setABPoint, startSleepTimer } from '../services/playerSessionTools'
 import { applyEqualizerPreset, eqBypassed, equalizerGains, previewEqualizerBand, saveEqualizerBand, setEqualizerEnabled } from '../services/playerEqualizer'
@@ -131,7 +132,7 @@ const coverLayouts: Array<{ value: PlayerCoverLayout, label: string }> = [{ valu
 const backgrounds: Array<{ value: PlayerBackground, label: string }> = [{ value: 'theme', label: '软件主题' }, { value: 'blur', label: '封面模糊' }, { value: 'dynamic', label: '流动光影' }]
 const presentationSwitches: Array<{ key: 'immersive' | 'spectrum' | 'autoCenterCover', label: string }> = [{ key: 'immersive', label: '沉浸模式 · 闲置时淡出操作栏' }, { key: 'spectrum', label: '音频频谱' }, { key: 'autoCenterCover', label: '无歌词时封面自动居中' }]
 const presetLabels: Record<typeof freqsPreset[number]['name'], string> = { pop: '流行', dance: '舞曲', rock: '摇滚', classical: '古典', vocal: '人声', slow: '慢歌', electronic: '电子', subwoofer: '重低音', soft: '柔和' }
-const downloadLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'FLAC 无损', ape: 'APE 无损', wav: 'WAV 无损', '320k': '高品质 320 kbps', '192k': '清晰 192 kbps', '128k': '标准 128 kbps' }
+const downloadLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'SQ', ape: 'APE 无损', wav: 'WAV 无损', '320k': 'HQ', '192k': '清晰 192 kbps', '128k': 'SD' }
 const onlineTrack = computed<LX.Music.MusicInfoOnline | null>(() => props.track && props.track.source !== 'local' ? props.track : null)
 const downloadQualities = computed(() => {
   const track = onlineTrack.value
@@ -224,7 +225,7 @@ function startTimer(minutes: number): void {
 }
 function editCustomMinutes(event: Event): void { customMinutes.value = Number((event.target as HTMLInputElement).value) }
 function cancelTimer(): void { cancelSleepTimer(); emit('notice', '已取消定时暂停') }
-function chooseSource(source: PreferredPlatformSource): void { void run(async() => { await setPreferredSource(source) }, `首选音源：${platformSourceLabels[source]}`) }
+function chooseSource(source: PreferredPlatformSource): void { void run(async() => { await setPreferredSource(source) }, `首选音源：${preferredSourceOptions.value.find(option => option.value === source)?.label ?? source}`) }
 let deviceGeneration = 0
 async function refreshDevices(): Promise<void> {
   const generation = ++deviceGeneration

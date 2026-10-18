@@ -393,15 +393,19 @@ export const setPitchShifter = (val: number) => {
 export const hasInitedAdvancedAudioFeatures = (): boolean => audioContext != null
 
 let clearResourceRestore: (() => void) | null = null
+let pendingResourceTime: number | null = null
 export const setResource = (src: string, options?: { time: number, autoplay: boolean }) => {
   if (!audio) return
   clearResourceRestore?.()
   clearResourceRestore = null
+  pendingResourceTime = options?.time ?? null
   audio.autoplay = options?.autoplay ?? true
   if (options) {
     const restore = () => {
       if (!audio) return
-      audio.currentTime = Math.max(0, Math.min(options.time, Number.isFinite(audio.duration) ? audio.duration : options.time))
+      const time = pendingResourceTime ?? options.time
+      audio.currentTime = Math.max(0, Math.min(time, Number.isFinite(audio.duration) ? audio.duration : time))
+      pendingResourceTime = null
       if (!audio.autoplay) audio.pause()
       clearResourceRestore = null
     }
@@ -426,6 +430,7 @@ export const getAutoplay = (): boolean => audio?.autoplay ?? false
 export const setStop = () => {
   clearResourceRestore?.()
   clearResourceRestore = null
+  pendingResourceTime = null
   if (audio) {
     audio.src = ''
     audio.removeAttribute('src')
@@ -466,7 +471,11 @@ export const getCurrentTime = () => {
   return audio?.currentTime || 0
 }
 
+/** Keep a requested seek available until the replacement stream has metadata. */
+export const getResourceTime = () => pendingResourceTime ?? getCurrentTime()
+
 export const setCurrentTime = (time: number) => {
+  if (pendingResourceTime != null) pendingResourceTime = time
   if (audio) audio.currentTime = time
 }
 

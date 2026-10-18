@@ -29,7 +29,7 @@
           <template #selection="{ track }: { track: LX.Music.MusicInfo }"><input type="checkbox" :checked="selected.has(track.id)" :aria-label="`选择 ${track.name}`" @change="toggleSelected(track.id)"></template>
         </TrackTable>
       </div>
-      <footer v-if="filteredTracks.length" class="ui-library-pagination"><label><input type="checkbox" :checked="allSelected" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
+      <footer v-if="filteredTracks.length && selected.size" class="ui-library-pagination"><label><input type="checkbox" :checked="allSelected" @change="selectAll">选择全部</label><span>{{ filteredTracks.length }} 首{{ query ? '搜索结果' : '歌曲' }}</span><span class="ui-library-scroll-hint">向下滚动，继续浏览</span></footer>
       <PlaylistFloatingButtons :tracks="filteredTracks" @jump-current="trackTable?.scrollToIndex($event)" @scroll-to-top="trackTable?.scrollToTop()" />
     </main>
 

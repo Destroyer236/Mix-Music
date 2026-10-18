@@ -40,7 +40,7 @@
           <div class="ll-full-controls">
             <button type="button" class="ui-icon-button ll-full-play-mode" :class="{ 'ui-active': playMode !== 'list' }" :aria-label="playModeLabel" :title="playModeLabel" @click="cyclePlayMode"><UiIcon :name="playModeIcon" /></button>
             <button type="button" class="ui-icon-button ll-full-skip" aria-label="上一首" title="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button>
-            <button type="button" class="ll-full-play" :aria-label="isPlay ? '暂停' : '播放'" :title="isPlay ? '暂停' : '播放'" @click="togglePlay"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button>
+            <button type="button" class="ll-full-play" :class="{ 'is-loading': isLoading }" :aria-label="isLoading ? '正在加载' : isPlay ? '暂停' : '播放'" :title="isLoading ? '正在加载' : isPlay ? '暂停' : '播放'" :aria-busy="isLoading || undefined" @click="togglePlay"><span v-if="isLoading" class="ui-play-spinner" aria-hidden="true" /><UiIcon v-else :name="isPlay ? 'pause' : 'play'" filled /></button>
             <button type="button" class="ui-icon-button ll-full-skip" aria-label="下一首" title="下一首" @click="playNext()"><UiIcon name="next" filled /></button>
             <FullPlayerVolume />
           </div>
@@ -56,7 +56,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { musicInfo, playMusicInfo, isShowPlayerDetail, isPlay } from '@renderer/store/player/state'
+import { musicInfo, playMusicInfo, isShowPlayerDetail, isPlay, isLoading } from '@renderer/store/player/state'
 import { setShowPlayerDetail } from '@renderer/store/player/action'
 import { playProgress } from '@renderer/store/player/playProgress'
 import { playbackRate } from '@renderer/store/player/playbackRate'

@@ -2,13 +2,15 @@ import { onBeforeUnmount } from '@common/utils/vueTools'
 import { useI18n } from '@renderer/plugins/i18n'
 import { isPlay, musicInfo, playMusicInfo } from '@renderer/store/player/state'
 import { getAutoplay, setStop, isEmpty } from '@renderer/plugins/player'
-import { playNext, setMusicUrl } from '@renderer/core/player'
+import { playNext, recoverCurrentResource, setMusicUrl } from '@renderer/core/player'
 import { setAllStatus } from '@renderer/store/player/action'
 import { appSetting } from '@renderer/store/setting'
 
 export default () => {
   const t = useI18n()
   let retryNum = 0
+  let errorGeneration = 0
+  const errorRecovery = { pending: false }
   let prevTimeoutId: string | null = null
 
   let loadingTimeout: NodeJS.Timeout | null = null
@@ -19,11 +21,13 @@ export default () => {
     loadingTimeout = setTimeout(() => {
       if (window.lx.isPlayedStop || !getAutoplay()) {
         prevTimeoutId = null
-        setAllStatus('')
+        setAllStatus('', false)
         return
       }
 
       // 如果加载超时，则尝试刷新URL
+      const track = playMusicInfo.musicInfo
+      if (track && !('progress' in track) && track.source !== 'local') { void handleError(2); return }
       if (prevTimeoutId == musicInfo.id) {
         prevTimeoutId = null
         void playNext(true)
@@ -50,7 +54,7 @@ export default () => {
     clearDelayNextTimeout()
     delayNextTimeout = setTimeout(() => {
       if (window.lx.isPlayedStop || !getAutoplay()) {
-        setAllStatus('')
+        setAllStatus('', false)
         return
       }
       void playNext(true)
@@ -60,22 +64,22 @@ export default () => {
   const handleLoadstart = () => {
     if (window.lx.isPlayedStop) return
     if (appSetting['player.autoSkipOnError'] && getAutoplay()) startLoadingTimeout()
-    setAllStatus(t('player__loading'))
+    setAllStatus(t('player__loading'), true)
   }
 
   const handleLoadeddata = () => {
-    setAllStatus(t('player__loading'))
+    setAllStatus(t('player__loading'), true)
   }
 
   const handlePlaying = () => {
-    setAllStatus('')
+    setAllStatus('', false)
     clearLoadingTimeout()
   }
 
   const handleCanplay = () => {
     clearLoadingTimeout()
     clearDelayNextTimeout()
-    if (!isPlay.value) setAllStatus('')
+    if (!isPlay.value) setAllStatus('', false)
   }
 
   const handlePause = () => {
@@ -90,21 +94,30 @@ export default () => {
   }
 
   const handleWating = () => {
-    setAllStatus(t('player__buffering'))
+    setAllStatus(t('player__buffering'), true)
   }
 
-  const handleError = (errCode?: number) => {
+  const handleError = async(errCode?: number) => {
     if (!musicInfo.id) return
     clearLoadingTimeout()
     if (window.lx.isPlayedStop) return
+    if (errorRecovery.pending) return
+    const track = playMusicInfo.musicInfo
+    const generation = errorGeneration
+    if (track && !('progress' in track) && track.source !== 'local' && errCode !== 1) {
+      errorRecovery.pending = true
+      let recovered = false
+      try { recovered = await recoverCurrentResource() } finally { if (generation === errorGeneration) errorRecovery.pending = false }
+      if (generation !== errorGeneration || track !== playMusicInfo.musicInfo || recovered || window.lx.isPlayedStop) return
+    }
     const resume = getAutoplay()
     if (!isEmpty()) setStop()
-    if (!resume) { setAllStatus(t('player__error')); return }
-    if (playMusicInfo.musicInfo && errCode !== 1 && retryNum < 2) { // 若音频URL无效则尝试刷新2次URL
+    if (!resume) { setAllStatus(t('player__error'), false); return }
+    if (track && ('progress' in track || track.source === 'local') && errCode !== 1 && retryNum < 2) {
       // console.log(this.retryNum)
       retryNum++
-      setMusicUrl(playMusicInfo.musicInfo, true)
-      setAllStatus(t('player__refresh_url'))
+      setMusicUrl(track, true)
+      setAllStatus(t('player__refresh_url'), true)
       return
     }
 
@@ -113,7 +126,7 @@ export default () => {
         console.warn('error skip to next')
         void playNext(true)
       } else {
-        setAllStatus(t('player__error'))
+        setAllStatus(t('player__error'), false)
         setTimeout(addDelayNextTimeout)
       }
     }
@@ -121,6 +134,8 @@ export default () => {
 
   const handleSetPlayInfo = () => {
     retryNum = 0
+    errorGeneration++
+    errorRecovery.pending = false
     prevTimeoutId = null
     clearDelayNextTimeout()
     clearLoadingTimeout()

@@ -15,16 +15,24 @@ let startupChecked = false
 export const updateDownloadProgress = shallowRef<UpdateDownloadProgress | null>(null)
 export const updateDownloadState = ref<'idle' | 'downloading' | 'downloaded' | 'error'>('idle')
 export const updateDownloadedFile = shallowRef<UpdateDownloadResult | null>(null)
+export const updateDownloadError = ref('')
+export interface UpdateDownloadDetails { source: UpdateSource, size?: number, backupUrl?: string | null }
+export const updateDownloadTarget = shallowRef<(UpdateDownloadRequest & UpdateDownloadDetails) | null>(null)
+let activeDownload: Promise<UpdateDownloadResult> | null = null
 let removeDownloadProgressListener: (() => void) | null = null
 let downloadGeneration = 0
 let activeDownloadRequestId = ''
 let downloadRequestSequence = 0
 
 export function resetUpdateDownload(): void {
+  // Closing or refreshing a panel must never detach an in-flight task.
+  if (activeDownload) return
   downloadGeneration++
   activeDownloadRequestId = ''
   updateDownloadProgress.value = null
   updateDownloadedFile.value = null
+  updateDownloadTarget.value = null
+  updateDownloadError.value = ''
   updateDownloadState.value = 'idle'
 }
 
@@ -39,24 +47,32 @@ const ensureDownloadProgressListener = () => {
   removeDownloadProgressListener = () => rendererOff(LINKLINE_UPDATE_DOWNLOAD_PROGRESS, listener as (...args: any[]) => any)
 }
 
-export async function downloadUpdateInstaller(request: UpdateDownloadRequest): Promise<UpdateDownloadResult> {
+export async function downloadUpdateInstaller(request: UpdateDownloadRequest, details: UpdateDownloadDetails = { source: preferredUpdateSource.value }): Promise<UpdateDownloadResult> {
+  if (activeDownload) return activeDownload
+  if (updateDownloadState.value === 'downloaded' && updateDownloadedFile.value?.fileName === request.fileName && updateDownloadTarget.value?.sha256 === request.sha256) return Promise.resolve(updateDownloadedFile.value)
   ensureDownloadProgressListener()
   const generation = ++downloadGeneration
   const requestId = `${Date.now()}-${++downloadRequestSequence}`
   activeDownloadRequestId = requestId
   updateDownloadProgress.value = null
   updateDownloadedFile.value = null
+  updateDownloadTarget.value = { ...request, ...details }
+  updateDownloadError.value = ''
   updateDownloadState.value = 'downloading'
-  try {
-    const result = await rendererInvoke<UpdateDownloadRequest, UpdateDownloadResult>(LINKLINE_UPDATE_DOWNLOAD, { ...request, requestId })
+  const promise = rendererInvoke<UpdateDownloadRequest, UpdateDownloadResult>(LINKLINE_UPDATE_DOWNLOAD, { ...request, requestId }).then(result => {
     if (generation !== downloadGeneration) return result
     updateDownloadedFile.value = result
     updateDownloadState.value = 'downloaded'
     return result
-  } catch (error) {
-    if (generation === downloadGeneration) updateDownloadState.value = 'error'
+  }).catch((error: unknown) => {
+    if (generation === downloadGeneration) {
+      updateDownloadState.value = 'error'
+      updateDownloadError.value = error instanceof Error ? error.message : '下载失败，请重试。'
+    }
     throw error
-  }
+  }).finally(() => { if (activeDownload === promise) activeDownload = null })
+  activeDownload = promise
+  return promise
 }
 
 export async function installDownloadedUpdate(): Promise<void> {
@@ -90,7 +106,15 @@ export async function checkAppUpdate(force = false): Promise<UpdateCheckResult> 
     const next = result.status === 'error' && previous?.latestRelease && previous.requestedSource === source
       ? { ...result, latestRelease: previous.latestRelease, history: previous.history }
       : result
-    if (generation === checkGeneration && preferredUpdateSource.value === source) updateResult.value = next
+    if (generation === checkGeneration && preferredUpdateSource.value === source) {
+      updateResult.value = next
+      const target = updateDownloadTarget.value
+      const release = next.latestRelease
+      const asset = release?.assets.find(asset => asset.name.toLowerCase() === ('LinkLine-v' + release.version + '-x64-Setup.exe').toLowerCase())
+      // Preserve tasks through temporary checking/error states. Once a valid
+      // result identifies another package/source, only an idle task may reset.
+      if (target && asset && (next.status === 'available' || next.status === 'latest') && (target.fileName !== asset.name || target.sha256 !== asset.sha256 || target.source !== source)) resetUpdateDownload()
+    }
     return next
   }).finally(() => {
     if (generation === checkGeneration) {

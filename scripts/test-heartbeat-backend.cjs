@@ -131,6 +131,7 @@ function ipcFixture(authenticated = true) {
     }
     if (id === './navigation') return { registerAccountSession() {} }
     if (id === './playback') return { createPlaybackResolver: () => ({}) }
+    if (id === '../userApi/playback') return { getImportedPlaybackSources: () => [] }
     if (id === './matching') return { aggregateFavorites: () => [] }
     if (id === './qishuiLogin' || id === './bodianLogin') return {}
     return nativeRequire(id)

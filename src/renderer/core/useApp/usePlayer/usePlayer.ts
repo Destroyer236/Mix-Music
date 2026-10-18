@@ -87,7 +87,7 @@ export default () => {
   }
   const handleEnded = () => {
     // setTimeout(() => {
-    setAllStatus(t('player__end'))
+    setAllStatus(t('player__end'), false)
     if (window.lx.isPlayedStop) {
       console.log('played stop')
       return
@@ -119,7 +119,7 @@ export default () => {
   const setStopStatus = () => {
     setPlay(false)
     setTitle(null)
-    setAllStatus('')
+    setAllStatus('', false)
     setStop()
     removePowerSaveBlocker()
   }

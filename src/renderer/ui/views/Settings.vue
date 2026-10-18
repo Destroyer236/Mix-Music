@@ -122,6 +122,7 @@ import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
 import { LINKLINE_REPOSITORY } from '@common/appUpdate'
 import { externalLyricDefaults, type ExternalLyricMode, type ExternalLyricSettings } from '@common/externalLyric'
 import { openUpdateCenter } from '@renderer/ui/services/appUpdate'
+import { preferredSourceOptions } from '@renderer/ui/services/playbackSourceOptions'
 import { categories, externalLyricSections, settingFields, type Option, type SettingField } from '@renderer/ui/settings/schema'
 import { useSettings } from '@renderer/ui/settings/useSettings'
 import { useHotkeys } from '@renderer/ui/settings/useHotkeys'
@@ -233,6 +234,7 @@ function fieldGroupsFor(id: string) {
     .filter(section => section.fields.length)
 }
 function optionsFor(field: SettingField): Option[] {
+  if (field.key === 'player.preferredSource') return preferredSourceOptions.value
   if (field.key === 'common.apiSource') return [{ value: '', label: '未选择音源' }, ...userApi.list.map(api => ({ value: api.id, label: api.name }))]
   if (field.key === 'player.mediaDeviceId') return [{ value: 'default', label: '系统默认输出' }, ...devices.value.filter(device => device.deviceId !== 'default').map((device, index) => ({ value: device.deviceId, label: device.label || `音频输出 ${index + 1}` }))]
   if (field.key === 'player.soundEffect.convolution.fileName') return [{ value: '', label: '关闭环境混响' }, ...convolutions.map(preset => ({ value: preset.source, label: window.i18n.t(`player__sound_effect_convolution_file_${preset.name}` as Parameters<typeof window.i18n.t>[0]) }))]

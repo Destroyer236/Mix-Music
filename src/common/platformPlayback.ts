@@ -4,10 +4,10 @@ export const qualityLabels: Record<PlatformQuality, string> = {
   auto: '账号最高音质',
   '64k': '基础 · 64K',
   dolby: '杜比音频',
-  '128k': '标准 · 128K',
+  '128k': 'SD',
   '192k': '较高 · 192K',
-  '320k': '极高 · 320K',
-  flac: '无损 · FLAC',
+  '320k': 'HQ',
+  flac: 'SQ',
   flac24bit: 'Hi-Res · 24bit',
   jyeffect: '高清环绕声',
   sky: '沉浸环绕声',
@@ -34,6 +34,11 @@ export interface PlatformStream {
 export interface ResolvedPlatformStream extends PlatformStream {
   platform: string
   musicInfo: LX.Music.MusicInfoOnline
+}
+
+/** URLs rejected by the media element during the current playback attempt. */
+export interface PlaybackResolveOptions {
+  rejectedUrls?: string[]
 }
 
 export const legacyQuality = (quality: PlatformQuality): LX.Quality => {

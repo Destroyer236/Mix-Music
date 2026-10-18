@@ -17,7 +17,7 @@ import { overwirteDislikeInfo } from '@renderer/core/dislikeList'
 import { parseSettingValue, validateSettingBackup, type SettingField } from './schema'
 import { setPreferredQuality, setPreferredSource } from '@renderer/ui/services/platformPlayback'
 import type { PlatformQuality } from '@common/platformPlayback'
-import type { PreferredPlatformSource } from '@common/platformSources'
+import { getImportedSourceId, type PreferredPlatformSource } from '@common/platformSources'
 import { LOCAL_LIBRARY_ID } from '@common/localMusic'
 import { reconcileLocalLibraryAfterRestore } from '../services/localLibrary'
 
@@ -153,6 +153,7 @@ export function useSettings() {
         await saveRecord({ 'common.apiSource': remaining?.id ?? '' })
       }
       userApi.list = await ipc.removeUserApi([api.id])
+      if (getImportedSourceId(appSetting['player.preferredSource']) === api.id) await setPreferredSource('auto')
     })
   }
   async function useSource(id: string) {

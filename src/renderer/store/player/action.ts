@@ -3,6 +3,7 @@ import {
   type PlayerMusicInfo,
   musicInfo,
   isPlay,
+  isLoading,
   status,
   statusText,
   isShowPlayerDetail,
@@ -51,10 +52,11 @@ export const setStatusText = (val: string) => {
   statusText.value = val
 }
 
-export const setAllStatus = (val: string) => {
+export const setAllStatus = (val: string, loading?: boolean) => {
   console.log('setAllStatus', val)
   status.value = val
   statusText.value = val
+  if (loading !== undefined && isLoading) isLoading.value = loading
 }
 
 

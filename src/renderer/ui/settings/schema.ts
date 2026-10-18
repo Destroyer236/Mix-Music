@@ -2,7 +2,7 @@ import defaultSetting from '@common/defaultSetting'
 import { windowSizeList } from '@common/config'
 import { langList } from '@root/lang'
 import { qualityLabels } from '@common/platformPlayback'
-import { platformSourceLabels } from '@common/platformSources'
+import { isPreferredPlatformSource, platformSourceLabels } from '@common/platformSources'
 import type { ExternalLyricMode } from '@common/externalLyric'
 import labels from './labels.json'
 
@@ -129,7 +129,7 @@ const hints: Partial<Record<SettingKey, string>> = {
   'externalLyric.taskbar.rightMargin': '歌词区域与右侧任务栏项目之间的距离，单位为像素。',
   'player.mediaDeviceId': '开启高级音效后，音频输出固定为系统默认设备。',
   'player.playQuality': '默认使用账号最高音质，按平台、账号权限与歌曲版权自动选择。与播放栏共享同一偏好，修改后会切换当前歌曲并保留进度。',
-  'player.preferredSource': '自动时跟随歌曲来源。选择平台后，优先查找该平台的同版本歌曲；无版权或无播放权限时自动换源，完整歌曲优先于试听。修改后会切换当前歌曲并保留进度。',
+  'player.preferredSource': '自动时优先使用歌曲所属的已登录平台，否则从及时响应的音源中优选音质。也可指定首选平台或导入音源，不可用时自动换源。只匹配同版本歌曲，完整歌曲优先于试听。修改后切换当前歌曲并保留进度。',
   'player.soundEffect.convolution.mainGain': '数值 10 表示原声增益 100%。',
   'player.soundEffect.convolution.sendGain': '数值 10 表示环境音增益 100%。',
   'player.waitPlayEndStopTime': '以分钟计，例如 30；点击启动定时按钮开始倒计时。',
@@ -184,6 +184,10 @@ export const settingFields: SettingField[] = (Object.keys(defaultSetting) as Set
   })
 
 export function parseSettingValue(field: SettingField, text: string): LX.AppSetting[SettingKey] {
+  if (field.key === 'player.preferredSource') {
+    if (!isPreferredPlatformSource(text)) throw new Error('请选择有效的首选音源。')
+    return text
+  }
   if (field.type === 'number') {
     if ((field.key === 'desktopLyric.x' || field.key === 'desktopLyric.y') && !text.trim()) return null
     const value = Number(text)
@@ -229,6 +233,10 @@ export function validateSettingBackup(input: unknown): Partial<LX.AppSetting> {
   for (const field of settingFields) {
     if (!Object.prototype.hasOwnProperty.call(source, field.key)) continue
     const value = source[field.key]
+    if (field.key === 'player.preferredSource') {
+      if (isPreferredPlatformSource(value)) result[field.key] = value
+      continue
+    }
     if (field.type === 'boolean') {
       if (typeof value === 'boolean') result[field.key] = value as never
       continue
