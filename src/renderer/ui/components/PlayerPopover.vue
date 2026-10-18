@@ -5,7 +5,7 @@
 import { inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { playerDetailThemeKey } from '../playerDetailPalette'
 import UiIcon from './UiIcon.vue'
-const props = withDefaults(defineProps<{ show: boolean, title: string, subtitle?: string, showHeader?: boolean, id?: string, width?: number, trigger?: HTMLElement | null, panelClass?: string, anchor?: 'right' | 'trigger' }>(), { subtitle: '', showHeader: true, id: undefined, width: 360, trigger: null, panelClass: '', anchor: 'right' })
+const props = withDefaults(defineProps<{ show: boolean, title: string, subtitle?: string, showHeader?: boolean, id?: string, width?: number, trigger?: HTMLElement | null, panelClass?: string, anchor?: 'right' | 'trigger' | 'center' }>(), { subtitle: '', showHeader: true, id: undefined, width: 360, trigger: null, panelClass: '', anchor: 'right' })
 const emit = defineEmits<{ close: [] }>()
 const detailTheme = inject(playerDetailThemeKey, undefined)
 const panel = ref<HTMLElement | null>(null)
@@ -13,14 +13,20 @@ const position = ref<Record<string, string>>({})
 let previousFocus: HTMLElement | null = null
 function place() {
   const width = Math.min(props.width, innerWidth - 32)
+  if (props.anchor === 'center') {
+    position.value = { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: `${Math.min(width, innerHeight - 32)}px`, maxHeight: `${innerHeight - 32}px` }
+    return
+  }
   const trigger = props.trigger?.getBoundingClientRect()
   if (props.anchor === 'trigger' && trigger) {
     const left = Math.max(16, Math.min(trigger.left, innerWidth - width - 16))
     const above = trigger.top - 24
     const below = innerHeight - trigger.bottom - 24
+    const bottom = Math.max(16, Math.min(innerHeight - trigger.top + 8, innerHeight - 16))
+    const top = Math.max(16, Math.min(trigger.bottom + 8, innerHeight - 16))
     position.value = above >= Math.min(320, below)
-      ? { left: `${left}px`, bottom: `${Math.max(16, innerHeight - trigger.top + 8)}px`, width: `${width}px`, maxHeight: `${Math.max(0, above)}px` }
-      : { left: `${left}px`, top: `${Math.max(16, trigger.bottom + 8)}px`, width: `${width}px`, maxHeight: `${Math.max(0, below)}px` }
+      ? { left: `${left}px`, bottom: `${bottom}px`, width: `${width}px`, maxHeight: `${Math.max(0, Math.min(above, innerHeight - bottom - 16))}px` }
+      : { left: `${left}px`, top: `${top}px`, width: `${width}px`, maxHeight: `${Math.max(0, Math.min(below, innerHeight - top - 16))}px` }
     return
   }
   const player = props.trigger?.closest('.ui-player')?.getBoundingClientRect()

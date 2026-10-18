@@ -13,7 +13,7 @@ import { RecommendationBuffer, type RecommendationBatch } from './recommendation
 import { musicLinksFile } from './useMusicLinks'
 import { isPlay, playMusicInfo } from '@renderer/store/player/state'
 import { dislikeRulesVersion } from '@renderer/store/dislikeList'
-import { isRecommendationDisliked } from './recommendationDislikes'
+import { hasDislike } from '@renderer/core/dislikeList'
 
 export type RecommendationSource = LX.OnlineSource | 'all'
 const sources = music.sources
@@ -55,11 +55,11 @@ function createRecommendations() {
     const track = 'metadata' in original ? original.metadata.musicInfo : original
     recent.value = [track, ...recent.value.filter(item => recommendationKey(item) !== recommendationKey(track))].slice(0, 100)
   })
-  const preferences = computed(() => recommendationPreferences(favoriteTracks.value.filter(track => !isRecommendationDisliked(track)), recent.value.filter(track => !isRecommendationDisliked(track))))
+  const preferences = computed(() => recommendationPreferences(favoriteTracks.value.filter(track => !hasDislike(track)), recent.value.filter(track => !hasDislike(track))))
   const artists = computed(() => preferences.value.seeds)
   const affinity = new Map<string, number>()
   const score = (track: LX.Music.MusicInfo) => preferences.value.score(track) + (affinity.get(recommendationKey(track)) ?? 0)
-  const selectRecommendations = (items: LX.Music.MusicInfo[], excluded: string[], rank = score) => freshRecommendations(items.filter(track => !isRecommendationDisliked(track)), favoriteTracks.value, excluded, 9, rank)
+  const selectRecommendations = (items: LX.Music.MusicInfo[], excluded: string[], rank = score) => freshRecommendations(items.filter(track => !hasDislike(track)), favoriteTracks.value, excluded, 9, rank)
   const recommended = shallowRef<LX.Music.MusicInfo[]>([])
   const recommendationLoading = ref(true)
   const recommendationError = ref('')
@@ -143,7 +143,7 @@ function createRecommendations() {
     for (const track of batch.tracks) {
       const key = recommendationKey(track)
       const artists = recommendationArtists(track)
-      if (isRecommendationDisliked(track) || blocked.has(key) || songs.has(key) || !artists.length || artists.some(name => names.has(name))) return false
+      if (hasDislike(track) || blocked.has(key) || songs.has(key) || !artists.length || artists.some(name => names.has(name))) return false
       songs.add(key); artists.forEach(name => names.add(name))
       if (artists.every(name => !familiar.has(name))) outside++
     }
@@ -154,7 +154,7 @@ function createRecommendations() {
     recommended.value = context.tracks
     recommendationLoading.value = context.loading
     recommendationError.value = context.error
-    trending.value = context.trending; discoveries.value = context.discoveries
+    trending.value = context.trending.filter(track => !hasDislike(track)); discoveries.value = context.discoveries.filter(track => !hasDislike(track))
     boardId.value = context.boardId; boardName.value = context.boardName
     trendingLoading.value = context.loading; discoveryLoading.value = context.loading
     trendingError.value = ''; discoveryError.value = ''
@@ -195,9 +195,11 @@ function createRecommendations() {
   })
   watch(dislikeRulesVersion, () => {
     for (const context of contexts.values()) {
-      context.candidates = context.candidates.filter(track => !isRecommendationDisliked(track))
-      context.tracks = context.tracks.filter(track => !isRecommendationDisliked(track))
-      if (context.preview) context.preview.tracks = context.preview.tracks.filter(track => !isRecommendationDisliked(track))
+      context.candidates = context.candidates.filter(track => !hasDislike(track))
+      context.tracks = context.tracks.filter(track => !hasDislike(track))
+      context.trending = context.trending.filter(track => !hasDislike(track))
+      context.discoveries = context.discoveries.filter(track => !hasDislike(track))
+      if (context.preview) context.preview.tracks = context.preview.tracks.filter(track => !hasDislike(track))
       context.buffer.refresh()
     }
     showContext(currentContext())
@@ -330,7 +332,7 @@ function createRecommendations() {
   function retainCandidates(context: SourceContext, items: LX.Music.MusicInfo[]) {
     const seen = new Set<string>()
     context.candidates = items.filter(track => {
-      if (isRecommendationDisliked(track)) return false
+      if (hasDislike(track)) return false
       if (context.source !== 'all' && track.source !== context.source) return false
       const key = recommendationKey(track); if (seen.has(key)) return false; seen.add(key); return true
     }).slice(0, context.source === 'all' ? 1500 : 500)
@@ -414,7 +416,7 @@ function createRecommendations() {
         if (initial && context.source !== source.value) { context.preview = null; return }
         if (initial) {
           await history.record(batch.tracks, batch.round, true, () => {
-            if (!viewers || !valid() || context.source !== source.value || !batch.tracks.length || batch.tracks.some(isRecommendationDisliked)) { context.preview = null; return false }
+            if (!viewers || !valid() || context.source !== source.value || !batch.tracks.length || batch.tracks.some(track => hasDislike(track))) { context.preview = null; return false }
             context.tracks = batch.tracks; context.first = false; context.preview = null; showContext(context)
             return true
           })

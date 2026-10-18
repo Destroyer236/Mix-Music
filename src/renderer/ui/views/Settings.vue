@@ -58,7 +58,7 @@
           </template>
 
           <template v-if="category.id === 'library'">
-            <div class="studio-settings-subheading"><h3>不喜欢库与屏蔽规则</h3><p>“减少推荐”的歌曲保存在这里，所有平台推荐会排除这些歌曲。每行一条规则：歌名、歌名@歌手，或 @歌手；删除对应规则后可恢复推荐。</p></div>
+            <div class="studio-settings-subheading"><h3>不喜欢库与屏蔽规则</h3><p>“减少推荐”的歌曲保存在这里，心动模式和各平台推荐会排除这些歌曲。每行一条规则：歌名、歌名@歌手，或 @歌手；删除规则并保存后可恢复推荐。</p></div>
             <textarea v-model="rules" class="studio-settings-rules" rows="7" aria-label="音乐屏蔽规则" placeholder="歌名@歌手" />
             <div class="studio-settings-actions spaced"><button type="button" class="studio-settings-button primary" :disabled="busy" @click="saveRules">保存屏蔽规则</button></div>
           </template>

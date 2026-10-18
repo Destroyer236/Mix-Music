@@ -21,7 +21,7 @@ import { requestFavorite } from '@renderer/ui/services/platformAccounts'
 import { activeStream, commitStream, preferredQuality, preferredSource } from '@renderer/ui/services/platformPlayback'
 import { addDislikeInfo, hasDislike } from '@renderer/core/dislikeList'
 import { samePlayTrack } from '@common/platformMatching'
-import { ensureQueueContinuation, filterQueueContinuation, isQueueTrackDisliked, notifyQueueContinuation } from './queueContinuation'
+import { ensureQueueContinuation, filterQueueContinuation, notifyQueueContinuation } from './queueContinuation'
 import { notifyPlaybackIntent } from './playbackIntent'
 import { watch } from 'vue'
 import { repeatMode } from '@renderer/store/player/repeatMode'
@@ -322,7 +322,6 @@ const randomNextMusicInfo = {
   info: null as LX.Player.PlayMusicInfo | null,
   // index: -1,
 }
-const excludedFromPlayback = (track: LX.Music.MusicInfo | LX.Download.ListItem) => hasDislike(track) || isQueueTrackDisliked(track)
 export const resetRandomNextMusicInfo = () => {
   navigationGeneration++
   if (randomNextMusicInfo.info) {
@@ -341,7 +340,7 @@ export const detachCurrentQueueTrack = () => {
 const isDetachedQueueTrack = () => removedQueueTrack?.musicInfo === playMusicInfo.musicInfo && removedQueueTrack?.listId === playMusicInfo.listId
 const getAutomaticRepeatTrack = (): LX.Player.PlayMusicInfo | null => {
   const mode = appSetting['player.togglePlayMethod']
-  if (!playMusicInfo.musicInfo || isDetachedQueueTrack() || (mode === 'random' ? repeatMode.value !== 'singleLoop' : mode !== 'singleLoop')) return null
+  if (!playMusicInfo.musicInfo || hasDislike(playMusicInfo.musicInfo) || isDetachedQueueTrack() || (mode === 'random' ? repeatMode.value !== 'singleLoop' : mode !== 'singleLoop')) return null
   return { ...(playMusicInfo as LX.Player.PlayMusicInfo) }
 }
 const filterNextQueue = async(currentListId: string, currentList: Array<LX.Music.MusicInfo | LX.Download.ListItem>, generation: number) => {
@@ -361,7 +360,7 @@ const filterNextQueue = async(currentListId: string, currentList: Array<LX.Music
 
 export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | null> => {
   const generation = navigationGeneration
-  while (tempPlayList.length && excludedFromPlayback(tempPlayList[0].musicInfo)) removeTempPlayList(0)
+  while (tempPlayList.length && hasDislike(tempPlayList[0].musicInfo)) removeTempPlayList(0)
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = tempPlayList[0]
     return playMusicInfo
@@ -374,7 +373,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 
   if (!await ensureQueueContinuation() || generation !== navigationGeneration) return null
 
-  if (randomNextMusicInfo.info && !excludedFromPlayback(randomNextMusicInfo.info.musicInfo)) return randomNextMusicInfo.info
+  if (randomNextMusicInfo.info && !hasDislike(randomNextMusicInfo.info.musicInfo)) return randomNextMusicInfo.info
   randomNextMusicInfo.info = null
 
   // console.log(playInfo.playerListId)
@@ -388,8 +387,9 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     let index
     for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) + 1; index < playedList.length; index++) {
       const playMusicInfo = playedList[index]
-      if (excludedFromPlayback(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
+      if (hasDislike(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
         removePlayedList(index)
+        index--
         continue
       }
       break
@@ -408,7 +408,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
   let nextIndex = Math.max(0, playerIndex)
 
   let togglePlayMethod = appSetting['player.togglePlayMethod']
-  if (togglePlayMethod === 'singleLoop' && isDetachedQueueTrack()) togglePlayMethod = 'listLoop'
+  if (togglePlayMethod === 'singleLoop' && (isDetachedQueueTrack() || hasDislike(playMusicInfo.musicInfo))) togglePlayMethod = 'listLoop'
   switch (togglePlayMethod) {
     case 'listLoop':
       nextIndex = playerIndex === filteredList.length - 1 ? 0 : playerIndex + 1
@@ -452,7 +452,7 @@ const handlePlayNext = (playMusicInfo: LX.Player.PlayMusicInfo) => {
 export const playNext = async(isAutoToggle = false): Promise<void> => {
   const generation = ++navigationGeneration
   console.log('skip next', isAutoToggle)
-  while (tempPlayList.length && excludedFromPlayback(tempPlayList[0].musicInfo)) removeTempPlayList(0)
+  while (tempPlayList.length && hasDislike(tempPlayList[0].musicInfo)) removeTempPlayList(0)
   if (tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = tempPlayList[0]
     removeTempPlayList(0)
@@ -495,8 +495,9 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
     let index
     for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) + 1; index < playedList.length; index++) {
       const playMusicInfo = playedList[index]
-      if (excludedFromPlayback(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
+      if (hasDislike(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
         removePlayedList(index)
+        index--
         continue
       }
       break
@@ -508,7 +509,7 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
       return
     }
   }
-  if (randomNextMusicInfo.info && !excludedFromPlayback(randomNextMusicInfo.info.musicInfo)) {
+  if (randomNextMusicInfo.info && !hasDislike(randomNextMusicInfo.info.musicInfo)) {
     handlePlayNext(randomNextMusicInfo.info)
     return
   }
@@ -532,7 +533,7 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
   let nextIndex = Math.max(0, playerIndex)
 
   let togglePlayMethod = appSetting['player.togglePlayMethod']
-  if (togglePlayMethod === 'singleLoop' && isDetachedQueueTrack()) togglePlayMethod = 'listLoop'
+  if (togglePlayMethod === 'singleLoop' && (isDetachedQueueTrack() || hasDislike(playMusicInfo.musicInfo))) togglePlayMethod = 'listLoop'
   if (!isAutoToggle) {
     switch (togglePlayMethod) {
       case 'list':
@@ -595,7 +596,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
     let index
     for (index = playedList.findIndex(m => currentTrack && samePlayTrack(m.musicInfo, currentTrack)) - 1; index > -1; index--) {
       const playMusicInfo = playedList[index]
-      if (excludedFromPlayback(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
+      if (hasDislike(playMusicInfo.musicInfo) || (playMusicInfo.listId == currentListId && !currentList.some(m => samePlayTrack(m, playMusicInfo.musicInfo)))) {
         removePlayedList(index)
         continue
       }

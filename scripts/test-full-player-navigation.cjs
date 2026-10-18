@@ -31,9 +31,14 @@ function harness(mode = 'random', initialIndex = 0, downloads = false) {
   }
   const result = { ...state, tracks, cache, setting, resources: [], events: [], saved: [], pauses: 0, stops: 0 }
   const settingModule = { appSetting: setting, mergeSetting: patch => Object.assign(setting, patch), setTogglePlayMode: mode => result.saved.push(mode) }
-  const constants = { LIST_IDS: { DOWNLOAD: 'download' }, SPLIT_CHAR: { DISLIKE_NAME: '\\n', DISLIKE_NAME_ALIAS: ' ' } }
+  const constants = { LIST_IDS: { DOWNLOAD: 'download' }, SPLIT_CHAR: { DISLIKE_NAME: '@', DISLIKE_NAME_ALIAS: '#' } }
+  const matching = load('src/common/platformMatching.ts', {})
+  const dislike = load('src/common/dislike.ts', { './constants': constants, './platformMatching': matching })
+  const dislikeInfo = { names: new Set(), musicNames: new Set(), singerNames: new Set(), rules: '' }
+  result.dislike = (...tracks) => { dislikeInfo.rules = tracks.map(track => 'metadata' in track ? track.metadata.musicInfo : track).map(track => `${track.name}@${track.singer}`).join('\n') }
+  const hasDislike = track => Boolean(track && dislike.createDislikeFilter(dislikeInfo.rules)('metadata' in track ? track.metadata.musicInfo : track))
   const worker = load('src/renderer/worker/main/list.ts', {
-    '@common/constants': constants, '@common/utils/common': {}, '@common/utils/nodejs': {}, '@renderer/utils/music': {}, '@common/platformMatching': { samePlayTrack: same },
+    '@common/dislike': dislike, '@common/utils/common': {}, '@common/utils/nodejs': {}, '@renderer/utils/music': {}, '@common/platformMatching': { samePlayTrack: same },
   })
   global.window = {
     lx: { isPlayedStop: false, worker: { main: worker } },
@@ -56,7 +61,7 @@ function harness(mode = 'random', initialIndex = 0, downloads = false) {
     const filters = load('src/renderer/core/player/utils.ts', {
       '@common/utils/vueTools': { toRaw: vue.toRaw, markRawList: value => value },
       '@renderer/store/player/action': actions, '@renderer/store/setting': settingModule,
-      '@renderer/store/dislikeList': { dislikeInfo: { names: new Set(), musicNames: new Set(), singerNames: new Set() } }, '@renderer/utils/ipc': {},
+      '@renderer/store/dislikeList': { dislikeInfo }, '@renderer/utils/ipc': {},
     })
     result.repeat = load('src/renderer/store/player/repeatMode.ts', { '@renderer/store/setting': settingModule })
     core = result.core = load('src/renderer/core/player/action.ts', {
@@ -67,7 +72,7 @@ function harness(mode = 'random', initialIndex = 0, downloads = false) {
       './utils': filters, '@renderer/utils/message': {}, '@renderer/utils/index': { getRandom: () => 0 },
       '@renderer/ui/services/platformAccounts': {},
       '@renderer/ui/services/platformPlayback': { activeStream: vue.ref(null), commitStream() {}, preferredQuality: vue.ref('128k'), preferredSource: vue.ref('auto') },
-      '@renderer/core/dislikeList': {}, '@common/platformMatching': { samePlayTrack: same },
+      '@renderer/core/dislikeList': { hasDislike }, '@common/platformMatching': { samePlayTrack: same },
       './queueContinuation': { ensureQueueContinuation: async() => true, filterQueueContinuation: list => list, notifyQueueContinuation() {} },
       './playbackIntent': { notifyPlaybackIntent() {} },
     })
@@ -153,6 +158,46 @@ async function main() {
   assert.equal(state.playMusicInfo.musicInfo.source, 'tx', 'equal ids from different providers remain distinct queue entries')
   assert.equal(await state.core.getNextPlayMusicInfo(), null)
   state.dispose()
-  console.log('Full-player navigation checks passed: independent shuffle/repeat, automatic/manual Next, prefetch invalidation, cycle exhaustion and detached queue playback/downloads.')
+  for (const mode of ['listLoop', 'singleLoop', 'random']) {
+    for (const downloads of [false, true]) {
+      for (const index of [0, 1, 2]) {
+        state = harness(mode, index, downloads)
+        const blocked = state.playMusicInfo.musicInfo
+        state.dislike(blocked)
+        const prefetched = await state.core.getNextPlayMusicInfo()
+        assert.ok(prefetched && prefetched.musicInfo !== blocked, 'prefetch must never return a disliked current song, including repeat-one')
+        await state.core.playNext()
+        const expected = mode === 'random' ? state.tracks.find(track => track !== blocked) : state.tracks[(index + 1) % state.tracks.length]
+        assert.strictEqual(state.playMusicInfo.musicInfo, expected, 'disliking current preserves the successor position in every queue')
+        await state.core.playNext(true)
+        assert.notStrictEqual(state.playMusicInfo.musicInfo, blocked, 'automatic navigation cannot bring a disliked song back')
+        state.dispose()
+      }
+    }
+  }
+
+  state = harness()
+  assert.equal((await state.core.getNextPlayMusicInfo()).musicInfo.id, 'b')
+  state.dislike(state.tracks[1])
+  assert.equal((await state.core.getNextPlayMusicInfo()).musicInfo.id, 'c', 'a newly disliked cached random successor is discarded')
+  state.tempPlayList.push({ musicInfo: state.tracks[1], listId: 'library', isTempPlay: true })
+  await state.core.playNext()
+  assert.equal(state.playMusicInfo.musicInfo.id, 'c', 'Play Later also skips disliked songs')
+  state.dispose()
+
+  state = harness()
+  state.playedList.push(...state.tracks.slice(1).map(musicInfo => ({ musicInfo, listId: 'library', isTempPlay: false })))
+  state.dislike(state.tracks[1])
+  await state.core.playNext()
+  assert.equal(state.playMusicInfo.musicInfo.id, 'c', 'removing a disliked history entry cannot skip the following eligible song')
+  state.dispose()
+
+  state = harness('listLoop')
+  state.dislike(...state.tracks)
+  assert.equal(await state.core.getNextPlayMusicInfo(), null, 'an entirely disliked queue has no successor')
+  await state.core.playNext()
+  assert.ok(state.stops > 0, 'an entirely disliked queue stops instead of replaying a blocked song')
+  state.dispose()
+  console.log('Full-player navigation checks passed: shuffle/repeat, queue edits/downloads, dislike anchors, history, prefetch and Play Later.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })

@@ -3445,7 +3445,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
 }
 .ui-player-popover { position: fixed; z-index: 2500; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--modern-border); border-radius: 12px; box-shadow: 0 8px 28px #0002; background: var(--modern-panel); color: var(--modern-text); font-family: inherit; outline: none; -webkit-app-region: no-drag; > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex: none; padding: 18px 18px 14px; border-bottom: var(--ui-hairline); h2 { font-size: 15px; line-height: 1.5; font-weight: 600; } p { margin-top: 4px; font-size: 11px; color: var(--modern-muted); line-height: 1.6; overflow-wrap: anywhere; } .ui-icon-button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; color: var(--modern-muted); background: transparent; flex: none; cursor: pointer; svg { width: 18px; height: 18px; } &:hover { background: var(--modern-hover); } } } button:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: -2px; } }
 .ui-player-popover-content { padding: 8px 10px 12px; min-height: 0; overflow-y: auto; }
-.ui-player-notice { position: fixed; z-index: 10000; left: 50%; bottom: 130px; transform: translateX(-50%); max-width: calc(100vw - 40px); margin: 0; padding: 12px 22px; border: 1px solid var(--modern-border); border-radius: 12px; background: var(--modern-panel); color: var(--modern-text); box-shadow: 0 8px 30px #0002; font-size: 14px; pointer-events: none; }
+.ui-player-notice { position: fixed; z-index: 10000; bottom: 130px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); margin: 0; padding: 12px 20px; border: 1px solid var(--modern-border); border-radius: 12px; background: var(--modern-panel); color: var(--modern-text); box-shadow: 0 8px 32px #0002; pointer-events: none; }
 .ui-player-song-menu {
   .ui-player-menu-actions { display: flex; flex-direction: column; gap: 3px; > button { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 39px; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--modern-text); text-align: left; font: inherit; font-size: 13px; cursor: pointer; > svg { width: 18px; height: 18px; color: var(--modern-muted); &:last-child:not(:first-child) { margin-left: auto; width: 15px; height: 15px; } } &:hover { background: var(--modern-hover); } &[aria-pressed='true'] > svg:first-child { color: var(--ui-favorite); } &:disabled { opacity: .4; cursor: default; } } }
   .ui-player-menu-feedback { margin-top: 6px; padding-top: 6px; border-top: var(--ui-hairline); }
@@ -3914,7 +3914,7 @@ html[data-modern-theme] {
   }
 
   // Teleported menus live outside .ui-shell and still share the panel geometry.
-  body :is(.appearance-panel, .ui-dialog-panel, .ui-player-popover,
+  body :is(.appearance-panel, .ui-dialog-panel, .ui-player-popover:not(.ui-external-lyrics-menu),
     .ui-player-more-panel, .ui-quality-panel, .ui-volume-panel,
     .ui-select-menu, .ui-playlist-context-menu, .ui-search-suggestions,
     .ui-category-wheel-panel, .ui-queue-panel) {
