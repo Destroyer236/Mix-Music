@@ -1,6 +1,6 @@
 // import { throttle } from '@common/utils'
 
-import { SPLIT_CHAR } from '@common/constants'
+import { createDislikeFilter } from '@common/dislike'
 import { filterFileName, sortInsert, similar, arrPushByPosition, arrShuffle } from '@common/utils/common'
 import { joinPath, saveStrToFile } from '@common/utils/nodejs'
 import { createLocalMusicInfo } from '@renderer/utils/music'
@@ -34,7 +34,7 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
   /**
    * 不喜欢的歌曲名字列表
    */
-  dislikeInfo: Omit<LX.Dislike.DislikeInfo, 'rules'>
+  dislikeInfo: LX.Dislike.DislikeInfo
 
   isNext: boolean
 }) => {
@@ -42,23 +42,15 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
 
   let canPlayList: Array<LX.Music.MusicInfo | LX.Download.ListItem> = []
   const filteredPlayedList = playedList.filter(pmInfo => pmInfo.listId == listId && !pmInfo.isTempPlay).map(({ musicInfo }) => musicInfo)
-  const hasDislike = (info: LX.Music.MusicInfo) => {
-    const name = info.name?.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim() ?? ''
-    const singer = info.singer?.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim() ?? ''
+  const hasDislike = createDislikeFilter(dislikeInfo.rules)
 
-    return dislikeInfo.musicNames.has(name) || dislikeInfo.singerNames.has(singer) ||
-      dislikeInfo.names.has(`${name}${SPLIT_CHAR.DISLIKE_NAME}${singer}`)
-  }
-
-  let isDislike = false
+  const isDislike = playerMusicInfo && hasDislike('progress' in playerMusicInfo ? playerMusicInfo.metadata.musicInfo : playerMusicInfo)
   const filteredList: Array<LX.Music.MusicInfo | LX.Download.ListItem> = list.filter(s => {
     // if (!assertApiSupport(s.source)) return false
     if ('progress' in s) {
       if (!s.isComplate) return false
-    } else if (hasDislike(s)) {
-      if (!playerMusicInfo || !samePlayTrack(s, playerMusicInfo)) return false
-      isDislike = true
     }
+    if (hasDislike('progress' in s ? s.metadata.musicInfo : s)) return false
 
     canPlayList.push(s)
 
@@ -71,30 +63,12 @@ export const filterMusicList = async({ playedList, listId, list, playerMusicInfo
   })
   if (playerMusicInfo) {
     if (isDislike) {
-      if (filteredList.length <= 1) {
-        filteredList.splice(0, 1)
-        if (canPlayList.length > 1) {
-          let currentMusicIndex = canPlayList.findIndex(m => samePlayTrack(m, playerMusicInfo))
-          if (isNext) {
-            playerIndex = currentMusicIndex - 1
-            if (playerIndex < 0 && canPlayList.length > 1) playerIndex = canPlayList.length - 2
-          } else {
-            playerIndex = currentMusicIndex
-            if (canPlayList.length <= 1) playerIndex = -1
-          }
-          canPlayList.splice(currentMusicIndex, 1)
-        } else canPlayList.splice(0, 1)
-      } else {
-        let currentMusicIndex = filteredList.findIndex(m => samePlayTrack(m, playerMusicInfo))
-        if (isNext) {
-          playerIndex = currentMusicIndex - 1
-          if (playerIndex < 0 && filteredList.length > 1) playerIndex = filteredList.length - 2
-        } else {
-          playerIndex = currentMusicIndex
-          if (filteredList.length <= 1) playerIndex = -1
-        }
-        filteredList.splice(currentMusicIndex, 1)
-      }
+      // Preserve the removed song's position without returning it in either pool.
+      // Played history may already contain it, so it cannot serve as an anchor there.
+      const available = new Set(filteredList.length ? filteredList : canPlayList)
+      const currentIndex = list.findIndex(m => samePlayTrack(m, playerMusicInfo))
+      const before = list.slice(0, Math.max(0, currentIndex)).filter(m => available.has(m)).length
+      playerIndex = before - (isNext ? 1 : 0)
     } else {
       playerIndex = (filteredList.length ? filteredList : canPlayList).findIndex(m => samePlayTrack(m, playerMusicInfo))
     }

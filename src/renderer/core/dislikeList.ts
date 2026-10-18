@@ -8,21 +8,26 @@ export const initDislikeInfo = async() => {
   action.initDislikeInfo(await rendererInvoke<LX.Dislike.DislikeInfo>(DISLIKE_EVENT_NAME.get_dislike_music_infos))
 }
 
-export const hasDislike = (info: LX.Music.MusicInfo | LX.Download.ListItem | null) => {
+export const hasDislike = (info: Pick<LX.Music.MusicInfo, 'name' | 'singer'> | LX.Download.ListItem | null) => {
   if (!info) return false
   return action.hasDislike(info)
 }
 
 export const addDislikeInfo = async(infos: LX.Dislike.DislikeMusicInfo[]) => {
   await rendererInvoke<LX.Dislike.DislikeMusicInfo[]>(DISLIKE_EVENT_NAME.add_dislike_music_infos, infos)
+  // The save reply can arrive before its broadcast. Update filters before advancing playback.
+  const missing = infos.filter(info => !action.hasDislike({ name: info.name ?? '', singer: info.singer ?? '' }))
+  if (missing.length) action.addDislikeInfo(missing)
 }
 
 export const overwirteDislikeInfo = async(rules: string) => {
   await rendererInvoke<string>(DISLIKE_EVENT_NAME.overwrite_dislike_music_infos, rules)
+  action.overwirteDislikeInfo(rules)
 }
 
 export const clearDislikeInfo = async() => {
   await rendererInvoke(DISLIKE_EVENT_NAME.clear_dislike_music_infos)
+  action.clearDislikeInfo()
 }
 
 

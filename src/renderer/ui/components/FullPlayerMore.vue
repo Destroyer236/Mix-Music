@@ -1,12 +1,14 @@
 <template>
   <div class="ui-full-more">
-    <button ref="trigger" type="button" class="ui-icon-button ui-full-more-trigger" aria-label="更多播放器功能" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" @click="open = !open" @keydown.down.prevent="open = true"><UiIcon name="more" /></button>
-    <PlayerPopover :id="panelId" :show="open" :title="pageTitle" :subtitle="page === 'home' ? '播放器工具与外观' : ''" :trigger="trigger" :width="360" panel-class="ui-full-more-popover" @close="close">
+    <button ref="trigger" type="button" class="ui-icon-button ui-full-more-trigger" aria-label="更多播放器功能" title="更多功能" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" @click="open = !open" @keydown.down.prevent="open = true"><UiIcon name="more" /></button>
+    <PlayerPopover :id="panelId" :show="open" :title="pageTitle" :subtitle="page === 'home' ? '播放器工具与外观' : ''" :trigger="trigger" :width="360" anchor="trigger" panel-class="ui-full-more-popover" @close="close">
       <div class="ui-full-more-content" @keydown.esc.stop.prevent="back" @keydown.left="backKey">
         <button v-if="page !== 'home'" type="button" class="ui-full-more-back" @click="back"><UiIcon name="back" /><span>返回更多功能</span></button>
         <Transition name="ui-full-menu-page" mode="out-in">
           <div :key="page">
             <div v-if="page === 'home'" class="ui-full-more-items">
+              <button type="button" :disabled="!track || reducingRecommendations" @click="reduceRecommendations"><UiIcon name="minimize" /><span>减少推荐</span></button>
+              <div class="ui-full-more-divider" />
               <button v-for="item in menuItems" :key="item.page" type="button" @click="navigate(item.page)" @keydown.right.prevent="navigate(item.page)"><UiIcon :name="item.icon" /><span>{{ item.label }}</span><small v-if="item.value">{{ item.value }}</small><UiIcon name="chevronRight" /></button>
               <div class="ui-full-more-divider" />
               <button type="button" :disabled="!track" @click="addTrack"><UiIcon name="plus" /><span>添加到歌单</span></button>
@@ -94,6 +96,7 @@ import { preferredSourceOptions } from '../services/playbackSourceOptions'
 import { patchPlayerPresentation, playerPresentation, type PlayerBackground, type PlayerCoverLayout } from '../services/playerPresentation'
 import { cancelSleepTimer, playerSessionTools, resetABLoop, setABEnabled, setABPoint, startSleepTimer } from '../services/playerSessionTools'
 import { applyEqualizerPreset, eqBypassed, equalizerGains, previewEqualizerBand, saveEqualizerBand, setEqualizerEnabled } from '../services/playerEqualizer'
+import { reduceTrackRecommendations, reducingRecommendations } from '../services/recommendationFeedback'
 import PlayerPopover from './PlayerPopover.vue'
 import TrackActionModal from './TrackActionModal.vue'
 import UiIcon from './UiIcon.vue'
@@ -163,6 +166,12 @@ function formatTime(seconds: number | null): string {
 }
 function gainLabel(gain: number): string { return gain > 0 ? `+${gain}` : String(gain) }
 function close(): void { open.value = false }
+async function reduceRecommendations(): Promise<void> {
+  if (!props.track || reducingRecommendations.value) return
+  const track = props.track
+  close()
+  try { await reduceTrackRecommendations(track, message => { emit('notice', message) }) } catch { emit('notice', '减少推荐未保存，请重试') }
+}
 function back(): void { if (page.value === 'home') close(); else void navigate('home') }
 function backKey(event: KeyboardEvent): void { if (event.target instanceof HTMLInputElement) return; event.preventDefault(); back() }
 async function navigate(next: MenuPage): Promise<void> {
@@ -282,7 +291,6 @@ onBeforeUnmount(() => { deviceGeneration++; navigator.mediaDevices?.removeEventL
 
 <style lang="less">
 .ui-full-more { display: flex; align-items: center; }
-.ui-full-more-trigger { transform: rotate(90deg); }
 .ui-full-more-popover { z-index: 2100 !important; .ui-player-popover-content { padding: 8px; } }
 .ui-full-more-content { color: var(--modern-text); overflow: hidden; }
 .ui-full-more-items { display: flex; flex-direction: column; gap: 2px; > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--modern-text); cursor: pointer; text-align: left; font: inherit; font-size: 13px; transition: background .15s; &:hover, &:focus-visible { background: var(--modern-hover); } &:disabled { opacity: .4; cursor: default; } > span { flex: 1; } > small { color: var(--modern-muted); font-size: 11px; } > .ui-svg-icon:last-child:not(:first-child) { width: 16px; height: 16px; color: var(--modern-muted); } &[aria-pressed="true"] { color: var(--modern-accent-ink); } } }

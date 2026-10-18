@@ -37,6 +37,7 @@
       <button type="button" title="歌词延后 0.5 秒" aria-label="歌词延后 0.5 秒" :disabled="!lyric.lines.length" @click="changeOffset(-500)"><UiIcon name="minimize" /></button>
       <span class="fpl-divider" />
       <button ref="settingsTrigger" type="button" title="歌词设置" aria-label="歌词设置" aria-haspopup="dialog" :aria-expanded="menu === 'settings'" @click="toggleMenu('settings')"><UiIcon name="settings" /></button>
+      <slot name="tools" />
     </div>
 
     <div v-if="menu" ref="menuPanel" class="fpl-menu" :class="{ 'fpl-copy-menu': menu === 'copy' }" role="dialog" aria-modal="false" :aria-label="menuTitle" tabindex="-1" @keydown="onMenuKey">
@@ -425,8 +426,8 @@ onBeforeUnmount(() => {
 .fpl-dragging, .fpl-dragging .fpl-line { cursor: grabbing; }
 .fpl-actions { position: absolute; right: 2px; top: 50%; display: flex; flex-direction: column; align-items: center; gap: 10px; transform: translateY(-50%); opacity: .65; transition: opacity .2s; }
 .ui-full-player-lyrics:hover .fpl-actions, .fpl-actions:focus-within { opacity: 1; }
-.fpl-actions > button, .fpl-menu header > button { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
-.fpl-actions > button:hover, .fpl-menu header > button:hover { background: var(--modern-hover); }
+.fpl-actions > button, .fpl-actions .ui-full-more-trigger, .fpl-menu header > button { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.fpl-actions > button:hover, .fpl-actions .ui-full-more-trigger:hover, .fpl-menu header > button:hover { background: var(--modern-hover); }
 .fpl-actions button:disabled { opacity: .3; cursor: default; }
 .fpl-actions button:focus-visible, .fpl-menu button:focus-visible, .fpl-return:focus-visible { outline: 2px solid var(--modern-accent-ink); outline-offset: 3px; }
 .fpl-actions .ui-svg-icon { width: 22px; height: 22px; }

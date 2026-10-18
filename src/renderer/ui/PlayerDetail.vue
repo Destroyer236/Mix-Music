@@ -4,7 +4,7 @@
       <div class="ll-full-background" aria-hidden="true"><Transition name="ll-background-fade"><div v-if="backgroundUrl && playerPresentation.background !== 'theme'" :key="backgroundUrl" class="ll-full-background-image" :style="{ backgroundImage: `url(${JSON.stringify(backgroundUrl)})` }" /></Transition><div class="ll-full-background-glow" /><div class="ll-full-background-veil" /></div>
       <FullPlayerSpectrum v-if="contentReady && playerPresentation.spectrum" @notice="notify" />
       <header class="ll-full-header" @pointerenter="toolbarHover = true" @pointerleave="toolbarHover = false; wake()">
-        <button type="button" class="ui-icon-button" :aria-label="showLyrics ? '隐藏歌词' : '显示歌词'" :title="showLyrics ? '隐藏歌词' : '显示歌词'" :aria-pressed="showLyrics" @click="toggleLyrics"><UiIcon name="lyric" /></button>
+        <button type="button" class="ui-icon-button" aria-label="收起播放详情" title="收起 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
         <div class="ll-full-window-tools"><button type="button" class="ui-icon-button" :aria-label="isFullscreen ? '退出全屏' : '进入全屏'" :title="isFullscreen ? '退出全屏' : '进入全屏'" @click="toggleFullscreen"><UiIcon :name="isFullscreen ? 'restore' : 'expand'" /></button><WindowControls /></div>
       </header>
       <div class="ll-full-stage">
@@ -26,15 +26,15 @@
           </Transition>
         </div>
         <div class="ll-full-right" :class="{ 'is-hidden': coverCentered }" :inert="coverCentered || undefined">
-          <Transition name="ll-panel-switch" mode="out-in"><FullPlayerQueue v-if="queueOpen && contentReady" @close="queueOpen = false" @notice="notify" /><FullPlayerLyrics v-else-if="contentReady && showLyrics && !coverCentered" @notice="notify" /></Transition>
+          <Transition name="ll-panel-switch" mode="out-in"><FullPlayerQueue v-if="queueOpen && contentReady" @close="queueOpen = false" @notice="notify" /><FullPlayerLyrics v-else-if="contentReady && showLyrics && !coverCentered" @notice="notify"><template #tools><FullPlayerMore :track="currentTrack" @notice="notify" /></template></FullPlayerLyrics></Transition>
         </div>
+        <div v-if="contentReady && (queueOpen || !showLyrics || coverCentered)" class="ll-full-more-fallback"><FullPlayerMore :track="currentTrack" @notice="notify" /></div>
       </div>
       <footer class="ll-full-toolbar" @pointerenter="toolbarHover = true" @pointerleave="toolbarHover = false; wake()">
         <div class="ll-full-actions">
-          <button type="button" class="ui-icon-button" aria-label="收起播放详情" title="收起 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
           <button type="button" class="ui-icon-button" :class="{ 'ui-active': collected }" :aria-pressed="collected" :aria-label="collected ? '取消收藏当前歌曲' : '收藏当前歌曲'" :title="collected ? '取消喜欢' : '喜欢'" :disabled="!currentTrack || favoritePending.has(currentTrack.id)" @click="toggleCollect"><UiIcon name="heart" :filled="collected" /></button>
           <button type="button" class="ui-icon-button" aria-label="查看歌曲评论" title="评论" :disabled="!currentTrack" @click="openComments"><UiIcon name="comment" /></button>
-          <button type="button" class="ui-icon-button" aria-label="添加到歌单" title="添加到歌单" :disabled="!currentTrack" @click="trackAction = 'add'"><UiIcon name="plus" /></button>
+          <PlayerOptions :track="currentTrack" :collected="collected" :favorite-pending="currentTrack ? favoritePending.has(currentTrack.id) : false" @collect="toggleCollect" />
         </div>
         <div class="ll-full-transport">
           <div class="ll-full-controls">
@@ -46,9 +46,8 @@
           </div>
           <div class="ll-full-progress"><button type="button" aria-label="切换进度时间显示" :title="timeMode ? '显示已播放时间' : '显示剩余时间'" @click="timeMode = !timeMode">{{ timeMode ? '-' + formatTime(Math.max(0, playProgress.maxPlayTime - displayedTime)) : formatTime(displayedTime) }}</button><UiRange :model-value="displayedTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div>
         </div>
-        <div class="ll-full-tools"><QualityControl :track="currentTrack" :label="qualityLabel" :local-file="playingFile" :playback-id="playMusicInfo.musicInfo?.id" defer-load /><ExternalLyricsMenu /><button type="button" class="ui-icon-button" :class="{ 'ui-active': queueOpen }" aria-label="播放队列" title="播放队列" :aria-pressed="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button><FullPlayerMore :track="currentTrack" @notice="notify" /></div>
+        <div class="ll-full-tools"><QualityControl :track="currentTrack" :label="qualityLabel" :local-file="playingFile" :playback-id="playMusicInfo.musicInfo?.id" defer-load /><ExternalLyricsMenu /><button type="button" class="ui-icon-button" :class="{ 'ui-active': showLyrics }" :aria-label="showLyrics ? '隐藏歌词' : '显示歌词'" :title="showLyrics ? '隐藏歌词' : '显示歌词'" :aria-pressed="showLyrics" @click="toggleLyrics"><UiIcon name="lyric" /></button><button type="button" class="ui-icon-button" :class="{ 'ui-active': queueOpen }" aria-label="播放队列" title="播放队列" :aria-pressed="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
       </footer>
-      <TrackActionModal v-if="trackAction && currentTrack" :show="Boolean(trackAction)" :action="trackAction" :tracks="[currentTrack]" :from-list-id="playMusicInfo.listId || ''" @close="trackAction = null" @success="notify" />
       <Transition name="ll-toast"><div v-if="notice" class="ll-full-notice" role="status" aria-live="polite">{{ notice }}</div></Transition>
     </section>
   </Transition>
@@ -80,10 +79,10 @@ import TrackTitle from './components/TrackTitle.vue'
 import WindowControls from './components/WindowControls.vue'
 import QualityControl from './components/QualityControl.vue'
 import ExternalLyricsMenu from './components/ExternalLyricsMenu.vue'
-import TrackActionModal from './components/TrackActionModal.vue'
 import FullPlayerLyrics from './components/FullPlayerLyrics.vue'
 import FullPlayerQueue from './components/FullPlayerQueue.vue'
 import FullPlayerMore from './components/FullPlayerMore.vue'
+import PlayerOptions from './components/PlayerOptions.vue'
 import FullPlayerSpectrum from './components/FullPlayerSpectrum.vue'
 import FullPlayerVolume from './components/FullPlayerVolume.vue'
 import './full-player.less'
@@ -135,7 +134,6 @@ function openComments() {
   setShowPlayerDetail(false)
   void router.push({ path: '/comment', query: { id: playMusicInfo.musicInfo.id, listId: playMusicInfo.listId ?? undefined } })
 }
-const trackAction = ref(null)
 const seeking = ref(null)
 const displayedTime = computed(() => seeking.value ?? playProgress.nowPlayTime)
 const timeMode = ref(false)
@@ -180,13 +178,13 @@ function wake() {
   clearTimeout(idleTimer)
   if (!isShowPlayerDetail.value || !playerPresentation.immersive) return
   idleTimer = setTimeout(() => {
-    if (toolbarHover.value || player.value?.querySelector('.ll-full-toolbar:focus-within, .ll-full-header:focus-within, .fpl-actions:focus-within, .fpl-actions:hover') || document.querySelector('.ui-player-popover, .ui-dialog-backdrop, .ui-volume-panel, .ui-quality-panel, .fpl-menu')) { wake(); return }
+    if (toolbarHover.value || player.value?.querySelector('.ll-full-toolbar:focus-within, .ll-full-header:focus-within, .fpl-actions:focus-within, .fpl-actions:hover, .ll-full-more-fallback:focus-within, .ll-full-more-fallback:hover') || document.querySelector('.ui-player-popover, .ui-dialog-backdrop, .ui-volume-panel, .ui-quality-panel, .fpl-menu')) { wake(); return }
     idle.value = true
   }, 3000)
 }
 watch(() => playerPresentation.immersive, wake)
 watch(() => musicInfo.id, () => { seeking.value = null; backgroundUrl.value = ''; wake() })
-watch(isShowPlayerDetail, show => { if (show) wake(); else { contentReady.value = false; queueOpen.value = false; trackAction.value = null; idle.value = false; clearTimeout(idleTimer) } })
+watch(isShowPlayerDetail, show => { if (show) wake(); else { contentReady.value = false; queueOpen.value = false; idle.value = false; clearTimeout(idleTimer) } })
 function onKey(event) {
   if (event.key !== 'Escape' || !isShowPlayerDetail.value || event.defaultPrevented || document.querySelector('.ui-player-popover, .ui-dialog-backdrop, .ui-volume-panel, .ui-quality-panel, .fpl-menu')) return
   if (queueOpen.value) queueOpen.value = false

@@ -7,7 +7,7 @@ const seconds = (track: LX.Music.MusicInfo) => {
   return parts.length === 2 && parts.every(Number.isFinite) ? parts[0] * 60 + parts[1] : 0
 }
 
-export const recordingKey = (track: LX.Music.MusicInfo) => `${normalize(track.name)}::${singers(track.singer)}`
+export const recordingKey = (track: Pick<LX.Music.MusicInfo, 'name' | 'singer'>) => `${normalize(track.name)}::${singers(track.singer)}`
 export const samePlayTrack = (first: LX.Music.MusicInfo | LX.Download.ListItem, second: LX.Music.MusicInfo | LX.Download.ListItem) => first.id === second.id && ('progress' in first ? 'progress' in second : !('progress' in second) && first.source === second.source)
 export const sameRecording = (first: LX.Music.MusicInfo, second: LX.Music.MusicInfo) => {
   if (first.source === second.source && first.id === second.id) return true
