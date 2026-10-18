@@ -1,6 +1,6 @@
 <template>
   <div class="ui-full-more">
-    <button ref="trigger" type="button" class="ui-icon-button ui-full-more-trigger" aria-label="更多播放器功能" title="更多功能" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" @click="open = !open" @keydown.down.prevent="open = true"><UiIcon name="moreCircle" /></button>
+    <button ref="trigger" type="button" class="ui-icon-button ui-full-more-trigger" aria-label="更多播放器功能" title="更多功能" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" @click="open = !open" @keydown.down.prevent="open = true"><UiIcon name="more" /></button>
     <PlayerPopover :id="panelId" :show="open" :title="pageTitle" :subtitle="page === 'home' ? '播放器工具与外观' : ''" :trigger="trigger" :width="360" anchor="trigger" panel-class="ui-full-more-popover" @close="close">
       <div class="ui-full-more-content" @keydown.esc.stop.prevent="back" @keydown.left="backKey">
         <button v-if="page !== 'home'" type="button" class="ui-full-more-back" @click="back"><UiIcon name="back" /><span>返回更多功能</span></button>
