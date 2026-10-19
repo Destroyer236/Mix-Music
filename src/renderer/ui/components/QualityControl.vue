@@ -4,14 +4,14 @@
     <Teleport to="body">
       <section v-if="open" :id="panelId" ref="panel" class="ui-quality-panel scroll" role="dialog" aria-modal="false" aria-label="播放音质" :style="[detailTheme, position]" @keydown="onPanelKeydown">
         <header><div><strong>播放音质</strong><span>{{ platformLabel }}</span></div><button type="button" class="ui-icon-button" aria-label="关闭音质设置" @click="close(true)"><UiIcon name="close" /></button></header>
-        <p v-if="stream" class="ui-quality-current" role="status">实际播放 · {{ stream.qualityLabel || qualityLabels[stream.quality ?? stream.type] }}<small v-if="streamDetails">{{ streamDetails }}</small></p>
+        <p v-if="stream" class="ui-quality-current" role="status">实际播放 · {{ streamQualityLabel }}<small v-if="streamDetails">{{ streamDetails }}</small></p>
         <p v-else class="ui-quality-current">{{ streamSummary }}</p>
         <div class="ui-quality-options" role="radiogroup" aria-label="选择播放音质">
-          <button v-for="quality in options" :key="quality" type="button" role="radio" :aria-checked="preferredQuality === quality" :data-quality="quality" :disabled="changing" :class="{ selected: preferredQuality === quality }" @click="choose(quality)"><span>{{ quality === 'auto' && qualityTrack?.source === 'qs' ? '平台提供的分享音频' : qualityLabels[quality] }}<small v-if="quality === 'auto'">{{ qualityTrack?.source === 'qs' ? '汽水分享接口未开放原生音质切换' : '默认 · 自动选择账号与歌曲允许的最高音质' }}</small></span><UiIcon v-if="preferredQuality === quality" name="check" /></button>
+          <button v-for="quality in options" :key="quality" type="button" role="radio" :aria-checked="preferredQuality === quality" :data-quality="quality" :disabled="changing || unsupportedQuality(quality)" :class="{ selected: preferredQuality === quality }" @click="choose(quality)"><span>{{ quality === 'auto' && qualityTrack?.source === 'qs' ? '平台提供的分享音频' : qualityLabel(quality) }}<small v-if="quality === 'auto'">{{ qualityTrack?.source === 'qs' ? '汽水分享接口未开放原生音质切换' : '默认 · 自动选择账号与歌曲允许的最高音质' }}</small><small v-else-if="unsupportedQuality(quality)">当前播放器暂不支持 AV3A 编码</small></span><UiIcon v-if="preferredQuality === quality" name="check" /></button>
         </div>
         <p v-if="loading || changing" class="ui-quality-note" role="status">{{ changing ? '正在切换，保留当前播放进度…' : '正在查询这首歌的可用音质…' }}</p>
         <p v-if="error" class="ui-quality-error" role="status">{{ error }}</p>
-        <p v-else class="ui-quality-note">{{ unavailablePreference ? `此曲暂无${qualityLabels[preferredQuality]}，会选择可用音质。` : '可用音质由平台、账号权限与歌曲版权决定。' }}</p>
+        <p v-else class="ui-quality-note">{{ unavailablePreference ? `此曲暂无${qualityLabel(preferredQuality)}，会选择可用音质。` : '可用音质由平台、账号权限与歌曲版权决定。' }}</p>
       </section>
     </Teleport>
   </div>
@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { playerDetailThemeKey } from '../playerDetailPalette'
-import { qualityLabels, type PlatformQuality } from '@common/platformPlayback'
+import { getPlatformQualityLabel, qualityLabels, type PlatformQuality } from '@common/platformPlayback'
 import { sourceNames } from '@renderer/store'
 import { activeStream, getPlatformQualitys, preferredQuality, qualityChanging, qualityChangeError, setPreferredQuality } from '../services/platformPlayback'
 import UiIcon from './UiIcon.vue'
@@ -42,6 +42,9 @@ const options = computed<PlatformQuality[]>(() => ['auto', ...qualitys.value.fil
 const unavailablePreference = computed(() => preferredQuality.value !== 'auto' && !options.value.includes(preferredQuality.value))
 const stream = computed(() => activeStream.value?.trackId === (props.playbackId ?? props.track?.id) ? activeStream.value : null)
 const qualityTrack = computed(() => stream.value?.musicInfo ?? props.track)
+const qualityLabel = (quality: PlatformQuality): string => getPlatformQualityLabel(quality, qualityTrack.value?.source)
+const unsupportedQuality = (quality: PlatformQuality): boolean => quality === 'vivid' && qualityTrack.value?.source === 'wy'
+const streamQualityLabel = computed(() => stream.value ? stream.value.qualityLabel ?? getPlatformQualityLabel(stream.value.quality ?? stream.value.type, stream.value.musicInfo?.source ?? stream.value.platform) : '')
 const platformNames: Record<string, string> = { qq: 'QQ 音乐', tx: 'QQ 音乐', netease: '网易云音乐', wy: '网易云音乐', kugou: '酷狗音乐', kg: '酷狗音乐', kuwo: '酷我音乐', kw: '酷我音乐', migu: '咪咕音乐', mg: '咪咕音乐', bilibili: '哔哩哔哩', bi: '哔哩哔哩', qishui: '汽水音乐', qs: '汽水音乐', bodian: '波点音乐', bo: '波点音乐' }
 const platformLabel = computed(() => {
   if (stream.value) return platformNames[stream.value.platform] ?? stream.value.platform
@@ -51,7 +54,7 @@ const platformLabel = computed(() => {
 const streamSummary = computed(() => {
   if (!props.track) return '选择歌曲后可切换音质'
   if (props.track.source === 'local' || props.localFile) return '本地文件音质由音频文件决定'
-  return stream.value ? `${platformLabel.value} · ${stream.value.qualityLabel ?? qualityLabels[stream.value.quality ?? stream.value.type]}` : `音质偏好 · ${qualityLabels[preferredQuality.value]}`
+  return stream.value ? `${platformLabel.value} · ${streamQualityLabel.value}` : `音质偏好 · ${qualityLabel(preferredQuality.value)}`
 })
 const streamDetails = computed(() => {
   const details: string[] = []
@@ -119,7 +122,7 @@ async function toggle() {
   panel.value?.querySelector<HTMLButtonElement>('button[aria-checked="true"]')?.focus()
 }
 async function choose(quality: PlatformQuality) {
-  if (changing.value || !props.track || props.track.source === 'local' || props.localFile) return
+  if (changing.value || unsupportedQuality(quality) || !props.track || props.track.source === 'local' || props.localFile) return
   if (preferredQuality.value === quality && !qualityChangeError.value) { close(true); return }
   saving.value = true
   queryError.value = ''
@@ -154,4 +157,5 @@ onBeforeUnmount(() => { qualityRequestId++; close() })
 .ui-quality-options { display: flex; flex-direction: column; gap: 3px; button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 32px; padding: 8px 9px; border: 0; border-radius: 8px; color: inherit; background: transparent; text-align: left; font: inherit; font-size: 11px; cursor: pointer; small { display: block; margin-top: 4px; color: var(--modern-muted); font-size: 9px; } .ui-svg-icon { width: 15px; height: 15px; } &:hover, &:focus-visible { background: var(--modern-hover); } &.selected { color: var(--modern-accent-ink); background: var(--modern-accent-soft); } } }
 .ui-quality-note, .ui-quality-error { margin: 9px 6px 0; color: var(--modern-muted); font-size: 9px; line-height: 1.6; }
 .ui-quality-error { color: #c66666; }
+.ui-quality-options button:disabled { opacity: .55; cursor: not-allowed; }
 </style>

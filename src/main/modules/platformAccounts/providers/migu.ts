@@ -11,7 +11,7 @@ const API = 'https://app.c.nf.migu.cn'
 const ENVELOPE_KEY = Buffer.from('Jk8qzuePiJ1qE3mDYhLQ3T73DtDoAhLP')
 const toneFlags: Partial<Record<PlatformQuality, string>> = { '128k': 'PQ', '320k': 'HQ', flac: 'SQ', flac24bit: 'ZQ', sky: 'Z3D' }
 interface MiguMeta extends LX.Music.MusicInfoMeta_mg { upstreamSongId?: string, contentId?: string, resourceType?: string, platformQualitys?: PlatformQuality[], formatResourceTypes?: Partial<Record<PlatformQuality, string>> }
-const qualityRank: Record<PlatformQuality, number> = { auto: 100, '64k': 0, '128k': 1, '192k': 2, dolby: 2, '320k': 3, flac: 4, ape: 4, wav: 4, flac24bit: 5, jyeffect: 6, sky: 7, jymaster: 8 }
+const qualityRank: Record<PlatformQuality, number> = { auto: 100, '64k': 0, '128k': 1, '192k': 2, dolby: 2, '320k': 3, flac: 4, ape: 4, wav: 4, flac24bit: 5, jyeffect: 6, sky: 7, jymaster: 8, vivid: 8 }
 const record = (value: any): Record<string, any> => value && typeof value === 'object' ? value : {}
 const image = (value: unknown) => typeof value === 'string' && value ? value.startsWith('http') ? value : `https://d.musicapp.migu.cn${value}` : ''
 

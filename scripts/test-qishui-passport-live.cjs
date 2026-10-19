@@ -20,7 +20,14 @@ function readModule(name) {
   loaded.filename = filename
   loaded.paths = module.paths
   const nativeRequire = loaded.require.bind(loaded)
-  loaded.require = name => name === './navigation' ? readModule('navigation') : nativeRequire(name)
+  loaded.require = name => {
+    if (name.endsWith('?qishui-verification-source')) {
+      const cleanName = name.slice(0, -'?qishui-verification-source'.length)
+      return { default: fs.readFileSync(require.resolve(cleanName), 'utf8') }
+    }
+    if (name === './navigation' || name === './qishuiVerification') return readModule(name.slice(2))
+    return nativeRequire(name)
+  }
   modules.set(name, loaded)
   loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, filename)
   return loaded.exports

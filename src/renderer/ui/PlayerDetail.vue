@@ -47,7 +47,7 @@
           </div>
           <div class="ll-full-progress"><button type="button" aria-label="切换进度时间显示" :title="timeMode ? '显示已播放时间' : '显示剩余时间'" @click="timeMode = !timeMode">{{ timeMode ? '-' + formatTime(Math.max(0, playProgress.maxPlayTime - displayedTime)) : formatTime(displayedTime) }}</button><UiRange :model-value="displayedTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div>
         </div>
-        <div class="ll-full-tools"><QualityControl :track="currentTrack" :label="qualityLabel" :local-file="playingFile" :playback-id="playMusicInfo.musicInfo?.id" defer-load /><ExternalLyricsMenu /><button type="button" class="ui-icon-button" :class="{ 'ui-active': showLyrics }" :aria-label="showLyrics ? '隐藏歌词' : '显示歌词'" :title="showLyrics ? '隐藏歌词' : '显示歌词'" :aria-pressed="showLyrics" @click="toggleLyrics"><UiIcon name="lyric" /></button><button type="button" class="ui-icon-button" :class="{ 'ui-active': queueOpen }" aria-label="播放队列" title="播放队列" :aria-pressed="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
+        <div class="ll-full-tools"><QualityControl :track="currentTrack" :label="qualityLabel" :local-file="playingFile" :playback-id="playMusicInfo.musicInfo?.id" defer-load /><ExternalLyricsMenu /><button type="button" class="ui-icon-button" :class="{ 'ui-active': showLyrics }" :aria-label="showLyrics ? '隐藏歌词' : '显示歌词'" :title="showLyrics ? '隐藏歌词' : '显示歌词'" :aria-pressed="showLyrics" @click="toggleLyrics"><UiIcon name="lyricsToggle" /></button><button type="button" class="ui-icon-button" :class="{ 'ui-active': queueOpen }" aria-label="播放队列" title="播放队列" :aria-pressed="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
       </footer>
       <Transition name="ll-toast"><div v-if="notice" class="ll-full-notice" role="status" aria-live="polite">{{ notice }}</div></Transition>
     </section>
@@ -66,7 +66,7 @@ import { togglePlay, playPrev, playNext } from '@renderer/core/player'
 import { appSetting, mergeSetting, setTogglePlayMode } from '@renderer/store/setting'
 import { isFullscreen, sourceNames } from '@renderer/store'
 import { setFullScreen } from '@renderer/utils/ipc'
-import { qualityLabels } from '@common/platformPlayback'
+import { getPlatformQualityLabel } from '@common/platformPlayback'
 import { favoritePending, isFavorite, requestFavorite } from './services/platformAccounts'
 import { activePlaybackResource, activeStream, preferredQuality } from './services/platformPlayback'
 import { heartbeatActive, toggleHeartbeat } from './services/heartbeat'
@@ -120,7 +120,7 @@ const currentStream = computed(() => activeStream.value?.trackId === playMusicIn
 const platformNames = { netease: '网易云音乐', qq: 'QQ 音乐', kugou: '酷狗音乐', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩', qishui: '汽水音乐', bodian: '波点音乐' }
 const sourceLabel = computed(() => playingFile.value ? '本地音乐' : currentStream.value ? platformNames[currentStream.value.platform] ?? currentStream.value.platform : sourceNames.value[currentTrack.value?.source] ?? '等待音源')
 const sourceTitle = computed(() => playingFile.value ? '实际播放音源 · 本地文件' : currentStream.value ? `实际播放音源 · ${sourceLabel.value}` : `歌曲平台 · ${sourceLabel.value}，播放后显示实际音源`)
-const qualityLabel = computed(() => playingFile.value ? '本地' : currentStream.value?.qualityLabel ?? (currentStream.value ? qualityLabels[currentStream.value.quality ?? currentStream.value.type] : preferredQuality.value === 'auto' ? '自动' : qualityLabels[preferredQuality.value]))
+const qualityLabel = computed(() => playingFile.value ? '本地' : currentStream.value?.qualityLabel ?? (currentStream.value ? getPlatformQualityLabel(currentStream.value.quality ?? currentStream.value.type, currentStream.value.musicInfo?.source ?? currentTrack.value?.source) : preferredQuality.value === 'auto' ? '自动' : getPlatformQualityLabel(preferredQuality.value, currentTrack.value?.source)))
 const artistNames = computed(() => [...new Set(String(musicInfo.singer || '').split(/\s*、\s*|\s+\/\s+/).map(name => name.trim()).filter(Boolean))])
 const searchMetadata = (type, text) => {
   if (!String(text).trim()) return

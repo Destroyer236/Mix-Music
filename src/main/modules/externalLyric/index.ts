@@ -13,6 +13,7 @@ const titles = { desktop: '桌面歌词', island: '灵动岛歌词', taskbar: '�
 export const lyricWindows = new Map<ExternalLyricMode, BrowserWindow>()
 const geometries = new WeakMap<BrowserWindow, LyricWindowGeometry>()
 let host: TaskbarHost | undefined
+let taskbarLayout: Record<string, unknown> & { maxWidth: number } | undefined
 let taskbarRecoveryTimer: NodeJS.Timeout | undefined
 let taskbarRecoveryAttempt = 0
 let cursorTimer: NodeJS.Timeout | undefined
@@ -33,7 +34,7 @@ function sendLayout(mode: ExternalLyricMode, extra: Record<string, unknown> = {}
   const win = lyricWindows.get(mode)
   if (!win || win.isDestroyed()) return
   const island = getExternalLyricConfig(global.lx.appSetting, 'island')
-  win.webContents.send('externalLyric:layout', { isLight: !global.lx.theme.shouldUseDarkColors, maxWidth: screen.getDisplayMatching(win.getBounds()).workArea.width, snapped: mode === 'island' && (islandSnapped || (process.platform === 'darwin' && island.notchFusion)), ...extra })
+  win.webContents.send('externalLyric:layout', { isLight: !global.lx.theme.shouldUseDarkColors, maxWidth: screen.getDisplayMatching(win.getBounds()).workArea.width, snapped: mode === 'island' && (islandSnapped || (process.platform === 'darwin' && island.notchFusion)), ...(mode === 'taskbar' ? taskbarLayout : {}), ...extra })
 }
 function fit(bounds: Electron.Rectangle, clamp = true) {
   const area = screen.getDisplayMatching(bounds).workArea
@@ -70,20 +71,36 @@ function savePosition(mode: ExternalLyricMode, win: BrowserWindow) {
   }, 300))
 }
 function close(mode: ExternalLyricMode) {
+  if (mode === 'taskbar') {
+    clearTimeout(taskbarRecoveryTimer)
+    taskbarRecoveryTimer = undefined
+  }
   const win = lyricWindows.get(mode)
   if (!win) return
   lyricWindows.delete(mode)
   geometries.delete(win)
   clearTimeout(saveTimers.get(mode)); saveTimers.delete(mode)
   if (mode === 'taskbar') {
-    clearTimeout(taskbarRecoveryTimer)
-    taskbarRecoveryTimer = undefined
     host?.stop(); host = undefined
+    taskbarLayout = undefined
   }
   if (!win.isDestroyed()) win.destroy()
   hovered.delete(mode)
   unlockRegions.delete(mode)
   if (!lyricWindows.size) { clearInterval(cursorTimer); cursorTimer = undefined }
+}
+function recoverTaskbar(win: BrowserWindow, error?: Error) {
+  // Old host events and aborted loads must not affect a replacement window.
+  if (lyricWindows.get('taskbar') !== win) return
+  if (error) console.error('Taskbar lyric host:', error)
+  const shouldRecover = !shuttingDown && ready && global.lx.appSetting['externalLyric.taskbar.enabled']
+  close('taskbar')
+  if (!shouldRecover) return
+  const retryDelay = Math.min(1000 * (2 ** taskbarRecoveryAttempt++), 15000)
+  taskbarRecoveryTimer = setTimeout(() => {
+    taskbarRecoveryTimer = undefined
+    if (!shuttingDown && ready && global.lx.appSetting['externalLyric.taskbar.enabled'] && !lyricWindows.has('taskbar')) create('taskbar')
+  }, retryDelay)
 }
 function startCursorChecks() {
   if (cursorTimer) return
@@ -116,7 +133,7 @@ function create(mode: ExternalLyricMode) {
   const height = mode === 'desktop' ? desktop.height : mode === 'island' ? Math.round(64 * island.scale) : 200
   const prefs = mode === 'desktop' ? desktop : island
   const bounds = mode === 'taskbar' ? { x: area.x, y: area.y, width, height } : fit({ x: prefs.x ?? area.x + (area.width - width) / 2, y: prefs.y ?? (mode === 'desktop' ? area.y + area.height - height - 40 : area.y + 8), width, height })
-  const win = new BrowserWindow({ ...bounds, title: `LinkLine · ${titles[mode]}`, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, show: false, resizable: mode === 'desktop' && !desktop.locked, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, roundedCorners: false, minWidth: mode === 'desktop' ? 240 : 0, minHeight: mode === 'desktop' ? 80 : 0, alwaysOnTop: mode !== 'taskbar' && prefs.alwaysOnTop, webPreferences: { partition: 'persist:win-main', nodeIntegration: true, contextIsolation: false, sandbox: false, webgl: false, spellcheck: false, backgroundThrottling: false } })
+  const win = new BrowserWindow({ ...bounds, title: `LinkLine · ${titles[mode]}`, ...(mode === 'taskbar' ? { type: 'toolbar' as const, movable: false } : {}), frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, show: false, resizable: mode === 'desktop' && !desktop.locked, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, roundedCorners: false, minWidth: mode === 'desktop' ? 240 : 0, minHeight: mode === 'desktop' ? 80 : 0, alwaysOnTop: mode !== 'taskbar' && prefs.alwaysOnTop, webPreferences: { partition: 'persist:win-main', nodeIntegration: true, contextIsolation: false, sandbox: false, webgl: false, spellcheck: false, backgroundThrottling: false, ...(mode === 'taskbar' ? { zoomFactor: 1, disableDialogs: true } : {}) } })
   geometries.set(win, new LyricWindowGeometry(win, bounds))
   if (mode === 'island') islandSnapped = island.y === null || bounds.y <= screen.getDisplayMatching(bounds).workArea.y + 16
   lyricWindows.set(mode, win)
@@ -127,27 +144,12 @@ function create(mode: ExternalLyricMode) {
     if (mode === 'island') positionIsland(win)
     if (mode === 'taskbar') {
       host = startTaskbarHost(win, layout => {
-        if (win.isDestroyed()) return
+        if (lyricWindows.get(mode) !== win || win.isDestroyed()) return
         taskbarRecoveryAttempt = 0
-        win.webContents.send('externalLyric:layout', layout)
-        if (layout.maxWidth >= 120) win.showInactive()
-        else win.hide()
-      }, error => {
-        console.error('Taskbar lyric host:', error)
-        const shouldRecover = !shuttingDown && ready && global.lx.appSetting['externalLyric.taskbar.enabled']
-        close(mode)
-        // A transient PowerShell/Explorer failure must not turn the user's
-        // setting off. Recreate the window after the old HWND and host process
-        // have fully gone away; the normal `closed` handler cannot do this
-        // because close() removes the map entry before destroying the window.
-        if (shouldRecover) {
-          const retryDelay = Math.min(1000 * (2 ** taskbarRecoveryAttempt++), 15000)
-          taskbarRecoveryTimer = setTimeout(() => {
-            taskbarRecoveryTimer = undefined
-            if (!shuttingDown && ready && global.lx.appSetting['externalLyric.taskbar.enabled'] && !lyricWindows.has('taskbar')) create('taskbar')
-          }, retryDelay)
-        }
-      })
+        taskbarLayout = layout
+        sendLayout(mode)
+        if (layout.maxWidth >= 120) { if (!win.isVisible() || layout.reattached === true) win.showInactive() } else if (win.isVisible()) win.hide()
+      }, error => { recoverTaskbar(win, error) })
     } else { win.showInactive(); startCursorChecks() }
     sendLayout(mode)
   })
@@ -155,15 +157,19 @@ function create(mode: ExternalLyricMode) {
   win.on('will-resize', (_event, next) => { if (mode === 'desktop') geometries.get(win)!.captureResize(next) })
   win.on('resize', () => { if (mode === 'desktop') savePosition(mode, win) })
   win.on('close', event => { if (!shuttingDown) { event.preventDefault(); save({ [`externalLyric.${mode}.enabled`]: false }) } })
+  if (mode === 'taskbar') win.webContents.on('render-process-gone', (_event, details) => { recoverTaskbar(win, new Error(`任务栏歌词渲染进程已退出 (${details.reason})`)) })
   win.on('closed', () => {
     if (lyricWindows.get(mode) !== win) return
-    close(mode)
     // Explorer can destroy an embedded child window while rebuilding its taskbar.
-    if (mode === 'taskbar' && ready && !shuttingDown && global.lx.appSetting['externalLyric.taskbar.enabled']) setTimeout(() => { create(mode) }, 1000)
+    if (mode === 'taskbar') recoverTaskbar(win)
+    else close(mode)
   })
   const base = process.env.NODE_ENV === 'production' ? `file://${path.join(__dirname, 'lyric.html').replace(/\\/g, '/')}` : 'http://localhost:9081/lyric.html'
   const os = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux'
-  void win.loadURL(`${base}?mode=${mode}&os=${os}`).catch(error => { console.error('External lyric load failed', error); close(mode); save({ [`externalLyric.${mode}.enabled`]: false }) })
+  void win.loadURL(`${base}?mode=${mode}&os=${os}`).catch(error => {
+    if (lyricWindows.get(mode) !== win) return
+    console.error('External lyric load failed', error); close(mode); save({ [`externalLyric.${mode}.enabled`]: false })
+  })
   global.lx.event_app.desktop_lyric_window_created(win)
 }
 function updateWindows(keys: string[]) {

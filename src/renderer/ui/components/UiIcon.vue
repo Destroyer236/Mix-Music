@@ -40,7 +40,7 @@ const symbols = { folderOpen: '#icon-lucide-folder-open', imagePlus: '#icon-luci
 
 defineProps({ name: { type: String, default: 'music' }, filled: { type: Boolean, default: false } })
 const paths = {
-  lyricWheel: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0M19.8 7.5l-5.2 3M12 15v6M9.4 10.5l-5.2-3',
+  lyricsToggle: 'M4 5h14M4 12v7M9 12h13M9 19h13',
   heartPulse: 'M20 13c5-6-2-13-8-7-6-6-13 1-8 7l8 8 5-5M3 12h5l2-4 4 8 2-4h5',
   alertCircle: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 7v6m0 4h.01',
   globe: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18M12 3c5 5 5 13 0 18M12 3c-5 5-5 13 0 18',

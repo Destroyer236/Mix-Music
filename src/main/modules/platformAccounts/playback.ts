@@ -22,6 +22,7 @@ const qualityRank: Partial<Record<PlatformQuality, number>> = {
   jyeffect: 7,
   flac24bit: 7,
   jymaster: 7,
+  vivid: 7,
 }
 const streamQualityRank = (stream: PlatformStream): number => {
   const quality = stream.quality && stream.quality !== 'auto' ? stream.quality : stream.type

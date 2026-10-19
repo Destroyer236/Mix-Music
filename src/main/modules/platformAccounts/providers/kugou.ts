@@ -3,7 +3,7 @@ import type { PlatformProvider, ProviderContext } from './types'
 import { songVip } from '@common/musicAccess'
 
 const notice = '酷狗官网支持登录与歌曲播放；当前网页登录接口未开放收藏、创建歌单同步及红心写入。'
-const ranks: Record<PlatformQuality, number> = { auto: 100, '64k': 0, '128k': 1, '192k': 2, dolby: 2, '320k': 3, flac: 4, ape: 4, wav: 4, flac24bit: 5, jyeffect: 6, sky: 7, jymaster: 8 }
+const ranks: Record<PlatformQuality, number> = { auto: 100, '64k': 0, '128k': 1, '192k': 2, dolby: 2, '320k': 3, flac: 4, ape: 4, wav: 4, flac24bit: 5, jyeffect: 6, sky: 7, jymaster: 8, vivid: 8 }
 const decode = (value: string) => {
   const unicode = value.replace(/%u([\da-f]{4})/gi, (_match, code: string) => String.fromCharCode(parseInt(code, 16)))
   try { return decodeURIComponent(unicode) } catch { return unicode }

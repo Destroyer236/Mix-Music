@@ -18,6 +18,7 @@ function load(relative, overrides) {
 }
 
 const { getNeteaseHeartbeat } = load('src/main/modules/platformAccounts/providers/netease.ts', (id, nativeRequire) => {
+  if (id === '@common/platformPlayback') return load('src/common/platformPlayback.ts', (id, require) => require(id))
   if (id === 'NeteaseCloudMusicApi/util/crypto') return { __esModule: true, default: { weapi: data => ({ payload: JSON.stringify(data) }) } }
   if (id === '@common/musicAccess') return { songVip: () => false }
   if (id === '@common/musicSubtitle') return { songSubtitle: () => '' }
@@ -101,7 +102,7 @@ test('empty likes, unavailable liked playlist, empty queue and expired login giv
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const deferred = () => {
   let resolve
-  const promise = new Promise(yes => { resolve = yes })
+  const promise = new Promise(_resolve => { resolve = _resolve })
   return { promise, resolve }
 }
 
@@ -133,7 +134,7 @@ function ipcFixture(authenticated = true) {
     if (id === './playback') return { createPlaybackResolver: () => ({}) }
     if (id === '../userApi/playback') return { getImportedPlaybackSources: () => [] }
     if (id === './matching') return { aggregateFavorites: () => [] }
-    if (id === './qishuiLogin' || id === './bodianLogin') return {}
+    if (id === './qishuiLogin' || id === './qishuiPassport' || id === './bodianLogin' || id === './nativeLogin') return {}
     return nativeRequire(id)
   })
   subject.default()

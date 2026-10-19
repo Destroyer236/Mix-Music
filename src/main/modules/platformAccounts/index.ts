@@ -14,6 +14,7 @@ import { kuwoProvider } from './providers/kuwo'
 import qishuiProvider, { searchCatalog, publicPlaylist, resolveShare, getLyrics, getAlbumTracks, getArtistTracks } from './providers/qishui'
 import { createQishuiLogin } from './qishuiLogin'
 import { createQishuiPassport } from './qishuiPassport'
+import { createQishuiLoginDiagnosticWriter } from './qishuiLoginDiagnostics'
 import bodianProvider, { searchCatalog as searchBodianCatalog, publicPlaylist as bodianPlaylist, resolveShare as resolveBodianShare, getLyrics as getBodianLyrics, getAlbumTracks as getBodianAlbumTracks, getArtistTracks as getBodianArtistTracks } from './providers/bodian'
 import { createBodianLogin } from './bodianLogin'
 import { createNativeLogin, type NativeLoginPlatform } from './nativeLogin'
@@ -519,6 +520,7 @@ export default () => {
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianLyrics>>>('platform_bodian_lyric', async({ params }) => getBodianLyrics((await getState('bodian')).context, params?.id))
   mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveBodianShare>>>('platform_bodian_share', async({ params }) => resolveBodianShare((await getState('bodian')).context, params?.text))
   let qrLogin: ReturnType<typeof createQishuiLogin> | undefined
+  const qrDiagnostic = createQishuiLoginDiagnosticWriter(path.join(app.getPath('userData'), 'qishui-login-diagnostic.json'))
   const qrOwners = new WeakSet<Electron.WebContents>()
   const getQrLogin = async() => {
     const state = await getState('qishui')
@@ -535,7 +537,7 @@ export default () => {
       void save()
       notify()
       void syncState(state)
-    }, createQishuiPassport)
+    }, createQishuiPassport, qrDiagnostic)
     return { state, login: qrLogin }
   }
   mainHandle('platform_qishui_login_start', async({ event }) => {

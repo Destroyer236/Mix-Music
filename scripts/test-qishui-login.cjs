@@ -8,9 +8,11 @@ const ts = require('typescript')
 const QRCode = require('qrcode')
 const { PNG } = require('pngjs')
 const qrPayloads = []
-const computerName = 'Link Line 测试 PC'
 const browserUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) LinkLine/1.2.0 Chrome/134.0.6998.205 Electron/35.2.1 Safari/537.36'
-const sdkParams = { aid: '386088', passport_jssdk_version: '2.4.13', passport_jssdk_type: 'normal', is_from_ttaccountsdk: '1', account_sdk_source: 'web', language: 'zh', p_js_v: '2.4.13', p_js_t: 'pro', p_ver: '1.0.29', is_new_login: '1', is_from_iesaccountsaas: '1', device_platform: 'PC', version_code: '3.7.0' }
+const sdkParams = { aid: '386088', passport_jssdk_version: '2.4.13', passport_jssdk_type: 'normal', is_from_ttaccountsdk: '1', account_sdk_source: 'web', language: 'zh', p_js_v: '2.4.13', p_js_t: 'pro', p_zt: '3.3.5', p_ver: '1.0.29', request_host: 'app%3A%2F%2Fresources', p_bd: '1.0.0.41', is_new_login: '1', is_from_iesaccountsaas: '1', device_platform: 'PC', version_code: '3.7.0', account_sdk_source_info: '00' }
+const identityKeys = ['device_id', 'install_id', 'did', 'iid', 'msToken']
+const requestIdentity = request => Object.fromEntries(identityKeys.map(name => [name, request.url.searchParams.get(name)]))
+const scanAddress = token => `https://bff-pc.qishui.com/ucenter_web/app/sdk-next?aid=386088&token=${encodeURIComponent(token)}&uc_sdk=scan-auth`
 
 const filename = path.resolve(__dirname, '../src/main/modules/platformAccounts/qishuiLogin.ts')
 const compiled = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText
@@ -19,7 +21,6 @@ subject.filename = filename
 subject.paths = module.paths
 const nativeRequire = subject.require.bind(subject)
 subject.require = name => {
-  if (name === 'node:os') return { ...nativeRequire(name), hostname: () => computerName }
   if (name !== 'qrcode') return nativeRequire(name)
   const encoder = {
     ...QRCode,
@@ -46,7 +47,7 @@ const collapsedCookies = (reply, hasGetSetCookie = true) => {
 }
 const qr = (patch = {}, cookies = ['passport_csrf_token=flow-csrf; Domain=.qishui.com; Path=/; Secure; HttpOnly']) => {
   const data = { token: 'private-upstream-token', qrcode: png, expire_time: Math.floor(Date.now() / 1000) + 300, ...patch }
-  return response({ qrcode_index_url: `https://bff-pc.qishui.com/qrcode_index?token=${encodeURIComponent(data.token)}`, ...data }, cookies)
+  return response({ qrcode_index_url: scanAddress(data.token), ...data }, cookies)
 }
 const confirmed = () => response({ status: 'confirmed', error_code: 0 }, ['sessionid=fresh-account; Domain=.qishui.com; Path=/; Secure; HttpOnly; SameSite=None'])
 const key = value => `${String(value.domain ?? 'api.qishui.com').replace(/^\./, '')}|${value.path ?? '/'}|${value.name}`
@@ -62,7 +63,7 @@ const cookieMatches = (cookie, url) => {
 function encodedQr(image) {
   assert.match(image, /^data:image\/png;base64,/)
   const capture = qrPayloads.at(-1)
-  assert.ok(capture, 'The login controller must generate the PC QR locally')
+  assert.ok(capture, 'The login controller must encode the issued scan-auth address locally')
   assert.equal(typeof capture.payload, 'string')
   const actual = PNG.sync.read(Buffer.from(image.split(',')[1], 'base64'))
   const symbol = QRCode.create(capture.payload, capture.options)
@@ -119,12 +120,14 @@ function fixture(actions = [], callback = async() => {}, options = {}) {
 function passportFactoryFixture(plans = []) {
   const calls = []
   const clients = []
-  const factory = async(userAgent, signal) => {
+  const factory = async(userAgent, signal, owner) => {
     const plan = plans.shift()
     assert.ok(plan, 'unexpected Passport client initialization')
     const requests = []
     const client = {
       requests,
+      verifications: [],
+      harvests: [],
       destroyed: 0,
       async fetch(url, init) {
         requests.push({ url: new URL(url), init })
@@ -134,7 +137,21 @@ function passportFactoryFixture(plans = []) {
       },
       async destroy() { this.destroyed++ },
     }
-    calls.push({ userAgent, signal })
+    if (plan.verifications) {
+      client.verify = async(decision, generalParams) => {
+        client.verifications.push({ decision, generalParams })
+        assert.ok(plan.verifications.length, 'unexpected verification window')
+        const action = plan.verifications.shift()
+        return typeof action === 'function' ? action(decision, generalParams) : action
+      }
+    }
+    if (plan.cookieJar || plan.harvest) {
+      client.cookies = async redirect => {
+        client.harvests.push(redirect)
+        return plan.harvest ? plan.harvest(redirect) : plan.cookieJar
+      }
+    }
+    calls.push({ userAgent, signal, owner })
     clients.push(client)
     await plan.initializing
     if (plan.failure) throw plan.failure
@@ -142,6 +159,285 @@ function passportFactoryFixture(plans = []) {
   }
   return { factory, calls, clients }
 }
+
+const authCookie = (patch = {}) => ({ name: 'sessionid_ss', value: 'verified-browser-account', domain: '.qishui.com', path: '/', secure: true, httpOnly: true, hostOnly: false, ...patch })
+const secondVerify = (patch = {}, headers = {}) => response({ error_code: 2046, verify_from: 'verify_center', verify_portrait_id: 'server-verification.login', url: 'https://lf-c-flwb.bytetos.com/obj/verify/second-verify.js', biz_params: { verify_ticket: 'private-verification-ticket' }, ...patch }, [], headers)
+
+test('2046 opens one asynchronous verification, extends expiry, and resends only after official verification succeeds', async() => {
+  const gate = deferred()
+  const redirect = 'https://api.qishui.com/passport/sso/login/?ticket=private-redirect-ticket'
+  const decisionBiz = { token: 'wrong-token', next: 'https://outside.example/', aid: 'wrong-aid', device_id: 'wrong-device', msToken: 'wrong-ms-token', isResend: 'false', is_frontier: 'false', need_logo: 'true', is_new_login: '0', verify_ticket: 'private-verification-ticket', nested: { mode: 'sms' }, count: 2, ignored: null }
+  const transport = passportFactoryFixture([{ actions: [qr(), secondVerify({ biz_params: decisionBiz }, { 'x-tt-verify-passport-decision': 'known-second-verification' }), response({ status: 'confirmed', redirect_url: redirect })], verifications: [() => gate.promise], harvest: target => target ? [authCookie()] : [] }])
+  const f = fixture([], async context => assert.equal((await context.cookies()).sessionid_ss, 'verified-browser-account'), { passportFactory: transport.factory })
+  try {
+    const started = await f.login.start(11)
+    const [first, simultaneous] = await Promise.all([f.login.check(11, started.flowId), f.login.check(11, started.flowId)])
+    assert.equal(first.status, 'verifying')
+    assert.deepEqual(simultaneous, first)
+    assert.ok(first.expiresAt > started.expiresAt + 4 * 60 * 1000)
+    const client = transport.clients[0]
+    assert.equal(client.verifications.length, 1)
+    assert.equal(client.verifications[0].decision.error_code, 2046)
+    assert.deepEqual(Object.fromEntries(identityKeys.map(name => [name, client.verifications[0].generalParams[name]])), requestIdentity(client.requests[0]))
+    for (const [name, value] of Object.entries(sdkParams)) assert.equal(client.verifications[0].generalParams[name], value)
+    assert.equal((await f.login.check(11, started.flowId)).status, 'verifying')
+    assert.equal(client.requests.length, 2)
+    assert.equal(client.harvests.length, 0)
+    assert.equal(f.callbacks(), 0)
+    assert.deepEqual(f.mutations, [])
+    assert.doesNotMatch(JSON.stringify(first), /private-|verify_center|server-verification|msToken/)
+    gate.resolve(true)
+    await tick()
+    assert.equal(client.requests.length, 2, 'UI completion must wait for a new check before resubmitting')
+    assert.equal((await f.login.check(11, started.flowId)).status, 'confirmed')
+    const resend = client.requests[2]
+    assert.equal(resend.url.searchParams.get('isResend'), 'true')
+    assert.deepEqual(Object.fromEntries(new URLSearchParams(resend.init.body)), { token: 'private-upstream-token', next: 'https://api.qishui.com', is_frontier: 'true', need_logo: 'false', need_short_url: 'false', is_new_login: '1', verify_ticket: 'private-verification-ticket', nested: '{"mode":"sms"}', count: '2' })
+    assert.equal(resend.init.headers.get('x-ss-stub'), createHash('md5').update(resend.init.body).digest('hex').toUpperCase())
+    assert.deepEqual(client.harvests, [undefined, redirect])
+    assert.equal(f.callbacks(), 1)
+    assert.equal(transport.calls[0].owner, 11)
+    await tick()
+    assert.equal(client.destroyed, 1)
+  } finally { gate.resolve(false); f.login.cancelAll() }
+})
+
+test('verification business parameters accept JSON strings, query strings, and objects without replacing QR credentials', async() => {
+  for (const biz of [{ token: 'wrong', next: 'https://outside.example', ticket: 'a b', nested: { a: 1 }, count: 3, ignored: null }, '{"token":"wrong","ticket":"a b","count":3}', 'token=wrong&ticket=a%20b&count=3']) {
+    const transport = passportFactoryFixture([{ actions: [qr(), secondVerify({ biz_params: biz }), confirmed()], verifications: [true] }])
+    const f = fixture([], async() => {}, { passportFactory: transport.factory })
+    try {
+      const started = await f.login.start(1)
+      assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+      await tick()
+      assert.equal((await f.login.check(1, started.flowId)).status, 'confirmed')
+      const request = transport.clients[0].requests[2]
+      const form = new URLSearchParams(request.init.body)
+      assert.equal(form.get('token'), 'private-upstream-token')
+      assert.equal(form.get('next'), 'https://api.qishui.com')
+      assert.equal(form.get('ticket'), 'a b')
+      assert.equal(form.get('count'), '3')
+      assert.equal(form.has('ignored'), false)
+      assert.equal(request.url.searchParams.get('isResend'), 'true')
+      assert.equal(f.callbacks(), 1)
+    } finally { f.login.cancelAll() }
+  }
+})
+
+test('a lost verification resend consumes its completion and resumes ordinary polling without replaying the decision', async() => {
+  const lost = deferred()
+  const transport = passportFactoryFixture([{ actions: [qr(), secondVerify(), () => lost.promise, response({ status: 'scanned' }), confirmed()], verifications: [true] }])
+  const f = fixture([], async() => {}, { passportFactory: transport.factory })
+  try {
+    const started = await f.login.start(1)
+    assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+    await tick()
+    const client = transport.clients[0]
+    const checking = f.login.check(1, started.flowId)
+    const concurrent = f.login.check(1, started.flowId)
+    const failures = Promise.allSettled([checking, concurrent])
+    await tick()
+    assert.equal(client.requests.length, 3, 'Concurrent checks must share the one verification resend')
+    const resend = client.requests[2]
+    assert.equal(resend.url.searchParams.get('isResend'), 'true')
+    assert.equal(new URLSearchParams(resend.init.body).get('verify_ticket'), 'private-verification-ticket')
+    lost.reject(new Error('fixture transport connection lost after submission'))
+    const results = await failures
+    for (const result of results) {
+      assert.equal(result.status, 'rejected')
+      assert.match(result.reason.message, /汽水音乐登录连接失败/)
+    }
+    assert.equal(f.login.isActive(), true, 'A transport loss must preserve this QR flow for polling')
+    assert.equal(f.callbacks(), 0)
+    assert.deepEqual(f.mutations, [])
+    assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
+    const polling = client.requests[3]
+    assert.equal(polling.url.searchParams.has('isResend'), false, 'The completed verification must not be submitted twice')
+    assert.equal(new URLSearchParams(polling.init.body).has('verify_ticket'), false, 'Ordinary polling must not replay the consumed decision ticket')
+    assert.equal(new URLSearchParams(polling.init.body).get('token'), 'private-upstream-token')
+    assert.equal(client.verifications.length, 1)
+    assert.equal(client.destroyed, 0)
+    assert.equal((await f.login.check(1, started.flowId)).status, 'confirmed')
+    assert.equal(client.requests[4].url.searchParams.has('isResend'), false)
+    assert.equal(new URLSearchParams(client.requests[4].init.body).has('verify_ticket'), false)
+    assert.equal(f.callbacks(), 1, 'Only a later successful server confirmation may authorize the account')
+  } finally { lost.resolve(response({ status: 'scanned' })); f.login.cancelAll() }
+})
+
+test('a second 2046 after submission opens a new decision and cannot authorize before the second verification', async() => {
+  const gate = deferred()
+  const transport = passportFactoryFixture([{ actions: [qr(), secondVerify({ biz_params: { step: 'one' } }), secondVerify({ biz_params: 'step=two' }), confirmed()], verifications: [true, () => gate.promise] }])
+  const f = fixture([], async() => {}, { passportFactory: transport.factory })
+  try {
+    const started = await f.login.start(1)
+    assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+    await tick()
+    assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+    assert.equal(transport.clients[0].verifications.length, 2)
+    assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+    assert.equal(transport.clients[0].requests.length, 3)
+    assert.equal(f.callbacks(), 0)
+    gate.resolve(true)
+    await tick()
+    assert.equal((await f.login.check(1, started.flowId)).status, 'confirmed')
+    assert.equal(new URLSearchParams(transport.clients[0].requests[2].init.body).get('step'), 'one')
+    assert.equal(new URLSearchParams(transport.clients[0].requests[3].init.body).get('step'), 'two')
+    assert.ok(transport.clients[0].requests.slice(2).every(request => request.url.searchParams.get('isResend') === 'true'))
+    assert.equal(f.callbacks(), 1)
+  } finally { gate.resolve(false); f.login.cancelAll() }
+})
+
+test('verification cancellation or component failure reports a sanitized error and closes the private session', async() => {
+  for (const outcome of ['cancel', 'failure']) {
+    const transport = passportFactoryFixture([{ actions: [qr(), secondVerify()], verifications: [outcome === 'cancel' ? false : () => { throw new Error('private-component-secret') }] }])
+    const f = fixture([], async() => {}, { passportFactory: transport.factory })
+    try {
+      const started = await f.login.start(1)
+      assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+      await tick()
+      await assert.rejects(f.login.check(1, started.flowId), error => {
+        assert.match(error.message, /汽水音乐安全验证未完成/)
+        assert.doesNotMatch(error.message, /private-|server-verification/)
+        return true
+      })
+      await tick()
+      assert.equal(transport.clients[0].destroyed, 1)
+      assert.equal(transport.clients[0].requests.length, 2)
+      assert.equal(transport.clients[0].harvests.length, 0)
+      assert.equal(f.login.isActive(), false)
+      assert.deepEqual(f.mutations, [])
+      assert.equal(f.callbacks(), 0)
+    } finally { f.login.cancelAll() }
+  }
+})
+
+test('verification failure preserves only known stage codes without exposing component errors', async() => {
+  for (const code of ['QV01', 'QV03', 'QV04_EMPTY', 'QV04_FORMAT', 'QV04_HOST', 'QV07', 'QV08', 'QV04_SECRET']) {
+    const transport = passportFactoryFixture([{ actions: [qr(), secondVerify()], verifications: [() => { throw new Error(`private-component-secret ${code} https://outside.example/?ticket=private-ticket`) }] }])
+    const f = fixture([], async() => {}, { passportFactory: transport.factory })
+    try {
+      const started = await f.login.start(1)
+      assert.equal((await f.login.check(1, started.flowId)).status, 'verifying')
+      await tick()
+      await assert.rejects(f.login.check(1, started.flowId), error => {
+        assert.doesNotMatch(error.message, /private-|outside\.example/)
+        if (code === 'QV08' || code === 'QV04_SECRET') assert.doesNotMatch(error.message, /QV/)
+        else assert(error.message.includes(code), 'Known initialization/decision/component stages must remain distinguishable')
+        return true
+      })
+      assert.equal(f.callbacks(), 0)
+      assert.deepEqual(f.mutations, [])
+    } finally { f.login.cancelAll() }
+  }
+})
+
+test('cancel, refresh, and expiry discard late verification results without resubmitting or adopting cookies', async() => {
+  for (const phase of ['cancel', 'refresh', 'expire']) {
+    const gate = deferred()
+    const transport = passportFactoryFixture([{ actions: [qr(), secondVerify()], verifications: [() => gate.promise], cookieJar: [authCookie()] }, ...(phase === 'refresh' ? [{ actions: [qr({ token: 'new-token' }), response({ status: 'new' })] }] : [])])
+    const f = fixture([], async() => {}, { passportFactory: transport.factory })
+    const nativeNow = Date.now
+    try {
+      const started = await f.login.start(1)
+      const verifying = await f.login.check(1, started.flowId)
+      assert.equal(verifying.status, 'verifying')
+      let current
+      if (phase === 'cancel') f.login.cancelAll()
+      else if (phase === 'refresh') current = await f.login.start(1)
+      else {
+        Date.now = () => verifying.expiresAt + 1
+        assert.equal((await f.login.check(1, started.flowId)).status, 'expired')
+      }
+      gate.resolve(true)
+      await tick()
+      if (current) assert.equal((await f.login.check(1, current.flowId)).status, 'waiting')
+      else if (phase === 'expire') assert.equal((await f.login.check(1, started.flowId)).status, 'expired')
+      else await assert.rejects(f.login.check(1, started.flowId), /已取消/)
+      assert.equal(transport.clients[0].requests.length, 2)
+      assert.equal(transport.clients[0].harvests.length, 0)
+      assert.equal(transport.clients[0].destroyed, 1)
+      assert.equal(f.callbacks(), 0)
+      assert.deepEqual(f.mutations, [])
+    } finally { Date.now = nativeNow; gate.resolve(false); f.login.cancelAll() }
+  }
+})
+
+test('only a successful server confirmation can harvest the isolated browser jar', async() => {
+  for (const data of [{ status: 'new' }, { status: 'scanned' }, { status: 'confirmed', error_code: 2156 }]) {
+    const transport = passportFactoryFixture([{ actions: [qr(), response(data)], cookieJar: [authCookie()] }])
+    const f = fixture([], async() => {}, { passportFactory: transport.factory })
+    try {
+      const started = await f.login.start(1)
+      const checking = f.login.check(1, started.flowId)
+      if (data.error_code) await assert.rejects(checking, /2156/)
+      else assert.equal((await checking).status, data.status === 'new' ? 'waiting' : 'scanned')
+      assert.equal(transport.clients[0].harvests.length, 0)
+      assert.equal(f.callbacks(), 0)
+      assert.deepEqual(f.mutations, [])
+    } finally { f.login.cancelAll() }
+  }
+})
+
+test('isolated jar cookies are domain and path scoped and still require successful profile verification', async() => {
+  for (const rejectProfile of [false, true]) {
+    const cookieJar = [authCookie(), authCookie({ name: 'outside-cookie', domain: '.evil.example' }), authCookie({ name: 'wrong-domain', domain: '.qishui.com.evil.example' }), authCookie({ name: 'invalid-path', path: 'passport' }), authCookie({ name: 'expired-cookie', expirationDate: 1 }), authCookie({ name: 'host-only-root', hostOnly: true }), authCookie({ name: 'passport_csrf_token', value: 'path-only-csrf', path: '/passport/' })]
+    const original = authCookie({ value: 'previous-account' })
+    const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'confirmed' })], cookieJar }])
+    const f = fixture([], async() => { if (rejectProfile) throw new Error('profile denied') }, { passportFactory: transport.factory, original: [original] })
+    try {
+      const started = await f.login.start(1)
+      const checking = f.login.check(1, started.flowId)
+      if (rejectProfile) await assert.rejects(checking, /profile denied/)
+      else assert.equal((await checking).status, 'confirmed')
+      assert.equal((await f.context.cookies()).sessionid_ss, rejectProfile ? 'previous-account' : 'verified-browser-account')
+      assert.equal(f.callbacks(), 1)
+      assert.ok(f.mutations.every(item => ['sessionid_ss', 'passport_csrf_token'].includes(item.name)))
+    } finally { f.login.cancelAll() }
+  }
+})
+
+test('untrusted confirmation redirects are rejected before the browser client follows them', async() => {
+  for (const redirect of ['https://evil.example/private', 'http://api.qishui.com/private', 'https://user:secret@api.qishui.com/private', 'https://api.qishui.com:444/private', 'https://api.qishui.com.evil.example/private']) {
+    const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'confirmed', redirect_url: redirect })], cookieJar: [] }])
+    const f = fixture([], async() => {}, { passportFactory: transport.factory })
+    try {
+      const started = await f.login.start(1)
+      await assert.rejects(f.login.check(1, started.flowId), /登录授权地址无效/)
+      assert.deepEqual(transport.clients[0].harvests, [undefined])
+      assert.equal(f.callbacks(), 0)
+      assert.deepEqual(f.mutations, [])
+    } finally { f.login.cancelAll() }
+  }
+})
+
+test('fresh private authentication cookies complete confirmation without following an unnecessary redirect', async() => {
+  const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'confirmed', redirect_url: 'https://outside.example/unnecessary' })], cookieJar: [authCookie()] }])
+  const f = fixture([], async() => {}, { passportFactory: transport.factory })
+  try {
+    const started = await f.login.start(1)
+    assert.equal((await f.login.check(1, started.flowId)).status, 'confirmed')
+    assert.deepEqual(transport.clients[0].harvests, [undefined])
+    assert.equal(f.callbacks(), 1)
+  } finally { f.login.cancelAll() }
+})
+
+test('cancellation during browser cookie harvesting rejects a late jar before persistent transfer', async() => {
+  const gate = deferred()
+  const entered = deferred()
+  const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'confirmed' })], harvest: () => { entered.resolve(); return gate.promise } }])
+  const f = fixture([], async() => {}, { passportFactory: transport.factory })
+  const started = await f.login.start(1)
+  const checking = f.login.check(1, started.flowId)
+  const rejected = assert.rejects(checking, /已取消/)
+  await entered.promise
+  f.login.cancelAll()
+  gate.resolve([authCookie()])
+  await rejected
+  await tick()
+  assert.equal(transport.clients[0].destroyed, 1)
+  assert.equal(f.callbacks(), 0)
+  assert.deepEqual(f.mutations, [])
+})
 
 test('browser Passport client owns get and check with stable identity and closes after confirmation', async() => {
   const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'scanned' }), confirmed()] }])
@@ -155,6 +451,7 @@ test('browser Passport client owns get and check with stable identity and closes
     assert.equal(transport.calls.length, 1)
     assert.equal(transport.calls[0].userAgent, browserUserAgent)
     assert.ok(transport.calls[0].signal instanceof AbortSignal)
+    assert.equal(transport.calls[0].owner, 1)
     const client = transport.clients[0]
     assert.deepEqual(client.requests.map(request => request.url.pathname), ['/passport/web/get_qrcode/', '/passport/web/check_qrconnect/', '/passport/web/check_qrconnect/'])
     assert.ok(client.requests.every(request => request.init.headers.get('user-agent') === browserUserAgent))
@@ -347,17 +644,14 @@ test('browser Passport client connection failures retain the same client for an 
   } finally { f.login.cancelAll() }
 })
 
-test('browser Passport client still rejects 2156 and never adopts its browser cookie jar', async() => {
+test('browser Passport client still rejects 2156 and cannot reuse an older account when its private jar is empty', async() => {
   for (const invalid of ['business-error', 'missing-cookie']) {
     const cookies = invalid === 'business-error' ? ['sessionid=rejected-account; Domain=.qishui.com; Path=/; Secure'] : []
-    const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'confirmed', error_code: invalid === 'business-error' ? 2156 : 0 }, cookies)] }])
+    const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'confirmed', error_code: invalid === 'business-error' ? 2156 : 0 }, cookies)], cookieJar: invalid === 'business-error' ? [{ name: 'sessionid', value: 'unverified-browser-account', domain: '.qishui.com', path: '/' }] : [] }])
     const original = { name: 'sessionid', value: 'previous-account', domain: '.qishui.com', path: '/', secure: true }
     const f = fixture([], async() => {}, { passportFactory: transport.factory, original: [original] })
     try {
       const started = await f.login.start(1)
-      // An SDK browser may have ambient cookies. Only newly issued cookies on
-      // this successful response may authorize the controller's transaction.
-      transport.clients[0].cookies = [{ name: 'sessionid', value: 'ambient-browser-account', domain: '.qishui.com', path: '/' }]
       await assert.rejects(f.login.check(1, started.flowId), invalid === 'business-error' ? /错误码 2156/ : /未完成登录授权/)
       await tick()
       assert.equal(transport.clients[0].destroyed, 1)
@@ -365,6 +659,7 @@ test('browser Passport client still rejects 2156 and never adopts its browser co
       assert.equal((await f.context.cookies()).sessionid, 'previous-account')
       assert.deepEqual(f.mutations, [])
       assert.equal(f.requests.length, 0)
+      assert.equal(transport.clients[0].harvests.length, invalid === 'business-error' ? 0 : 1)
     } finally { f.login.cancelAll() }
   }
 })
@@ -379,19 +674,22 @@ test('QR stays private; poll uses exact official endpoint and staged CSRF; confi
   assert.notEqual(started.flowId, 'private-upstream-token')
   const scan = encodedQr(started.image)
   assert.equal(scan.origin, 'https://bff-pc.qishui.com')
-  assert.equal(scan.pathname, '/light/invoke/scan_login')
+  assert.equal(scan.pathname, '/ucenter_web/app/sdk-next')
   assert.equal(scan.searchParams.get('token'), 'private-upstream-token')
-  assert.equal(scan.searchParams.get('os'), process.platform === 'darwin' ? 'Mac' : 'Windows')
-  assert.equal(scan.searchParams.get('computer_name'), computerName)
-  assert.deepEqual([...scan.searchParams.keys()], ['token', 'os', 'computer_name'])
-  assert.ok(qrPayloads.at(-1).payload.includes('computer_name=Link%20Line%20'))
-  assert.ok(!qrPayloads.at(-1).payload.includes('+'))
+  assert.equal(scan.searchParams.get('uc_sdk'), 'scan-auth')
+  assert.equal(qrPayloads.at(-1).payload, scanAddress('private-upstream-token'))
   assert.equal(f.jar.size, 0)
   assert.equal(f.requests[0].url.origin, 'https://api.qishui.com')
   assert.equal(f.requests[0].url.pathname, '/passport/web/get_qrcode/')
   const createQuery = new URLSearchParams(f.requests[0].url.searchParams)
   createQuery.delete('biz_trace_id')
-  assert.deepEqual(Object.fromEntries(createQuery), { ...sdkParams, next: 'https://api.qishui.com', need_logo: 'false', need_short_url: 'false' })
+  const identity = requestIdentity(f.requests[0])
+  assert.match(identity.device_id, /^[1-8]\d{15}$/)
+  assert.match(identity.install_id, /^[1-8]\d{14}$/)
+  assert.equal(identity.did, identity.device_id)
+  assert.equal(identity.iid, identity.install_id)
+  assert.match(identity.msToken, /^[a-zA-Z\d_-]{118}==$/)
+  assert.deepEqual(Object.fromEntries(createQuery), { ...sdkParams, ...identity, next: 'https://api.qishui.com', need_logo: 'false', need_short_url: 'false' })
   assert.equal(f.requests[0].init.headers.get('user-agent'), browserUserAgent)
   assert.equal(f.requests[0].init.headers.get('x-ss-stub'), null)
   assert.equal(f.requests[0].init.credentials, 'omit')
@@ -400,7 +698,7 @@ test('QR stays private; poll uses exact official endpoint and staged CSRF; confi
   assert.equal(f.requests[1].url.pathname, '/passport/web/check_qrconnect/')
   const checkQuery = new URLSearchParams(f.requests[1].url.searchParams)
   checkQuery.delete('biz_trace_id')
-  assert.deepEqual(Object.fromEntries(checkQuery), sdkParams)
+  assert.deepEqual(Object.fromEntries(checkQuery), { ...sdkParams, ...identity })
   assert.equal(f.requests[1].init.headers.get('user-agent'), browserUserAgent)
   assert.equal(f.requests[1].init.headers.get('cookie'), 'passport_csrf_token=flow-csrf')
   assert.equal(f.requests[1].init.headers.get('x-tt-passport-csrf-token'), 'flow-csrf')
@@ -413,7 +711,7 @@ test('QR stays private; poll uses exact official endpoint and staged CSRF; confi
   assert.equal(f.login.cancel(17, started.flowId), false, 'completed flow cannot cancel successful sync')
 })
 
-test('browser identity, verification portrait and trace stay stable through one flow and renew on refresh', async() => {
+test('browser identity and verification portrait remain per-flow while request traces change on every call', async() => {
   const nextUserAgent = browserUserAgent.replace('LinkLine/1.2.0', 'LinkLine/1.2.1')
   const f = fixture([qr(), response({ status: 'new' }), qr({ token: 'second-token' }), response({ status: 'new' })])
   try {
@@ -429,9 +727,10 @@ test('browser identity, verification portrait and trace stay stable through one 
     assert.notEqual(portraits[0], portraits[2])
     const traces = f.requests.map(request => request.init.headers.get('x-tt-passport-trace-id'))
     for (const trace of traces) assert.match(trace, /^[0-9a-f]{8}$/)
-    assert.equal(traces[0], traces[1])
-    assert.equal(traces[2], traces[3])
-    assert.notEqual(traces[0], traces[2])
+    assert.equal(new Set(traces).size, traces.length)
+    assert.deepEqual(requestIdentity(f.requests[0]), requestIdentity(f.requests[1]))
+    assert.deepEqual(requestIdentity(f.requests[2]), requestIdentity(f.requests[3]))
+    for (const name of identityKeys) assert.notEqual(requestIdentity(f.requests[0])[name], requestIdentity(f.requests[2])[name])
     assert.deepEqual(f.requests.map(request => request.url.searchParams.get('biz_trace_id')), traces)
     assert.deepEqual(f.requests.map(request => request.init.headers.get('user-agent')), [browserUserAgent, browserUserAgent, nextUserAgent, nextUserAgent])
     assert.ok(f.requests.every(request => !request.init.headers.get('user-agent').startsWith('LunaPC/')))
@@ -441,7 +740,7 @@ test('browser identity, verification portrait and trace stay stable through one 
   } finally { f.login.cancelAll() }
 })
 
-test('PC scan_login always polls frontier mode regardless of the upstream web QR flag', async() => {
+test('scan-auth polls frontier mode regardless of the upstream QR flag', async() => {
   for (const frontier of [true, false, undefined, 'false', 'true']) {
     const f = fixture([qr({ is_frontier: frontier }), response({ status: 'new' })])
     try {
@@ -803,15 +1102,14 @@ test('profile verifier can reject expiry at its final acceptance guard', async()
   } finally { Date.now = nativeNow; f.login.cancelAll() }
 })
 
-test('generated PC QR preserves reserved and Unicode token bytes and ignores the upstream web image', async() => {
+test('generated scan-auth QR preserves the exact issued URL and reserved token bytes while ignoring the upstream image', async() => {
   const token = 'synthetic+a/b==& space汉字%?'
   const f = fixture([qr({ token, qrcode: 'https://untrusted.example/web-image.svg' }), response({ status: 'new' })])
   try {
     const started = await f.login.start(1)
     const scan = encodedQr(started.image)
     assert.equal(scan.searchParams.get('token'), token)
-    const os = process.platform === 'darwin' ? 'Mac' : 'Windows'
-    assert.equal(qrPayloads.at(-1).payload, `https://bff-pc.qishui.com/light/invoke/scan_login?token=${encodeURIComponent(token)}&os=${os}&computer_name=${encodeURIComponent(computerName)}`)
+    assert.equal(qrPayloads.at(-1).payload, scanAddress(token))
     assert.ok(!JSON.stringify(started).includes(token))
     await f.login.check(1, started.flowId)
     const body = f.requests[1].init.body
@@ -977,8 +1275,8 @@ test('Passport expiry code and refused scan statuses stop polling without cookie
   }
 })
 
-test('Passport transient codes back off for five seconds and fail after three retries', async() => {
-  for (const code of [6, 7]) {
+test('Passport transient code 6 backs off for five seconds and fails after three retries', async() => {
+  for (const code of [6]) {
     const bad = () => response({ error_code: code, status: 'confirmed', description: 'private-server-details' }, ['sessionid=rejected-account; Domain=.qishui.com; Path=/'])
     const f = fixture([qr(), bad(), bad(), bad(), bad()])
     const nativeNow = Date.now
@@ -1007,24 +1305,95 @@ test('Passport transient codes back off for five seconds and fail after three re
   }
 })
 
-test('a successful poll resets transient retry limits and keeps the scanned state during cooldown', async() => {
-  const f = fixture([qr(), response({ status: 'scanned' }), ...Array.from({ length: 3 }, () => response({ error_code: 7 })), response({ status: 'scanned' }), response({ error_code: 6 }), confirmed()])
+test('Passport rate limit 7 preserves a scanned flow beyond three retries and later opens the required official verification', async() => {
+  const rateLimited = () => response({ error_code: 7, description: 'private-rate-limit-details' }, ['sessionid=rejected-account; Domain=.qishui.com; Path=/'])
+  const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'scanned' }), ...Array.from({ length: 5 }, rateLimited), secondVerify(), confirmed()], verifications: [true] }])
+  const f = fixture([], async() => {}, { passportFactory: transport.factory })
   const nativeNow = Date.now
   let now = nativeNow()
   try {
     const started = await f.login.start(1)
     Date.now = () => now
     assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const client = transport.clients[0]
+    for (const delay of [5000, 10000, 20000, 30000, 30000]) {
+      const limited = await f.login.check(1, started.flowId)
+      assert.equal(limited.status, 'scanned')
+      assert.equal(limited.retryAt, Date.now() + delay, 'Rate-limit polling must use a bounded increasing delay')
+      assert.equal(limited.expiresAt, started.expiresAt, 'Rate limiting must not extend the QR lifetime')
+      assert.equal(f.login.isActive(), true)
+      assert.doesNotMatch(JSON.stringify(limited), /private-|rejected-account|error_code|description/)
+      const requests = client.requests.length
+      assert.equal((await f.login.check(1, started.flowId)).retryAt, limited.retryAt)
+      now = limited.retryAt - 1
       assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
-      now += 5000
+      assert.equal(client.requests.length, requests, 'Repeated checks must never poll before the returned deadline')
+      now = limited.retryAt
     }
-    assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
-    assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
-    now += 5000
+    assert.equal(f.callbacks(), 0)
+    assert.deepEqual(f.mutations, [], 'Rate-limit response cookies must not authorize the account')
+    const verifying = await f.login.check(1, started.flowId)
+    assert.equal(verifying.status, 'verifying', 'A challenge returned after the cooldown must open the official verification flow')
+    assert.equal(verifying.retryAt, undefined)
+    await tick()
+    assert.equal(client.verifications.length, 1)
     assert.equal((await f.login.check(1, started.flowId)).status, 'confirmed')
     assert.equal(f.callbacks(), 1)
-    assert.equal(f.requests[6].init.headers.get('cookie'), 'passport_csrf_token=flow-csrf')
+    assert.equal(client.requests.at(-1).url.searchParams.get('isResend'), 'true')
+    assert.equal(client.requests.length, 9)
+  } finally { Date.now = nativeNow; f.login.cancelAll() }
+})
+
+test('Passport rate-limit polling ends at QR expiry without another request or authorization', async() => {
+  const transport = passportFactoryFixture([{ actions: [qr(), response({ status: 'scanned' }), response({ error_code: 7 })] }])
+  const f = fixture([], async() => {}, { passportFactory: transport.factory })
+  const nativeNow = Date.now
+  let now = nativeNow()
+  try {
+    const started = await f.login.start(1)
+    Date.now = () => now
+    assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
+    now = started.expiresAt - 1000
+    const limited = await f.login.check(1, started.flowId)
+    assert.equal(limited.status, 'scanned')
+    assert.equal(limited.retryAt, started.expiresAt, 'The next retry must be capped at the QR deadline')
+    now = started.expiresAt
+    assert.equal((await f.login.check(1, started.flowId)).status, 'expired')
+    assert.equal((await f.login.check(1, started.flowId)).status, 'expired')
+    assert.equal(transport.clients[0].requests.length, 3)
+    assert.equal(f.login.isActive(), false)
+    assert.equal(f.callbacks(), 0)
+    assert.deepEqual(f.mutations, [])
+    await f.login.settled()
+    assert.equal(transport.clients[0].destroyed, 1)
+  } finally { Date.now = nativeNow; f.login.cancelAll() }
+})
+
+test('a successful poll resets Passport rate-limit backoff before another limit and later confirmation', async() => {
+  const f = fixture([qr(), response({ status: 'scanned' }), response({ error_code: 7 }), response({ error_code: 7 }), response({ status: 'scanned' }), response({ error_code: 7 }), confirmed()])
+  const nativeNow = Date.now
+  let now = nativeNow()
+  try {
+    const started = await f.login.start(1)
+    Date.now = () => now
+    assert.equal((await f.login.check(1, started.flowId)).status, 'scanned')
+    for (const delay of [5000, 10000]) {
+      const limited = await f.login.check(1, started.flowId)
+      assert.equal(limited.status, 'scanned')
+      assert.equal(limited.retryAt, now + delay)
+      now = limited.retryAt
+    }
+    const resumed = await f.login.check(1, started.flowId)
+    assert.equal(resumed.status, 'scanned')
+    assert.equal(resumed.retryAt, undefined)
+    const limitedAgain = await f.login.check(1, started.flowId)
+    assert.equal(limitedAgain.status, 'scanned')
+    assert.equal(limitedAgain.retryAt, now + 5000, 'A successful response must reset the next rate-limit delay')
+    now = limitedAgain.retryAt
+    assert.equal((await f.login.check(1, started.flowId)).status, 'confirmed')
+    assert.equal(f.callbacks(), 1)
+    assert.equal(f.requests.at(-1).init.headers.get('cookie'), 'passport_csrf_token=flow-csrf')
+    assert.equal(f.requests.length, 7)
   } finally { Date.now = nativeNow; f.login.cancelAll() }
 })
 

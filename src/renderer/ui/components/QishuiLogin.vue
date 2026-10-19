@@ -20,7 +20,8 @@ const statusText = computed(() => {
   const login = qishuiLogin.value
   if (!login) return ''
   if (login.error) return login.error
-  return { loading: '正在连接汽水音乐…', waiting: '等待扫码', scanned: '已扫码，请在手机上确认', confirmed: '登录成功，正在同步音乐库', expired: '二维码已过期，请刷新后重试', error: login.error }[login.status]
+  if (login.retryAt) return '汽水音乐查询暂时受限，正在等待自动重试…'
+  return { loading: '正在连接汽水音乐…', waiting: '等待扫码', scanned: '已扫码，请在手机上确认', verifying: '请在弹出的汽水音乐官方窗口中完成安全验证', confirmed: '登录成功，正在同步音乐库', expired: '二维码已过期，请刷新后重试', error: login.error }[login.status]
 })
 onBeforeUnmount(closeQishuiLogin)
 </script>

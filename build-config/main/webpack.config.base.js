@@ -29,6 +29,10 @@ module.exports = {
   module: {
     rules: [
       {
+        resourceQuery: /qishui-verification-source/,
+        type: 'asset/source',
+      },
+      {
         test: /\.node$/,
         use: 'node-loader',
       },

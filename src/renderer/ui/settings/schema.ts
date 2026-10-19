@@ -57,7 +57,7 @@ const enums: Partial<Record<SettingKey, Option[]>> = {
   'common.closeAction': choices([['ask', '每次询问'], ['tray', '最小化到托盘'], ['quit', '退出应用']]),
   'common.playBarProgressStyle': choices([['mini', '简洁'], ['middle', '居中'], ['full', '完整宽度']]),
   'player.togglePlayMethod': choices([['listLoop', '列表循环'], ['random', '随机播放'], ['list', '顺序播放'], ['singleLoop', '单曲循环'], ['none', '播放一次']]),
-  'player.playQuality': choices(Object.entries(qualityLabels)),
+  'player.playQuality': choices(Object.entries(qualityLabels).filter(([quality]) => quality !== 'vivid')),
   'player.preferredSource': choices(Object.entries(platformSourceLabels)),
   'playDetail.style.align': align,
   'desktopLyric.style.align': align,
