@@ -7,6 +7,7 @@ import { appSetting, mergeSetting } from '@renderer/store/setting'
 import { updateSetting } from '@renderer/utils/ipc'
 import { initializePlatformAccounts, platformSnapshot } from './platformAccounts'
 import { playTracks, reservePlaybackRequest, type PlaybackRequest } from './music'
+import { hasDislike } from '@renderer/core/dislikeList'
 
 export const heartbeatActive = ref(false)
 export const heartbeatLoading = ref(false)
@@ -79,14 +80,15 @@ export async function toggleHeartbeat(): Promise<HeartbeatNotice | undefined> {
       return { message: '登录网易云音乐后才能使用心动模式', kind: 'warning' }
     }
     const track = playMusicInfo.musicInfo
-    const seedId = track && 'meta' in track && track.source === 'wy' ? track.meta.songId : undefined
+    const seedId = track && 'meta' in track && track.source === 'wy' && !hasDislike(track) ? track.meta.songId : undefined
     const result = await ipcRenderer.invoke('platform_netease_heartbeat', { seedId }) as PlatformHeartbeatResult
     if (!valid()) return
     if (result.accountId !== accountId) throw new Error('网易云音乐账号已变化，请重新开启心动模式')
-    if (!result.tracks.length) throw new Error('网易云暂时没有返回心动歌曲，请稍后重试')
+    const tracks = result.tracks.filter(track => !hasDislike(track))
+    if (!tracks.length) throw new Error('暂时没有新的心动歌曲，已跳过不喜欢库中的歌曲，请稍后重试')
     queueId = `${SESSION_PLAYBACK_QUEUE_PREFIX}heartbeat_${++queueSequence}`
     let playbackSetting: Pick<LX.AppSetting, 'player.togglePlayMethod'> = { 'player.togglePlayMethod': 'listLoop' }
-    const played = await playTracks(result.tracks, 0, undefined, undefined, {
+    const played = await playTracks(tracks, 0, undefined, undefined, {
       request: currentRequest,
       valid,
       queueId,

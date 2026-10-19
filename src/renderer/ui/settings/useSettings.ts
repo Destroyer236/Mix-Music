@@ -1,23 +1,22 @@
-import { onBeforeUnmount, reactive, ref, toRaw } from 'vue'
+import { onBeforeUnmount, reactive, ref, toRaw, watch } from 'vue'
 import { appSetting, mergeSetting } from '@renderer/store/setting'
 import { defaultList, loveList, userLists } from '@renderer/store/list/state'
 import { getListMusics, overwriteListFull, overwriteListMusics } from '@renderer/store/list/action'
 import { userApi, sync, versionInfo } from '@renderer/store'
 import * as ipc from '@renderer/utils/ipc'
 import { setUserApi } from '@renderer/core/apiSource'
-import { setPowerSaveBlocker } from '@renderer/core/player/utils'
 import { convolutions, hasInitedAdvancedAudioFeatures, setMediaDeviceId } from '@renderer/plugins/player'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@renderer/utils'
 import { gzipData, readFile, saveStrToFile } from '@common/utils/nodejs'
 import { sizeFormate } from '@common/utils/common'
 import migrateSetting from '@common/utils/migrateSetting'
 import { appearance, validateAppearance } from '@renderer/composables/useAppearance'
-import { dislikeInfo } from '@renderer/store/dislikeList'
+import { dislikeInfo, dislikeRulesVersion } from '@renderer/store/dislikeList'
 import { overwirteDislikeInfo } from '@renderer/core/dislikeList'
 import { parseSettingValue, validateSettingBackup, type SettingField } from './schema'
 import { setPreferredQuality, setPreferredSource } from '@renderer/ui/services/platformPlayback'
 import type { PlatformQuality } from '@common/platformPlayback'
-import type { PreferredPlatformSource } from '@common/platformSources'
+import { getImportedSourceId, type PreferredPlatformSource } from '@common/platformSources'
 import { LOCAL_LIBRARY_ID } from '@common/localMusic'
 import { reconcileLocalLibraryAfterRestore } from '../services/localLibrary'
 
@@ -33,6 +32,11 @@ export function useSettings() {
   const syncDevices = ref<LX.Sync.ServerDevices>([])
   const caches = reactive({ resources: '…', sources: 0, urls: 0, lyrics: 0, edited: 0 })
   const rules = ref(dislikeInfo.rules)
+  let savedRules = dislikeInfo.rules
+  watch(dislikeRulesVersion, () => {
+    if (rules.value === savedRules) rules.value = dislikeInfo.rules
+    savedRules = dislikeInfo.rules
+  })
   const confirmation = ref<{ title: string, message: string, danger: boolean, confirmLabel: string, cancelLabel: string } | null>(null)
   let resolveConfirmation: ((value: boolean) => void) | null = null
   let deviceEnumerationActive = false
@@ -66,6 +70,15 @@ export function useSettings() {
     if (hardwareChanged && await confirm('重新启动 LinkLine', '修改已保存，是否立即重启 LinkLine 以生效？', false, { confirm: '立即重启', cancel: '稍后' })) await ipc.restartApp()
   }
   async function setPreference(field: SettingField, input: string | boolean) {
+    // Range inputs keep emitting while dragged; toggling busy would disable the
+    // active input and interrupt the gesture after its first update.
+    if (field.slider) {
+      try { await saveRecord({ [field.key]: parseSettingValue(field, String(input)) }) } catch (error) {
+        failed.value = true
+        notice.value = error instanceof Error ? error.message : String(error)
+      }
+      return
+    }
     await run('设置已保存', async() => {
       const value = typeof input === 'boolean' ? input : parseSettingValue(field, input)
       if (field.key === 'player.playQuality') {
@@ -105,7 +118,6 @@ export function useSettings() {
         await saveRecord(patch)
         await toggleSync(true)
       } else await saveRecord(patch)
-      if (field.key === 'player.powerSaveBlocker') setPowerSaveBlocker(Boolean(value), true)
     })
   }
   async function chooseDirectory() {
@@ -153,6 +165,7 @@ export function useSettings() {
         await saveRecord({ 'common.apiSource': remaining?.id ?? '' })
       }
       userApi.list = await ipc.removeUserApi([api.id])
+      if (getImportedSourceId(appSetting['player.preferredSource']) === api.id) await setPreferredSource('auto')
     })
   }
   async function useSource(id: string) {

@@ -2,11 +2,12 @@ import { ipcRenderer } from 'electron'
 import { computed, ref, shallowRef } from 'vue'
 import type { PlatformId, PlatformLikeResult, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { platformNames } from '@common/platformAccounts'
-import { sameRecording } from '@common/platformMatching'
+import { recordingKey, sameRecording } from '@common/platformMatching'
 import { addListMusics, getListMusics, removeListMusics, updateListMusics } from '@renderer/store/list/action'
 import { loveList } from '@renderer/store/list/state'
 import { startQishuiLogin, closeQishuiLogin } from './qishuiLogin'
 import { startBodianLogin, closeBodianLogin } from './bodianLogin'
+import { startNativeQrLogin, closeNativeQrLogin } from './nativeQrLogin'
 
 const importedKey = 'linkline.platform-favorites.imported.v1'
 const imported = new Set<string>()
@@ -43,7 +44,30 @@ const enqueue = async<T>(task: () => Promise<T>): Promise<T> => {
 }
 
 export const refreshFavorites = async() => { favoriteTracks.value = [...await getListMusics(loveList.id)] }
-export const isFavorite = (track: LX.Music.MusicInfo | null) => Boolean(track && favoriteTracks.value.some(item => sameRecording(track, item)))
+// Header resizing and scrolling can redraw the visible rows every frame. Build
+// the lookup when favorites change, rather than normalize the whole collection
+// for each row's heart button on every render.
+const favoriteIndex = computed(() => {
+  const ids = new Map<string, Set<LX.Music.MusicInfo['id']>>()
+  const recordings = new Map<string, LX.Music.MusicInfo[]>()
+  for (const track of favoriteTracks.value) {
+    let sourceIds = ids.get(track.source)
+    if (!sourceIds) ids.set(track.source, sourceIds = new Set())
+    sourceIds.add(track.id)
+    const key = recordingKey(track)
+    const group = recordings.get(key)
+    if (group) group.push(track)
+    else recordings.set(key, [track])
+  }
+  return { ids, recordings }
+})
+export const isFavorite = (track: LX.Music.MusicInfo | null) => {
+  if (!track) return false
+  const index = favoriteIndex.value
+  if (index.ids.get(track.source)?.has(track.id)) return true
+  // Keep the existing version/duration/album checks for cross-platform songs.
+  return index.recordings.get(recordingKey(track))?.some(item => sameRecording(track, item)) ?? false
+}
 
 async function mergePlatformFavorites() {
   if (!snapshotReady) return
@@ -111,6 +135,7 @@ export async function initializePlatformAccounts(): Promise<void> {
 }
 
 export function disposePlatformAccounts() {
+  closeNativeQrLogin()
   closeQishuiLogin()
   closeBodianLogin()
   stopped = true
@@ -130,6 +155,8 @@ async function accountAction(channel: string, platform: PlatformId | null) {
   } catch (error) { platformError.value = describeError(error) } finally { platformBusy.value = new Set([...platformBusy.value].filter(id => !ids.includes(id))) }
 }
 export const loginPlatform = async(platform: PlatformId) => {
+  if (platform === 'qq' || platform === 'netease') { closeQishuiLogin(); closeBodianLogin(); return startNativeQrLogin(platform) }
+  closeNativeQrLogin()
   if (platform === 'qishui') { closeBodianLogin(); return startQishuiLogin() }
   if (platform === 'bodian') { closeQishuiLogin(); return startBodianLogin() }
   return accountAction('platform_accounts_login', platform)

@@ -5,12 +5,14 @@ import zlib from 'node:zlib'
 
 let userApis: LX.UserApi.UserApiInfo[] | null
 let scripts = new Map<string, string>()
+const pendingScripts = new Map<string, Promise<string>>()
+const DEFAULT_SOURCES_VERSION = 1
 
 const saveData = () => {
   getStore(STORE_NAMES.USER_API).set('userApis', userApis!.map(api => {
     return {
       ...api,
-      script: scripts.get(api.id),
+      script: scripts.get(api.id) ?? '',
     }
   }))
 }
@@ -19,9 +21,10 @@ export const getUserApis = (): LX.UserApi.UserApiInfo[] => {
   if (userApis) return userApis
 
   const electronStore_userApi = getStore(STORE_NAMES.USER_API)
-  let infoFull = electronStore_userApi.get('userApis') as LX.UserApi.UserApiInfoFull[]
-  let requiredUpdate = false
-  if (infoFull) {
+  const stored = electronStore_userApi.get<LX.UserApi.UserApiInfoFull[]>('userApis')
+  const infoFull = Array.isArray(stored) ? stored.map(api => ({ ...api })) : []
+  let requiredUpdate = !Array.isArray(stored)
+  if (infoFull.length) {
     for (let i = 0; i < infoFull.length; i++) {
       const api = infoFull[i]
       if (api.version != null) continue
@@ -36,17 +39,25 @@ export const getUserApis = (): LX.UserApi.UserApiInfo[] => {
         i--
       }
     }
-  } else {
-    infoFull = defaultUserApis
-    electronStore_userApi.set('userApis', userApis)
+  }
+  const migrateDefaults = (electronStore_userApi.get<number>('defaultSourcesVersion') ?? 0) < DEFAULT_SOURCES_VERSION
+  if (migrateDefaults) {
+    for (const api of defaultUserApis) {
+      if (infoFull.some(existing => existing.id === api.id || existing.scriptUrl === api.scriptUrl)) continue
+      infoFull.push({ ...api })
+      requiredUpdate = true
+    }
   }
   userApis = infoFull.map(api => {
     if (api.allowShowUpdateAlert == null) api.allowShowUpdateAlert = false
     const { script, ...info } = api
-    scripts.set(api.id, script)
+    scripts.set(api.id, script ?? '')
     return info
   })
   if (requiredUpdate) saveData()
+  // Write the marker only after the list is safely persisted. Removing a
+  // default source is then respected on subsequent launches.
+  if (migrateDefaults) electronStore_userApi.set('defaultSourcesVersion', DEFAULT_SOURCES_VERSION)
   return userApis
 }
 
@@ -108,10 +119,10 @@ const inflateScript = async(script: string) => new Promise<string>((resolve, rej
   } else resolve(script)
 })
 export const importApi = async(scriptRaw: string): Promise<LX.UserApi.UserApiInfo> => {
+  const apiList = getUserApis()
   let scriptInfo = parseScriptInfo(scriptRaw)
   const script = await deflateScript(scriptRaw)
-  userApis ??= []
-  for (const api of userApis) {
+  for (const api of apiList) {
     const existingScript = scripts.get(api.id)
     if (existingScript === script) {
       throw new Error(`导入失败，脚本内容与已有的源「${api.name}」相同`)
@@ -122,31 +133,62 @@ export const importApi = async(scriptRaw: string): Promise<LX.UserApi.UserApiInf
     ...scriptInfo,
     allowShowUpdateAlert: true,
   }
-  userApis.push(apiInfo)
+  apiList.push(apiInfo)
   scripts.set(apiInfo.id, script)
   saveData()
   return apiInfo
 }
 
 export const removeApi = (ids: string[]) => {
-  if (!userApis) return
-  for (let index = userApis.length - 1; index > -1; index--) {
-    if (ids.includes(userApis[index].id)) {
-      scripts.delete(userApis[index].id)
-      userApis.splice(index, 1)
-      ids.splice(index, 1)
+  const apiList = getUserApis()
+  for (let index = apiList.length - 1; index > -1; index--) {
+    if (ids.includes(apiList[index].id)) {
+      scripts.delete(apiList[index].id)
+      apiList.splice(index, 1)
     }
   }
   saveData()
 }
 
 export const setAllowShowUpdateAlert = (id: string, enable: boolean) => {
-  const targetApi = userApis?.find(api => api.id == id)
+  const targetApi = getUserApis().find(api => api.id == id)
   if (!targetApi) return
   targetApi.allowShowUpdateAlert = enable
   saveData()
 }
 
 export const getScript = async(id: string) => {
-  return inflateScript(scripts.get(id) ?? '')
+  const api = getUserApis().find(api => api.id === id)
+  if (!api) throw new Error('音源已移除，请重新选择音源')
+  const cached = scripts.get(id)
+  if (cached) return inflateScript(cached)
+  if (!api.scriptUrl) throw new Error('音源脚本为空，请重新导入')
+  let pending = pendingScripts.get(id)
+  if (!pending) {
+    const url = api.scriptUrl
+    pending = (async() => {
+      const { downloadScript } = await import('./remoteScript')
+      const script = await downloadScript(url)
+      const info = parseScriptInfo(script)
+      const compressed = await deflateScript(script)
+      // The descriptor may have been removed while downloading. Never let a
+      // late response recreate it or overwrite a replacement.
+      if (!getUserApis().includes(api)) throw new Error('音源已移除，请重新选择音源')
+      Object.assign(api, info)
+      scripts.set(id, compressed)
+      try {
+        saveData()
+      } catch (error) {
+        scripts.delete(id)
+        throw error
+      }
+      return script
+    })()
+    pendingScripts.set(id, pending)
+  }
+  try {
+    return await pending
+  } finally {
+    if (pendingScripts.get(id) === pending) pendingScripts.delete(id)
+  }
 }

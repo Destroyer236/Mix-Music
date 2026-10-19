@@ -31,6 +31,7 @@ let wordElements: HTMLElement[] = []
 let lastWordProgress: number[] = []
 function measure() {
   overflow.value = Math.max(0, (content.value?.scrollWidth ?? 0) - (viewport.value?.clientWidth ?? 0))
+  render()
   schedule()
 }
 const contentStyle = computed(() => ({
@@ -49,13 +50,17 @@ function schedule() {
 }
 function animate() {
   frame = 0
+  render()
+  schedule()
+}
+function render() {
   const line = props.line
   const current = now.value
-  if (line && props.wordByWord && props.active) {
+  if (line && props.wordByWord) {
     // Update only words whose highlight changed. Normally just the active word needs a
     // style write per frame; completed and upcoming words stay untouched.
     for (let index = 0; index < wordElements.length; index++) {
-      const progress = wordProgress(line.words[index], current)
+      const progress = props.active ? wordProgress(line.words[index], current) : 0
       if (progress !== lastWordProgress[index]) {
         wordElements[index].style.setProperty('--progress', `${progress * 100}%`)
         lastWordProgress[index] = progress
@@ -65,21 +70,22 @@ function animate() {
   if (line && props.active && overflow.value > 0 && content.value) {
     content.value.style.transform = `translateX(${lyricScrollOffset(current, line, activatedAt, overflow.value)}px)`
   } else if (content.value) content.value.style.removeProperty('transform')
-  schedule()
 }
 watch(() => [props.line, props.text, props.active, props.wordByWord, playing.value], () => {
   activatedAt = now.value
   void nextTick(() => {
-    measure(); refreshElements()
-    if (!shouldAnimate()) content.value?.style.removeProperty('transform')
+    refreshElements(); measure()
+    if (!shouldAnimate() && frame) { cancelAnimationFrame(frame); frame = 0 }
     schedule()
   })
 })
+// A paused seek still changes the displayed progress, without starting a frame loop.
+watch(() => playing.value ? null : now.value, () => { render() }, { flush: 'post' })
 onMounted(() => {
   observer = new ResizeObserver(measure)
   if (viewport.value) observer.observe(viewport.value)
   if (content.value) observer.observe(content.value)
-  measure(); refreshElements(); schedule()
+  refreshElements(); measure(); schedule()
 })
 onBeforeUnmount(() => { observer?.disconnect(); cancelAnimationFrame(frame) })
 </script>
@@ -89,7 +95,7 @@ onBeforeUnmount(() => { observer?.disconnect(); cancelAnimationFrame(frame) })
 .external-line-content { display: inline-block; vertical-align: top; white-space: pre; will-change: transform; }
 .external-line-content.mask { padding: .12em .4em; border-radius: 6px; background: var(--external-mask); }
 .external-text { filter: drop-shadow(0 0 1px var(--external-stroke, transparent)) drop-shadow(0 0 2px var(--external-stroke, transparent)); }
-.external-word { color: transparent; -webkit-text-fill-color: transparent; background: linear-gradient(90deg, var(--external-played) 0%, var(--external-played) calc(var(--progress) - 2px), var(--external-unplayed) calc(var(--progress) + 2px), var(--external-unplayed) 100%); background-clip: text; -webkit-background-clip: text; }
+.external-word { --progress: 0%; color: transparent; -webkit-text-fill-color: transparent; background: linear-gradient(90deg, var(--external-played) 0%, var(--external-played) calc(var(--progress) - 2px), var(--external-unplayed) calc(var(--progress) + 2px), var(--external-unplayed) 100%); background-clip: text; -webkit-background-clip: text; }
 .external-static { color: var(--external-played); }
 .external-line.secondary .external-static { color: var(--external-unplayed); }
 .external-line-content.marquee { animation: external-marquee var(--marquee-duration) ease-in-out infinite alternate; }

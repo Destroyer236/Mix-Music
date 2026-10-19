@@ -11,6 +11,7 @@
     <UiModal :show="Boolean(logoutAccount)" title="退出平台账号" @close="logoutAccount = null"><p class="ui-dialog-note">退出 {{ logoutAccount?.name }} 后，此平台的同步红心将从聚合列表移除。你主动保存的本地收藏会继续保留。</p><template #footer><button type="button" class="ui-dialog-button" @click="logoutAccount = null">取消</button><button type="button" class="ui-dialog-button ui-dialog-button-primary" @click="logout">退出账号</button></template></UiModal>
     <QishuiLogin />
     <BodianLogin />
+    <NativePlatformLogin />
   </div>
 </template>
 
@@ -23,6 +24,7 @@ import UiIcon from './UiIcon.vue'
 import UiModal from './UiModal.vue'
 import QishuiLogin from './QishuiLogin.vue'
 import BodianLogin from './BodianLogin.vue'
+import NativePlatformLogin from './NativePlatformLogin.vue'
 
 const fallback: PlatformAccount[] = (Object.keys(platformNames) as Array<PlatformAccount['platform']>).map(platform => ({ platform, name: platformNames[platform], connected: false, profile: null, lastSync: null, count: 0, error: '' }))
 const accounts = computed(() => {

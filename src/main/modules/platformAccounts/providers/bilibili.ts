@@ -116,7 +116,7 @@ async function playlistTracks(context: ProviderContext, profile: PlatformProfile
 
 interface AudioStream { url: string, backupUrls: string[], quality: PlatformQuality, bitrate: number, rank: number }
 const qualityById: Record<string, { quality: PlatformQuality, rank: number }> = { 30216: { quality: '64k', rank: 1 }, 30232: { quality: '128k', rank: 2 }, 30280: { quality: '192k', rank: 3 }, 30250: { quality: 'dolby', rank: 5 }, 30251: { quality: 'flac24bit', rank: 6 } }
-const qualityRank: Partial<Record<PlatformQuality, number>> = { '64k': 1, '128k': 2, '192k': 3, '320k': 4, dolby: 5, flac: 6, flac24bit: 6, wav: 6, ape: 6, sky: 5, jyeffect: 5, jymaster: 6 }
+const qualityRank: Partial<Record<PlatformQuality, number>> = { '64k': 1, '128k': 2, '192k': 3, '320k': 4, dolby: 5, flac: 6, flac24bit: 6, wav: 6, ape: 6, sky: 5, jyeffect: 5, jymaster: 6, vivid: 6 }
 async function audioStreams(context: ProviderContext, track: LX.Music.MusicInfoOnline): Promise<{ bvid: string, aid: string, streams: AudioStream[] }> {
   if (track.source !== 'bi') throw new Error('此记录不是哔哩哔哩内容')
   const bvid = safeBvid(track.meta.songId)

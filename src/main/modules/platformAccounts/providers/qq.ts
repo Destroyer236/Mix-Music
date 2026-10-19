@@ -360,11 +360,12 @@ async function musicQualitys(context: ProviderContext, track: LX.Music.MusicInfo
   const sizes: Record<string, unknown> = { '128k': file.size_128mp3, '192k': file.size_192aac, '320k': file.size_320mp3, flac: file.size_flac, flac24bit: file.size_hires, jyeffect: newer[1], sky: newer[2], jymaster: newer[0] }
   return formats.filter(format => Number(sizes[format.quality]) > 0).map(format => format.quality).reverse()
 }
-async function musicUrl(context: ProviderContext, track: LX.Music.MusicInfoOnline, quality: PlatformQuality) {
+async function musicUrlForQuality(context: ProviderContext, track: LX.Music.MusicInfoOnline, quality: PlatformQuality) {
   if (quality === 'auto') {
     const available = await musicQualitys(context, track).catch(() => ['flac', '320k', '128k'] as PlatformQuality[])
-    const candidates = formats.filter(format => available.includes(format.quality))
-    if (!candidates.length) throw new Error('QQ 音乐未返回此歌曲的可用音质')
+    // Size metadata can omit SD for paid songs even when CgiGetVkey supplies
+    // an official RS02 audition resource for the standard format.
+    const candidates = formats.filter(format => format.quality === '128k' || available.includes(format.quality))
     return vkey(context, track, candidates)
   }
   const mappedQuality = quality === '64k' ? '128k' : quality === 'dolby' ? 'sky' : quality === 'ape' || quality === 'wav' ? 'flac' : quality
@@ -382,6 +383,45 @@ async function musicUrl(context: ProviderContext, track: LX.Music.MusicInfoOnlin
   try { return await vkey(context, track, candidates.slice(1)) } catch (error) {
     if (trial) return trial
     throw error
+  }
+}
+
+async function officialPreview(context: ProviderContext, track: LX.Music.MusicInfoOnline): Promise<PlatformStream> {
+  const details = await cgi(context, 'music.pf_song_detail_svr', 'get_song_detail_yqq', { song_mid: track.meta.songId })
+  const song = asRecord(details.track_info)
+  const file = asRecord(song.file)
+  const action = asRecord(song.action)
+  // Follow QQ's web player: action.try (bit 14) plus size_try grants audition.
+  const canTry = Number(action.try) > 0 || (Number(action.switch ?? action.switches) & (1 << 14)) !== 0
+  if (String(song.mid ?? '') !== String(track.meta.songId) || !canTry || !(Number(file.size_try) > 0)) throw new Error('QQ 音乐当前未提供此歌曲的试听权限')
+  const mediaMid = String((Array.isArray(song.vs) ? song.vs[0] : '') || file.media_mid || '')
+  if (!mediaMid) throw new Error('QQ 音乐试听缺少播放标识')
+  const cookies = await context.cookies()
+  const uin = cookieValue(cookies, 'qqmusic_uin', 'uin', 'p_uin', 'wxuin').replace(/^o0*/, '')
+  // Request the server-clipped RS02 file explicitly. Standard M500 requests
+  // do not always downgrade to previews, even when the song advertises one.
+  const data = await cgi(context, 'music.vkey.GetEVkey', 'GetUrl', {
+    guid: String(Math.floor(10_000_000 + Math.random() * 89_999_999)),
+    songmid: [String(track.meta.songId)],
+    songtype: [Number(song.type) || 0],
+    uin,
+    loginflag: 1,
+    platform: '20',
+    xcdn: 1,
+    filename: [`RS02${mediaMid}.mp3`],
+  })
+  const items = Array.isArray(data.midurlinfo) ? data.midurlinfo.map(asRecord) : []
+  const item = items.find(item => String(item.songmid ?? '') === String(track.meta.songId)) ?? (items.length === 1 && !items[0].songmid ? items[0] : undefined)
+  const purl = String(item?.purl ?? '')
+  if (!/(?:^|\/)RS02/.test(purl)) throw new Error('QQ 音乐没有返回可播放的试听音频')
+  const sip = Array.isArray(data.sip) ? String(data.sip.find(item => String(item).startsWith('https:')) ?? data.sip[0] ?? '') : ''
+  const url = /^https?:\/\//.test(purl) ? purl : `${sip || 'https://ws.stream.qqmusic.qq.com/'}${purl}`
+  return { url, type: '128k', quality: '128k', qualityLabel: '试听音频（平台提供）', expires: 600, isTrial: true }
+}
+
+async function musicUrl(context: ProviderContext, track: LX.Music.MusicInfoOnline, quality: PlatformQuality) {
+  try { return await musicUrlForQuality(context, track, quality) } catch (error) {
+    try { return await officialPreview(context, track) } catch { throw error }
   }
 }
 

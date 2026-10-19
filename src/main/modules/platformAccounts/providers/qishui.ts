@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { PlatformPlaylist, PlatformProfile } from '@common/platformAccounts'
 import type { PlatformProvider, ProviderContext } from './types'
-import { request, object, itemId, text, imageUrl, toTrack, officialHosts, shareAudio, sharePage, trueFlag, toLyrics, probeAudio, type Json } from './qishuiApi'
+import { request, object, itemId, text, imageUrl, toTrack, officialHosts, resolveAudio, sharePage, trueFlag, toLyrics, type Json, type QishuiMediaType } from './qishuiApi'
 
 export type CatalogKind = 'track' | 'album' | 'artist' | 'playlist'
 export interface CatalogEntity { id: string, name: string, cover: string, singer: string, description: string, count: number }
@@ -219,8 +219,8 @@ export async function resolveShare(context: ProviderContext, input: string): Pro
   throw new Error('汽水音乐分享链接跳转次数过多')
 }
 
-export async function getLyrics(context: ProviderContext, id: string) {
-  return toLyrics((await sharePage(context, id)).option)
+export async function getLyrics(context: ProviderContext, id: string, mediaType?: QishuiMediaType) {
+  return toLyrics((await sharePage(context, id, mediaType)).option)
 }
 
 export const qishuiProvider: PlatformProvider = {
@@ -231,7 +231,7 @@ export const qishuiProvider: PlatformProvider = {
   cookieUrl: 'https://api.qishui.com/',
   domains: ['qishui.com', 'douyin.com'],
   syncSupported: true,
-  notice: '使用抖音 APP 扫码登录。完整搜索需要登录；分享音频仅提供平台允许的音质，加密、会员或版权受限歌曲会尝试其他平台。',
+  notice: '使用汽水音乐 App 搜索页的“扫一扫”登录。完整搜索需要登录；分享音频仅提供平台允许的音质，加密、会员或版权受限歌曲会尝试其他平台。',
   authenticated: cookies => Boolean(cookies.sessionid || cookies.sessionid_ss || cookies.sid_tt),
   async profile(context) {
     const body = await request(context, '/luna/pc/me')
@@ -261,19 +261,18 @@ export const qishuiProvider: PlatformProvider = {
   },
   async available(context, track) {
     if (track.source !== 'qs') return false
-    try { return trueFlag((await sharePage(context, String(track.meta.songId))).option.hasCopyright) } catch (error) {
+    try { return trueFlag((await sharePage(context, String(track.meta.songId), track.meta.qishuiMediaType)).option.hasCopyright) } catch (error) {
       if (error instanceof Error && /不可用|已下架|版权/.test(error.message)) return false
       throw error
     }
   },
   async musicQualitys(context, track) {
-    await shareAudio(context, String(track.meta.songId))
+    await resolveAudio(context, String(track.meta.songId), track.meta.qishuiMediaType, false)
     return ['auto']
   },
   async musicUrl(context, track) {
     if (track.source !== 'qs') throw new Error('此记录不是汽水音乐歌曲')
-    const audio = await shareAudio(context, String(track.meta.songId))
-    await probeAudio(context, audio.url)
+    const audio = await resolveAudio(context, String(track.meta.songId), track.meta.qishuiMediaType)
     return { url: audio.url, type: '128k', quality: 'auto', qualityLabel: '分享音频（平台提供）', expires: Math.max(0, (audio.expires - Date.now()) / 1000) }
   },
   async like(context, profile: PlatformProfile, track, liked) {

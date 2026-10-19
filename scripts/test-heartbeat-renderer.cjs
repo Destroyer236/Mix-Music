@@ -52,6 +52,7 @@ function harness(loggedIn = true) {
     write: async() => {},
     save: async() => {},
     continuation: 'previous recommendation',
+    disliked: new Set(),
   }
   Object.defineProperty(state, 'queue', {
     get: () => state.queues.get(state.playInfo.playerListId) ?? state.queues.get('temp'),
@@ -101,6 +102,7 @@ function harness(loggedIn = true) {
       platformSnapshot: state.snapshot,
       initializePlatformAccounts: async() => { state.initialized++; await state.initialize() },
     },
+    '@renderer/core/dislikeList': { hasDislike: track => state.disliked.has(track.id) },
     electron: { ipcRenderer: { invoke: async(channel, argument) => { state.requests.push({ channel, argument }); return state.fetch(argument) } } },
   }
   state.music = load('src/renderer/ui/services/music.ts', dependencies)
@@ -350,6 +352,20 @@ async function main() {
   state.fetch = async() => ({ accountId: 'account-b', tracks: [track('wrong-account')] })
   assert.match((await state.api.toggleHeartbeat()).message, /账号已变化/)
   assert.deepEqual(state.plays, [])
+  state.api.disposeHeartbeat()
+
+  state = harness()
+  state.playMusicInfo.musicInfo = track('10')
+  state.disliked.add('wy_10')
+  assert.equal((await state.api.toggleHeartbeat()).kind, 'success')
+  assert.equal(state.requests[0].argument.seedId, undefined, 'disliked current song cannot seed a new heartbeat queue')
+  assert.deepEqual(state.plays, ['wy_11'], 'heartbeat excludes disliked tracks before choosing the first song')
+  state.api.disposeHeartbeat()
+
+  state = harness()
+  state.disliked.add('wy_10'); state.disliked.add('wy_11')
+  assert.match((await state.api.toggleHeartbeat()).message, /不喜欢库/)
+  assert.deepEqual(state.plays, [], 'an entirely disliked heartbeat response cannot start playback')
   state.api.disposeHeartbeat()
 
   let restoredListReads = 0

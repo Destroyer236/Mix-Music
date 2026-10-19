@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron'
 import { computed, ref, shallowRef, watch } from 'vue'
-import { isPlatformQuality, type PlatformQuality, type ResolvedPlatformStream } from '@common/platformPlayback'
+import { isPlatformQuality, type PlatformQuality, type ResolvedPlatformStream, type PlaybackResolveOptions } from '@common/platformPlayback'
 import { isPreferredPlatformSource, type PreferredPlatformSource } from '@common/platformSources'
 import { playMusicInfo } from '@renderer/store/player/state'
 import { appSetting, mergeSetting } from '@renderer/store/setting'
@@ -81,8 +81,17 @@ export const setPreferredSource = async(source: PreferredPlatformSource): Promis
 export const getPlatformQualitys = async(track: LX.Music.MusicInfoOnline): Promise<PlatformQuality[]> => {
   return ipcRenderer.invoke('platform_playback_qualitys', JSON.parse(JSON.stringify(track)))
 }
-export const resolvePlatformStream = async(track: LX.Music.MusicInfoOnline, refresh: boolean, allowToggleSource: boolean, quality = preferredQuality.value): Promise<ResolvedPlatformStream> => {
-  return ipcRenderer.invoke('platform_playback_resolve', { track: JSON.parse(JSON.stringify(track)), quality, isRefresh: refresh, allowToggleSource })
+export const resolvePlatformStream = async(track: LX.Music.MusicInfoOnline, refresh: boolean, allowToggleSource: boolean, quality = preferredQuality.value, options: PlaybackResolveOptions = {}): Promise<ResolvedPlatformStream> => {
+  return ipcRenderer.invoke('platform_playback_resolve', { track: JSON.parse(JSON.stringify(track)), quality, isRefresh: refresh, allowToggleSource, ...(options.rejectedUrls?.length ? { rejectedUrls: options.rejectedUrls.slice(0, 16) } : {}) })
+}
+let resourceTrack: LX.Music.MusicInfo | LX.Download.ListItem | null = null
+let resourceUrl = ''
+let rejectedUrls: string[] = []
+export const resetPlaybackFailures = () => { rejectedUrls = [] }
+export const rejectCurrentPlaybackUrl = (track: LX.Music.MusicInfo | LX.Download.ListItem): string[] | null => {
+  if (resourceTrack !== track || !/^https?:\/\//i.test(resourceUrl) || rejectedUrls.includes(resourceUrl) || rejectedUrls.length >= 16) return null
+  rejectedUrls.push(resourceUrl)
+  return [...rejectedUrls]
 }
 const resolvedStreams = new Map<string, ResolvedPlatformStream>()
 const streamKey = (id: string, url: string, quality: PlatformQuality) => `${id}:${quality}:${url}`
@@ -92,7 +101,10 @@ export const acceptStream = (track: LX.Music.MusicInfoOnline, stream: ResolvedPl
 }
 // Only the player resource transaction commits display state. Preloading only caches.
 export const commitStream = (track: LX.Music.MusicInfo | LX.Download.ListItem, url: string, requested: PlatformQuality) => {
-  if (playMusicInfo.musicInfo?.id !== track.id || preferredQuality.value !== requested) return
+  if (playMusicInfo.musicInfo !== track || preferredQuality.value !== requested) return
+  if (resourceTrack !== track) resetPlaybackFailures()
+  resourceTrack = track
+  resourceUrl = url
   const original = 'metadata' in track ? track.metadata.musicInfo : track
   const local = !/^https?:\/\//i.test(url)
   const stream = local ? null : resolvedStreams.get(streamKey(track.id, url, requested)) ?? resolvedStreams.get(streamKey(original.id, url, requested))

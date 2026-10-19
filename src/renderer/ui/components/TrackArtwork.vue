@@ -1,5 +1,5 @@
 <template>
-  <span ref="host" class="ui-track-artwork"><img v-if="visible && url && !failed" :src="url" :alt="alt" loading="lazy" decoding="async" @load="imageLoaded" @error="imageError"><span v-else class="ui-track-artwork-fallback" aria-hidden="true"><UiIcon name="music" /></span></span>
+  <span ref="host" class="ui-track-artwork"><img v-if="visible && url && !failed" :src="url" :alt="alt" loading="lazy" decoding="async" @load="imageLoaded" @error="imageError"><span v-else class="ui-track-artwork-fallback" aria-hidden="true"><slot name="fallback"><UiIcon name="music" /></slot></span></span>
 </template>
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'

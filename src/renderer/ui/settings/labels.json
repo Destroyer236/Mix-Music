@@ -167,6 +167,8 @@
   "externalLyric.island.playedColor": "已播放文字颜色",
   "externalLyric.island.unplayedColor": "未播放文字颜色",
   "externalLyric.island.backgroundColor": "背景颜色",
+  "externalLyric.island.cornerRadius": "圆角大小（%）",
+  "externalLyric.island.backgroundOpacity": "背景不透明度（%）",
   "externalLyric.island.alwaysOnTop": "窗口始终置顶",
   "externalLyric.island.snapCentered": "顶部吸附时居中",
   "externalLyric.island.notchFusion": "融合屏幕刘海",

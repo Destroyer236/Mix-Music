@@ -32,7 +32,7 @@ export const filterList = async({ playedList, listId, list, playerMusicInfo, isN
     playedList: toRaw(playedList),
     // savePath: appSetting['download.savePath'],
     playerMusicInfo: toRaw(playerMusicInfo),
-    dislikeInfo: { names: toRaw(dislikeInfo.names), musicNames: toRaw(dislikeInfo.musicNames), singerNames: toRaw(dislikeInfo.singerNames) },
+    dislikeInfo: { names: toRaw(dislikeInfo.names), musicNames: toRaw(dislikeInfo.musicNames), singerNames: toRaw(dislikeInfo.singerNames), rules: dislikeInfo.rules },
     isNext,
   })
   if (!valid()) return { filteredList: [], playerIndex: -1 }
@@ -61,6 +61,7 @@ export const setPowerSaveBlocker = (enabled: boolean, force = false) => {
   } else {
     if (timeout) return
     timeout = setTimeout(() => {
+      timeout = null
       setPowerSaveBlockerRemote(false)
     }, 60_000 * 1.5)
   }

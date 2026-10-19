@@ -40,6 +40,7 @@ const symbols = { folderOpen: '#icon-lucide-folder-open', imagePlus: '#icon-luci
 
 defineProps({ name: { type: String, default: 'music' }, filled: { type: Boolean, default: false } })
 const paths = {
+  lyricsToggle: 'M4 5h14M4 12v7M9 12h13M9 19h13',
   heartPulse: 'M20 13c5-6-2-13-8-7-6-6-13 1-8 7l8 8 5-5M3 12h5l2-4 4 8 2-4h5',
   alertCircle: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 7v6m0 4h.01',
   globe: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18M12 3c5 5 5 13 0 18M12 3c-5 5-5 13 0 18',
@@ -72,7 +73,8 @@ const paths = {
   chevronDown: 'm6 9 6 6 6-6',
   chevronRight: 'm9 6 6 6-6 6',
   check: 'm5 12 4 4L19 6',
-  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  more: 'M12 5h.01M12 12h.01M12 19h.01',
+  minusCircle: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M8 12h8',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5',
   folder: 'M3 7V5h7l2 2h9v13H3Z',
   upload: 'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',

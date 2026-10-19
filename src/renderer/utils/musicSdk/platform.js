@@ -8,5 +8,6 @@ export const getPlatformMusicUrl = (source, songInfo, type) => {
     albumId: songInfo.albumId,
     id: songInfo.id,
     quality: type,
+    ...(source === 'qs' && ['track', 'ugc_clip'].includes(songInfo.qishuiMediaType) ? { qishuiMediaType: songInfo.qishuiMediaType } : {}),
   })
 }

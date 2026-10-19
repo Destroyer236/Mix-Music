@@ -38,6 +38,8 @@ export interface DynamicIslandConfig {
   playedColor: string
   unplayedColor: string
   backgroundColor: string
+  cornerRadius: number
+  backgroundOpacity: number
   alwaysOnTop: boolean
   snapCentered: boolean
   notchFusion: boolean
@@ -114,6 +116,8 @@ export const externalLyricDefaults: ExternalLyricSettings = {
   'externalLyric.island.playedColor': 'rgba(255, 255, 255, 1)',
   'externalLyric.island.unplayedColor': 'rgba(255, 255, 255, 0.5)',
   'externalLyric.island.backgroundColor': 'rgba(0, 0, 0, 1)',
+  'externalLyric.island.cornerRadius': 100,
+  'externalLyric.island.backgroundOpacity': 100,
   'externalLyric.island.alwaysOnTop': true,
   'externalLyric.island.snapCentered': true,
   'externalLyric.island.notchFusion': false,

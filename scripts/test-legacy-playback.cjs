@@ -46,6 +46,7 @@ const index = load('src/main/modules/platformAccounts/index.ts', {
   './bodianLogin': {},
   './navigation': { registerAccountSession() {} },
   './playback': resolver,
+  '../userApi/playback': { getImportedPlaybackSources: () => [] },
 })
 global.lx = { appSetting: { 'player.preferredSource': 'auto' } }
 index.default()

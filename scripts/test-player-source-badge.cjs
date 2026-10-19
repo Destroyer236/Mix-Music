@@ -23,7 +23,7 @@ function load(relative, dependencies = {}) {
 const quality = load('src/common/platformPlayback.ts')
 const sources = load('src/common/platformSources.ts')
 const track = (id, source = 'wy') => ({ id: `${source}_${id}`, source, name: `歌曲 ${id}`, singer: '测试歌手', meta: { songId: id } })
-const stream = (musicInfo, platform = 'qq', url = 'https://audio.example.test/song.flac') => ({ musicInfo, platform, url, type: 'flac', quality: 'flac', qualityLabel: '无损 · FLAC' })
+const stream = (musicInfo, platform = 'qq', url = 'https://audio.example.test/song.flac') => ({ musicInfo, platform, url, type: 'flac', quality: 'flac', qualityLabel: 'SQ' })
 
 function fixture() {
   const state = {

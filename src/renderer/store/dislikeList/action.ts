@@ -1,17 +1,20 @@
 import { markRaw } from '@common/utils/vueTools'
+import { computed } from 'vue'
+import { createDislikeFilter } from '@common/dislike'
 
 
-import { dislikeInfo, dislikeRuleCount } from './state'
+import { dislikeInfo, dislikeRuleCount, dislikeRulesVersion } from './state'
 import { SPLIT_CHAR } from '@common/constants'
 
 
-export const hasDislike = (info: LX.Music.MusicInfo | LX.Download.ListItem) => {
-  if ('progress' in info) info = info.metadata.musicInfo
-  const name = info.name?.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim() ?? ''
-  const singer = info.singer?.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim() ?? ''
+const filter = computed(() => {
+  void dislikeRulesVersion.value
+  return createDislikeFilter(dislikeInfo.rules)
+})
 
-  return dislikeInfo.musicNames.has(name) || dislikeInfo.singerNames.has(singer) ||
-    dislikeInfo.names.has(`${name}${SPLIT_CHAR.DISLIKE_NAME}${singer}`)
+export const hasDislike = (info: Pick<LX.Music.MusicInfo, 'name' | 'singer'> | LX.Download.ListItem) => {
+  if ('progress' in info) info = info.metadata.musicInfo
+  return filter.value(info)
 }
 
 export const initDislikeInfo = ({ musicNames, rules, names, singerNames }: LX.Dislike.DislikeInfo) => {
@@ -20,6 +23,7 @@ export const initDislikeInfo = ({ musicNames, rules, names, singerNames }: LX.Di
   dislikeInfo.musicNames = markRaw(musicNames)
   dislikeInfo.rules = rules
   dislikeRuleCount.value = dislikeInfo.musicNames.size + dislikeInfo.singerNames.size + dislikeInfo.names.size
+  dislikeRulesVersion.value++
 }
 
 const initNameSet = () => {
@@ -49,6 +53,7 @@ const initNameSet = () => {
   }
   dislikeInfo.rules = Array.from(new Set(list)).join('\n')
   dislikeRuleCount.value = dislikeInfo.musicNames.size + dislikeInfo.singerNames.size + dislikeInfo.names.size
+  dislikeRulesVersion.value++
 }
 
 export const addDislikeInfo = (infos: LX.Dislike.DislikeMusicInfo[]) => {

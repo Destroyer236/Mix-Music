@@ -30,7 +30,7 @@ const emit = defineEmits(['loaded'])
 function imageLoaded(image) { emit('loaded', image) }
 </script>
 <style lang="less" scoped>
-.ui-record-player { position: relative; width: 100%; aspect-ratio: 1.06; border-radius: 10%; background: linear-gradient(145deg, #1c1f1d, #0e100f 55%, #141613); box-shadow: 0 22px 38px #0003, inset 0 1px 2px #ffffff18, inset 0 -2px 2px #0006; }
+.ui-record-player { position: relative; width: 100%; aspect-ratio: 1.06; border-radius: 10%; background: linear-gradient(145deg, var(--record-base, #1c1f1d), var(--record-base-shade, #0e100f) 75%); box-shadow: 0 22px 38px #0003, inset 0 1px 2px #ffffff18, inset 0 -2px 2px #0006; }
 .ui-record-platter { position: absolute; left: 4.5%; top: 5%; width: 84%; aspect-ratio: 1; border-radius: 50%; background: linear-gradient(145deg, #292c28, #080a08); box-shadow: inset 0 1px 3px #ffffff0c, 0 1px 2px #000a; }
 .ui-record-disc { position: absolute; inset: 5%; border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 1px, #ffffff10 1px 2px, #00000012 2px 3px), conic-gradient(from 25deg, var(--record-shade), var(--record-tint) 15%, var(--record-highlight) 23%, var(--record-tint) 32%, var(--record-shade) 49%, var(--record-tint) 64%, var(--record-highlight) 74%, var(--record-tint) 81%, var(--record-shade)); box-shadow: inset 0 0 0 2px #ffffff14, inset 0 0 0 7px #00000012, 0 4px 9px #0009; animation: linkline-record-spin 28s linear infinite; animation-play-state: paused; }
 .ui-record-label { position: absolute; inset: 23%; border: 8px solid #141812; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px #ffffff14; }

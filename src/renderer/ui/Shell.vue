@@ -1,7 +1,7 @@
 <template>
   <div class="ui-shell">
     <aside class="ui-sidebar">
-      <router-link class="ui-brand" to="/discover"><span class="ui-brand-mark"><img :src="linklineLogo" alt="LinkLine 标志"></span><span>LinkLine</span></router-link>
+      <router-link class="ui-brand" to="/discover" aria-label="LinkLine 首页"><span class="ui-brand-mark"><img :src="linklineLogo" alt=""></span><span class="ui-brand-wordmark"><BrandWordmark /></span></router-link>
       <div class="ui-sidebar-body scroll">
         <nav aria-label="主导航"><router-link v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="item.label" :class="{ 'ui-nav-active': route.path.startsWith(item.path) }"><UiIcon :name="item.icon" /><span>{{ item.label }}</span></router-link></nav>
         <div class="ui-personal-section">
@@ -16,7 +16,7 @@
           <button ref="playlistGroupTrigger" type="button" class="ui-playlist-compact-entry" aria-label="歌单分组与创建" title="我的歌单" aria-haspopup="menu" :aria-expanded="playlistGroupOpen" popovertarget="sidebar-playlist-group-menu" @click="positionPlaylistGroup"><UiIcon :name="playlistTab === 'created' ? 'list' : 'heart'" /></button>
           <div class="ui-playlist-tabs"><div role="tablist" aria-label="歌单分组"><button id="sidebar-created-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'created'" aria-label="自建歌单" @click="playlistTab = 'created'"><UiIcon name="list" /><span>自建歌单</span></button><span aria-hidden="true">|</span><button id="sidebar-collected-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'collected'" aria-label="收藏歌单" @click="playlistTab = 'collected'"><UiIcon name="heart" /><span>收藏歌单</span></button></div><button type="button" class="ui-create-playlist" aria-label="创建歌单" title="创建歌单" @click="playlistOpen = true"><UiIcon name="plus" /></button></div>
           <div id="sidebar-playlists" class="ui-sidebar-lists scroll" role="tabpanel" :aria-labelledby="playlistTab === 'created' ? 'sidebar-created-tab' : 'sidebar-collected-tab'">
-            <router-link v-for="list in sidebarLists" :key="list.id" :aria-label="list.name" :title="list.name" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === list.id }" :to="{ path: '/list', query: { id: list.id } }" @contextmenu.prevent="openPlaylistMenu($event, list)" @keydown="playlistKey($event, list)"><UiIcon name="list" /><span>{{ list.name }}</span></router-link>
+            <router-link v-for="list in sidebarLists" :key="list.id" :aria-label="list.name" :title="list.name" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === list.id }" :to="{ path: '/list', query: { id: list.id } }" @contextmenu.prevent="openPlaylistMenu($event, list)" @keydown="playlistKey($event, list)"><SidebarPlaylistCover :list="list" :native="!list.platform" /><span>{{ list.name }}</span></router-link>
             <p v-if="playlistTab === 'collected' && !sidebarLists.length" class="ui-playlist-empty">还没有收藏的歌单</p>
           </div>
         </section>
@@ -35,6 +35,7 @@
       <UpdateCenter />
     </div>
     <PlayerBar />
+    <Teleport to="body"><p v-if="playerNotice" class="ui-player-notice" role="status" aria-live="polite">{{ playerNotice }}</p></Teleport>
     <Teleport to="body"><div id="sidebar-playlist-group-menu" ref="playlistGroupMenu" popover="auto" class="ui-playlist-context-menu ui-playlist-group-menu" :style="playlistGroupPosition" role="menu" aria-label="我的歌单" @toggle="playlistGroupOpen = $event.newState === 'open'" @keydown="playlistGroupKey">
       <button type="button" role="menuitemradio" :aria-checked="playlistTab === 'created'" autofocus @click="selectPlaylistGroup('created')"><UiIcon name="list" /><span>自建歌单</span><UiIcon v-if="playlistTab === 'created'" name="check" /></button>
       <button type="button" role="menuitemradio" :aria-checked="playlistTab === 'collected'" @click="selectPlaylistGroup('collected')"><UiIcon name="heart" /><span>收藏歌单</span><UiIcon v-if="playlistTab === 'collected'" name="check" /></button>
@@ -61,6 +62,7 @@ import { LIST_IDS } from '@common/constants'
 import { playList } from '@renderer/core/player'
 import { usePlaylistCoverTracking } from './usePlaylistCover'
 import PlaylistContextMenu from './components/PlaylistContextMenu.vue'
+import SidebarPlaylistCover from './components/SidebarPlaylistCover.vue'
 import UiModal from './components/UiModal.vue'
 import PlaylistDialog from './components/PlaylistDialog.vue'
 import RecentPlayback from './components/RecentPlayback.vue'
@@ -74,7 +76,9 @@ import UpdateCenter from './components/UpdateCenter.vue'
 import { checkUpdateOnStartup, openUpdateCenter, updateAvailable, updateChecking, updateResult } from './services/appUpdate'
 import { migratePlayerProgressStyle } from './services/preferences'
 import { initializePlayerSessionTools } from './services/playerSessionTools'
+import { playerNotice } from './services/playerNotice'
 import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
+import BrandWordmark from './components/BrandWordmark.vue'
 void migratePlayerProgressStyle()
 const disposeSessionTools = initializePlayerSessionTools()
 onBeforeUnmount(disposeSessionTools)

@@ -66,14 +66,15 @@ export default {
         case 'flac24bit':
           return this.$t('download__lossless') + ' FLAC Hires'
         case 'flac':
+          return this.$t('download__lossless') + ' SQ'
         case 'ape':
         case 'wav':
           return this.$t('download__lossless') + ' ' + quality.toUpperCase()
         case '320k':
-          return this.$t('download__high_quality') + ' ' + quality.toUpperCase()
+          return this.$t('download__high_quality') + ' HQ'
         case '192k':
         case '128k':
-          return this.$t('download__normal') + ' ' + quality.toUpperCase()
+          return this.$t('download__normal') + ' SD'
       }
     },
     checkSource(quality) {

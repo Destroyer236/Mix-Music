@@ -8,6 +8,7 @@ import { removePlayedList, updatePlayIndex } from '@renderer/store/player/action
 import { appSetting } from '@renderer/store/setting'
 import { recommendationKey } from '../recommendationMix'
 import { getRecommendations, type RecommendationSource } from '../useRecommendations'
+import { hasDislike } from '@renderer/core/dislikeList'
 
 /** A recommendation session owns its source even after the user changes pages. */
 export function startRecommendationPlayback(source: RecommendationSource, queueId: string) {
@@ -25,8 +26,8 @@ export function startRecommendationPlayback(source: RecommendationSource, queueI
     if (track && !playMusicInfo.isTempPlay) seen.add(recommendationKey(track))
   }
   const remaining = () => appSetting['player.togglePlayMethod'] === 'random'
-    ? tracks().filter(track => !seen.has(recommendationKey(track))).length
-    : Math.max(0, tracks().length - playInfo.playerPlayIndex - 1)
+    ? tracks().filter(track => !hasDislike(track) && !seen.has(recommendationKey(track))).length
+    : tracks().slice(playInfo.playerPlayIndex + 1).filter(track => !hasDislike(track)).length
 
   async function trim() {
     const list = tracks()
@@ -93,6 +94,7 @@ export function startRecommendationPlayback(source: RecommendationSource, queueI
     notify,
     ensure,
     filter: list => appSetting['player.togglePlayMethod'] === 'random' ? list.filter(track => !seen.has(recommendationKey('metadata' in track ? track.metadata.musicInfo : track))) : list,
+    excludes: track => hasDislike(track),
     dispose: () => {
       disposed = true
       clearTimeout(retryTimer)

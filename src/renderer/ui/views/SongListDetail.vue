@@ -144,11 +144,12 @@ function openAction(track: LX.Music.MusicInfo, value: 'add' | 'download') { acti
 
 <style lang="less">
 @import '../discovery.less';
-.ui-shell .ui-song-detail { position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.ui-shell .ui-song-detail { position: relative; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 .ui-song-detail__back { flex: none; align-self: flex-start; margin: 0 0 18px; padding: 0; border: 0; color: var(--modern-muted); background: transparent; font: inherit; font-size: 10px; cursor: pointer; &:hover { color: var(--modern-accent-ink); } }
 .ui-song-detail__back svg { width: 15px; height: 15px; }
 .ui-song-detail__description { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ui-shell .ui-song-detail > .ui-track-panel { flex: 1; min-height: 0; }
 .ui-song-detail > .ui-track-panel > .track-table { height: 100%; }
 .ui-song-detail > :is(.ui-inline-message, .ui-section-heading, .ui-pagination) { flex: none; }
+.ui-song-detail > .ui-pagination { margin-top: 0; }
 </style>
