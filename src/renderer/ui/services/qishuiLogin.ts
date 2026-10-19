@@ -30,18 +30,23 @@ export async function startQishuiLogin() {
     const poll = async() => {
       const view = qishuiLogin.value
       if (current !== generation || !view) return
-      if (Date.now() >= view.expiresAt) { qishuiLogin.value = { ...view, status: 'expired' }; return }
+      if (Date.now() >= view.expiresAt) { qishuiLogin.value = { ...view, status: 'expired', error: '' }; return }
       try {
         const result = await ipcRenderer.invoke('platform_qishui_login_check', { flowId: view.flowId }) as { status: 'waiting' | 'scanned' | 'confirmed' | 'expired' }
         if (current !== generation || !qishuiLogin.value) return
-        qishuiLogin.value = { ...view, status: result.status }
+        qishuiLogin.value = { ...view, status: result.status, error: '' }
         if (result.status === 'confirmed') {
           timer = setTimeout(() => { if (current === generation) closeQishuiLogin() }, 1200)
           return
         }
         if (result.status !== 'expired') timer = setTimeout(() => { void poll() }, 2500)
       } catch (error) {
-        if (current === generation && qishuiLogin.value) qishuiLogin.value = { ...view, status: 'error', error: describe(error) }
+        if (current !== generation || !qishuiLogin.value) return
+        const message = describe(error)
+        if (/^汽水音乐登录(?:请求超时|连接失败)/.test(message)) {
+          qishuiLogin.value = { ...view, error: '连接暂时中断，正在重试…' }
+          timer = setTimeout(() => { void poll() }, 2500)
+        } else qishuiLogin.value = { ...view, status: 'error', error: message }
       }
     }
     timer = setTimeout(() => { void poll() }, 2500)

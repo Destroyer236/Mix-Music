@@ -5,12 +5,13 @@
 import { inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { playerDetailThemeKey } from '../playerDetailPalette'
 import UiIcon from './UiIcon.vue'
-const props = withDefaults(defineProps<{ show: boolean, title: string, subtitle?: string, showHeader?: boolean, id?: string, width?: number, trigger?: HTMLElement | null, panelClass?: string, anchor?: 'right' | 'trigger' | 'center' }>(), { subtitle: '', showHeader: true, id: undefined, width: 360, trigger: null, panelClass: '', anchor: 'right' })
+const props = withDefaults(defineProps<{ show: boolean, title: string, subtitle?: string, showHeader?: boolean, id?: string, width?: number, trigger?: HTMLElement | null, panelClass?: string, anchor?: 'right' | 'trigger' | 'center', placement?: 'auto' | 'left' }>(), { subtitle: '', showHeader: true, id: undefined, width: 360, trigger: null, panelClass: '', anchor: 'right', placement: 'auto' })
 const emit = defineEmits<{ close: [] }>()
 const detailTheme = inject(playerDetailThemeKey, undefined)
 const panel = ref<HTMLElement | null>(null)
 const position = ref<Record<string, string>>({})
 let previousFocus: HTMLElement | null = null
+let resizeObserver: ResizeObserver | undefined
 function place() {
   const width = Math.min(props.width, innerWidth - 32)
   if (props.anchor === 'center') {
@@ -18,6 +19,14 @@ function place() {
     return
   }
   const trigger = props.trigger?.getBoundingClientRect()
+  if (props.placement === 'left' && trigger) {
+    const sideWidth = Math.max(0, Math.min(width, trigger.left - 24))
+    const maxHeight = Math.max(0, innerHeight - 32)
+    const height = Math.min(panel.value?.getBoundingClientRect().height ?? 320, maxHeight)
+    const top = Math.max(16, Math.min(trigger.top + trigger.height / 2 - height / 2, innerHeight - height - 16))
+    position.value = { left: `${trigger.left - sideWidth - 8}px`, top: `${top}px`, width: `${sideWidth}px`, maxHeight: `${maxHeight}px`, boxSizing: 'border-box' }
+    return
+  }
   if (props.anchor === 'trigger' && trigger) {
     const left = Math.max(16, Math.min(trigger.left, innerWidth - width - 16))
     const above = trigger.top - 24
@@ -34,7 +43,7 @@ function place() {
   position.value = { right: '16px', bottom: `${bottom}px`, width: `${width}px`, maxHeight: `${Math.max(120, innerHeight - bottom - 16)}px` }
 }
 function outside(event: PointerEvent) { const target = event.target as Node; if (!panel.value?.contains(target) && !props.trigger?.contains(target)) emit('close') }
-function removeListeners() { document.removeEventListener('pointerdown', outside, true); window.removeEventListener('resize', place) }
+function removeListeners() { document.removeEventListener('pointerdown', outside, true); window.removeEventListener('resize', place); resizeObserver?.disconnect(); resizeObserver = undefined }
 function onKey(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); emit('close'); return }
   if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || (event.target instanceof HTMLInputElement)) return
@@ -53,8 +62,15 @@ watch(() => props.show, async show => {
   document.addEventListener('pointerdown', outside, true)
   window.addEventListener('resize', place)
   await nextTick()
-  if (props.show) panel.value?.focus()
+  if (props.show) {
+    if (props.placement === 'left' && panel.value) {
+      resizeObserver = new ResizeObserver(place)
+      resizeObserver.observe(panel.value)
+      place()
+    }
+    panel.value?.focus()
+  }
 }, { immediate: true })
-watch(() => [props.width, props.anchor, props.trigger], () => { if (props.show) place() })
+watch(() => [props.width, props.anchor, props.placement, props.trigger], () => { if (props.show) place() })
 onBeforeUnmount(removeListeners)
 </script>

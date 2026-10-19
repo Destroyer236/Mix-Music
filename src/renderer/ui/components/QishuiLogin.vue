@@ -1,5 +1,5 @@
 <template>
-  <UiModal :show="Boolean(qishuiLogin)" title="登录汽水音乐" subtitle="使用抖音 App 扫码，在手机上确认登录" width="390px" @close="closeQishuiLogin">
+  <UiModal :show="Boolean(qishuiLogin)" title="登录汽水音乐" subtitle="打开汽水音乐 App，进入搜索页，点击搜索框右侧“扫一扫”" width="390px" @close="closeQishuiLogin">
     <div v-if="qishuiLogin" class="ui-qishui-login">
       <div class="ui-qishui-code" :class="{ inactive: qishuiLogin?.status === 'expired' || qishuiLogin?.status === 'error' }">
         <img v-if="qishuiLogin?.image" :src="qishuiLogin?.image" alt="汽水音乐登录二维码" draggable="false">
@@ -19,6 +19,7 @@ import { closeQishuiLogin, qishuiLogin, startQishuiLogin } from '../services/qis
 const statusText = computed(() => {
   const login = qishuiLogin.value
   if (!login) return ''
+  if (login.error) return login.error
   return { loading: '正在连接汽水音乐…', waiting: '等待扫码', scanned: '已扫码，请在手机上确认', confirmed: '登录成功，正在同步音乐库', expired: '二维码已过期，请刷新后重试', error: login.error }[login.status]
 })
 onBeforeUnmount(closeQishuiLogin)

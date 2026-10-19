@@ -3,8 +3,8 @@
     <header class="ui-recent-page-heading"><div><h1>最近播放<span>{{ tracks.length }} 首</span></h1><p>再听一次，刚刚喜欢的声音</p></div><label><UiIcon name="search" /><input v-model="query" type="search" placeholder="搜索播放记录" aria-label="搜索最近播放"></label></header>
     <p v-if="error || persistenceError" class="ui-dialog-error" role="alert">{{ error || persistenceError }}</p>
     <div v-if="!filteredTracks.length" class="ui-recent-empty"><span class="ui-listening-empty-glyph"><UiIcon name="clock" /></span><h3>{{ tracks.length ? '没有匹配的播放记录' : '从一首好音乐开始' }}</h3><p>{{ tracks.length ? '试试其他歌名或歌手。' : '听过的音乐会留在这里，随时回来继续听。' }}</p><router-link v-if="!tracks.length" to="/discover">发现好音乐<UiIcon name="chevronRight" /></router-link></div>
-    <div v-else class="ui-recent-table">
-      <TrackTable :list="displayTracks" empty-title="暂无播放记录" @play="playRow" @add="addRow" @download="downloadRow">
+    <div v-else class="ui-library-results">
+      <TrackTable virtualized :list="displayTracks" empty-title="暂无播放记录" @play="playRow" @add="addRow" @download="downloadRow">
         <template #actions="{ track, index }: { track: LX.Music.MusicInfo, index: number }"><button type="button" class="ui-library-row-btn" :class="{ loved: isFavorite(track) }" :aria-pressed="isFavorite(track)" :disabled="!isAvailable(index) || favoritePending.has(track.id)" :aria-label="isFavorite(track) ? '取消收藏' : '收藏歌曲'" @click="toggleFavorite(track)"><UiIcon name="heart" :filled="isFavorite(track)" /></button></template>
       </TrackTable>
     </div>

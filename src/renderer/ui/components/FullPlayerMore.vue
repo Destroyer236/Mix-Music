@@ -1,20 +1,19 @@
 <template>
   <div class="ui-full-more">
-    <button ref="trigger" type="button" class="ui-icon-button ui-full-more-trigger" aria-label="更多播放器功能" title="更多功能" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" @click="open = !open" @keydown.down.prevent="open = true"><UiIcon name="more" /></button>
-    <PlayerPopover :id="panelId" :show="open" :title="pageTitle" :subtitle="page === 'home' ? '播放器工具与外观' : ''" :trigger="trigger" :width="360" anchor="trigger" panel-class="ui-full-more-popover" @close="close">
-      <div class="ui-full-more-content" @keydown.esc.stop.prevent="back" @keydown.left="backKey">
+    <button ref="trigger" type="button" class="ui-icon-button ui-full-more-trigger" aria-label="更多播放器功能" title="更多功能" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="panelId" @click="open = !open" @keydown.down.prevent="open = true"><UiIcon name="settings" /></button>
+    <PlayerPopover :id="panelId" :show="open" :title="pageTitle" :subtitle="page === 'home' ? '播放器工具与外观' : ''" :trigger="trigger" :width="360" anchor="trigger" placement="left" panel-class="ui-full-more-popover" @close="close">
+      <div class="ui-full-more-content" tabindex="-1" @keydown.esc.stop.prevent="back" @keydown.left="backKey">
         <button v-if="page !== 'home'" type="button" class="ui-full-more-back" @click="back"><UiIcon name="back" /><span>返回更多功能</span></button>
-        <Transition name="ui-full-menu-page" mode="out-in">
+        <Transition name="ui-full-menu-page" mode="out-in" @after-enter="focusPage">
           <div :key="page">
             <div v-if="page === 'home'" class="ui-full-more-items">
-              <button type="button" :disabled="!track || reducingRecommendations" @click="reduceRecommendations"><UiIcon name="minimize" /><span>减少推荐</span></button>
-              <div class="ui-full-more-divider" />
               <button v-for="item in menuItems" :key="item.page" type="button" @click="navigate(item.page)" @keydown.right.prevent="navigate(item.page)"><UiIcon :name="item.icon" /><span>{{ item.label }}</span><small v-if="item.value">{{ item.value }}</small><UiIcon name="chevronRight" /></button>
               <div class="ui-full-more-divider" />
               <button type="button" :disabled="!track" @click="addTrack"><UiIcon name="plus" /><span>添加到歌单</span></button>
               <button type="button" :disabled="!onlineTrack" @click="navigate('download')" @keydown.right.prevent="navigate('download')"><UiIcon name="download" /><span>下载歌曲</span><UiIcon name="chevronRight" /></button>
               <button type="button" :disabled="!track" @click="shareTrack"><UiIcon name="share" /><span>分享 · 复制歌曲链接</span></button>
             </div>
+            <FullPlayerLyricSettings v-else-if="page === 'lyrics'" />
             <dl v-else-if="page === 'info'" class="ui-full-audio-info">
               <template v-for="item in audioInfo" :key="item.label"><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></template>
             </dl>
@@ -96,13 +95,13 @@ import { preferredSourceOptions } from '../services/playbackSourceOptions'
 import { patchPlayerPresentation, playerPresentation, type PlayerBackground, type PlayerCoverLayout } from '../services/playerPresentation'
 import { cancelSleepTimer, playerSessionTools, resetABLoop, setABEnabled, setABPoint, startSleepTimer } from '../services/playerSessionTools'
 import { applyEqualizerPreset, eqBypassed, equalizerGains, previewEqualizerBand, saveEqualizerBand, setEqualizerEnabled } from '../services/playerEqualizer'
-import { reduceTrackRecommendations, reducingRecommendations } from '../services/recommendationFeedback'
 import PlayerPopover from './PlayerPopover.vue'
+import FullPlayerLyricSettings from './FullPlayerLyricSettings.vue'
 import TrackActionModal from './TrackActionModal.vue'
 import UiIcon from './UiIcon.vue'
 import UiRange from './UiRange.vue'
 
-type MenuPage = 'home' | 'info' | 'equalizer' | 'speed' | 'ab' | 'sleep' | 'appearance' | 'source' | 'device' | 'download'
+type MenuPage = 'home' | 'lyrics' | 'info' | 'equalizer' | 'speed' | 'ab' | 'sleep' | 'appearance' | 'source' | 'device' | 'download'
 interface FullPlayerMoreProps { track: LX.Music.MusicInfo | null }
 const props: FullPlayerMoreProps = defineProps<FullPlayerMoreProps>()
 const emit = defineEmits<{ notice: [message: string] }>()
@@ -119,9 +118,10 @@ const deviceError = ref('')
 const panelId = `full-player-more-${crypto.randomUUID()}`
 const rates = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const pitchSemitones = computed(() => Math.round(Math.log2(appSetting['player.soundEffect.pitchShifter.playbackRate']) * 12))
-const pageLabels: Record<MenuPage, string> = { home: '更多功能', info: '音频信息', equalizer: '均衡器', speed: '播放速度', ab: 'AB 片段循环', sleep: '定时暂停', appearance: '播放器外观', source: '首选音源', device: '输出设备', download: '下载歌曲' }
+const pageLabels: Record<MenuPage, string> = { home: '更多功能', lyrics: '歌词设置', info: '音频信息', equalizer: '均衡器', speed: '播放速度', ab: 'AB 片段循环', sleep: '定时暂停', appearance: '播放器外观', source: '首选音源', device: '输出设备', download: '下载歌曲' }
 const pageTitle = computed(() => pageLabels[page.value])
 const menuItems = computed<Array<{ page: MenuPage, label: string, icon: string, value?: string }>>(() => [
+  { page: 'lyrics', label: pageLabels.lyrics, icon: 'lyric' },
   { page: 'info', label: pageLabels.info, icon: 'quality' },
   { page: 'equalizer', label: pageLabels.equalizer, icon: 'settings' },
   { page: 'speed', label: pageLabels.speed, icon: 'clock', value: formatRate(playbackRate.value) + '×' },
@@ -166,19 +166,16 @@ function formatTime(seconds: number | null): string {
 }
 function gainLabel(gain: number): string { return gain > 0 ? `+${gain}` : String(gain) }
 function close(): void { open.value = false }
-async function reduceRecommendations(): Promise<void> {
-  if (!props.track || reducingRecommendations.value) return
-  const track = props.track
-  close()
-  try { await reduceTrackRecommendations(track, message => { emit('notice', message) }) } catch { emit('notice', '减少推荐未保存，请重试') }
-}
 function back(): void { if (page.value === 'home') close(); else void navigate('home') }
 function backKey(event: KeyboardEvent): void { if (event.target instanceof HTMLInputElement) return; event.preventDefault(); back() }
 async function navigate(next: MenuPage): Promise<void> {
   page.value = next
   if (next === 'device') void refreshDevices()
   await nextTick()
-  document.getElementById(panelId)?.querySelector<HTMLButtonElement>('.ui-full-more-content button:not(:disabled)')?.focus()
+  if (open.value) document.getElementById(panelId)?.querySelector<HTMLElement>('.ui-full-more-content')?.focus()
+}
+function focusPage(): void {
+  if (open.value) document.getElementById(panelId)?.querySelector<HTMLButtonElement>('.ui-full-more-content button:not(:disabled)')?.focus()
 }
 async function run(action: () => Promise<void>, success?: string): Promise<void> {
   if (busy.value) return
@@ -292,7 +289,7 @@ onBeforeUnmount(() => { deviceGeneration++; navigator.mediaDevices?.removeEventL
 <style lang="less">
 .ui-full-more { display: flex; align-items: center; }
 .ui-full-more-popover { z-index: 2100 !important; .ui-player-popover-content { padding: 8px; } }
-.ui-full-more-content { color: var(--modern-text); overflow: hidden; }
+.ui-full-more-content { color: var(--modern-text); overflow: hidden; outline: none; }
 .ui-full-more-items { display: flex; flex-direction: column; gap: 2px; > button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--modern-text); cursor: pointer; text-align: left; font: inherit; font-size: 13px; transition: background .15s; &:hover, &:focus-visible { background: var(--modern-hover); } &:disabled { opacity: .4; cursor: default; } > span { flex: 1; } > small { color: var(--modern-muted); font-size: 11px; } > .ui-svg-icon:last-child:not(:first-child) { width: 16px; height: 16px; color: var(--modern-muted); } &[aria-pressed="true"] { color: var(--modern-accent-ink); } } }
 .ui-full-more-back { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 5px 7px; border: 0; border-radius: 7px; background: transparent; color: var(--modern-muted); cursor: pointer; font: inherit; font-size: 12px; &:hover { color: var(--modern-text); background: var(--modern-hover); } .ui-svg-icon { width: 15px; height: 15px; } }
 .ui-full-more-divider { height: 1px; margin: 6px 8px; background: var(--modern-border); }

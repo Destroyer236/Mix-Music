@@ -13,8 +13,10 @@ import { kugouProvider } from './providers/kugou'
 import { kuwoProvider } from './providers/kuwo'
 import qishuiProvider, { searchCatalog, publicPlaylist, resolveShare, getLyrics, getAlbumTracks, getArtistTracks } from './providers/qishui'
 import { createQishuiLogin } from './qishuiLogin'
+import { createQishuiPassport } from './qishuiPassport'
 import bodianProvider, { searchCatalog as searchBodianCatalog, publicPlaylist as bodianPlaylist, resolveShare as resolveBodianShare, getLyrics as getBodianLyrics, getAlbumTracks as getBodianAlbumTracks, getArtistTracks as getBodianArtistTracks } from './providers/bodian'
 import { createBodianLogin } from './bodianLogin'
+import { createNativeLogin, type NativeLoginPlatform } from './nativeLogin'
 import type { PlatformProvider, ProviderContext } from './providers/types'
 import { canNavigateAccount, registerAccountSession } from './navigation'
 import { createPlaybackResolver } from './playback'
@@ -283,6 +285,7 @@ const getHeartbeat = async(params: PlatformHeartbeatRequest = {}): Promise<Platf
   })
 }
 const openLogin = async(id: PlatformId) => {
+  if (id === 'qq' || id === 'netease') throw new Error('请使用平台账号的扫码登录入口')
   if (id === 'qishui') throw new Error('请使用汽水音乐的扫码登录入口')
   if (id === 'bodian') throw new Error('请使用波点音乐的扫码登录入口')
   const state = await getState(id)
@@ -408,6 +411,66 @@ const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | nu
 }
 
 export default () => {
+  const nativeLogins = new Map<NativeLoginPlatform, ReturnType<typeof createNativeLogin>>()
+  const nativeOwners = new Map<NativeLoginPlatform, WeakSet<Electron.WebContents>>()
+  const nativePlatform = (value: unknown): NativeLoginPlatform => {
+    if (value !== 'qq' && value !== 'netease') throw new Error('不支持的扫码登录平台')
+    return value
+  }
+  const getNativeLogin = async(platform: NativeLoginPlatform) => {
+    await initBase()
+    const state = states.get(platform)!
+    let login = nativeLogins.get(platform)
+    if (!login) {
+      login = createNativeLogin(state.context, platform, async() => {
+        const generation = state.generation
+        const cookies = await state.context.cookies()
+        if (!hasAuthentication(state.provider, cookies)) throw new Error('平台未完成音乐登录授权，请重新扫码')
+        const profile = await state.provider.profile(state.context)
+        if (generation !== state.generation || !nativeLogins.get(platform)?.isActive()) throw new Error('登录已取消或过期，请重新扫码')
+        return () => {
+          if (generation !== state.generation) throw new Error('平台账号已更改，请重新扫码')
+          // Requests started while the QR was waiting still belong to the old
+          // account, even though the QR itself shares their generation.
+          ++state.generation
+          acceptProfile(state, profile)
+          state.account.connected = true
+          state.account.error = ''
+          void save()
+          notify()
+          void syncState(state)
+        }
+      })
+      nativeLogins.set(platform, login)
+    }
+    return { state, login }
+  }
+  mainHandle<{ platform: NativeLoginPlatform }, Awaited<ReturnType<ReturnType<typeof createNativeLogin>['start']>>>('platform_native_login_start', async({ event, params }) => {
+    const platform = nativePlatform(params?.platform)
+    const { state, login } = await getNativeLogin(platform)
+    let owners = nativeOwners.get(platform)
+    if (!owners) nativeOwners.set(platform, owners = new WeakSet())
+    if (!owners.has(event.sender)) {
+      owners.add(event.sender)
+      const owner = event.sender.id
+      event.sender.once('destroyed', () => { try { if (login.cancel(owner)) ++state.generation } catch {} })
+    }
+    state.window?.close()
+    ++state.generation
+    return login.start(event.sender.id)
+  })
+  mainHandle<{ platform: NativeLoginPlatform, flowId: string }, Awaited<ReturnType<ReturnType<typeof createNativeLogin>['check']>>>('platform_native_login_check', async({ event, params }) => {
+    const platform = nativePlatform(params?.platform)
+    if (typeof params?.flowId !== 'string' || !params.flowId || params.flowId.length > 100) throw new Error('无效的登录会话')
+    const { login } = await getNativeLogin(platform)
+    return login.check(event.sender.id, params.flowId)
+  })
+  mainHandle<{ platform: NativeLoginPlatform, flowId?: string }>('platform_native_login_cancel', async({ event, params }) => {
+    const platform = nativePlatform(params?.platform)
+    if (params?.flowId != null && (typeof params.flowId !== 'string' || !params.flowId || params.flowId.length > 100)) throw new Error('无效的登录会话')
+    const { state, login } = await getNativeLogin(platform)
+    if (login.cancel(event.sender.id, params?.flowId)) ++state.generation
+  })
   let bodianLogin: ReturnType<typeof createBodianLogin> | undefined
   const bodianOwners = new WeakSet<Electron.WebContents>()
   const getBodianLogin = async() => {
@@ -472,7 +535,7 @@ export default () => {
       void save()
       notify()
       void syncState(state)
-    })
+    }, createQishuiPassport)
     return { state, login: qrLogin }
   }
   mainHandle('platform_qishui_login_start', async({ event }) => {
@@ -525,6 +588,11 @@ export default () => {
   mainHandle<PlatformId, PlatformSnapshot>('platform_accounts_logout', async({ params }) => {
     const state = await getState(params)
     ++state.generation
+    if (params === 'qq' || params === 'netease') {
+      const login = nativeLogins.get(params)
+      login?.cancelAll()
+      await login?.settled()
+    }
     if (params === 'qishui' && qrLogin) {
       qrLogin.cancelAll()
       await qrLogin.settled()

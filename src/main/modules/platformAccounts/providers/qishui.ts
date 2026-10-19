@@ -231,7 +231,7 @@ export const qishuiProvider: PlatformProvider = {
   cookieUrl: 'https://api.qishui.com/',
   domains: ['qishui.com', 'douyin.com'],
   syncSupported: true,
-  notice: '使用抖音 APP 扫码登录。完整搜索需要登录；分享音频仅提供平台允许的音质，加密、会员或版权受限歌曲会尝试其他平台。',
+  notice: '使用汽水音乐 App 搜索页的“扫一扫”登录。完整搜索需要登录；分享音频仅提供平台允许的音质，加密、会员或版权受限歌曲会尝试其他平台。',
   authenticated: cookies => Boolean(cookies.sessionid || cookies.sessionid_ss || cookies.sid_tt),
   async profile(context) {
     const body = await request(context, '/luna/pc/me')

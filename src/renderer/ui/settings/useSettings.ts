@@ -5,7 +5,6 @@ import { getListMusics, overwriteListFull, overwriteListMusics } from '@renderer
 import { userApi, sync, versionInfo } from '@renderer/store'
 import * as ipc from '@renderer/utils/ipc'
 import { setUserApi } from '@renderer/core/apiSource'
-import { setPowerSaveBlocker } from '@renderer/core/player/utils'
 import { convolutions, hasInitedAdvancedAudioFeatures, setMediaDeviceId } from '@renderer/plugins/player'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@renderer/utils'
 import { gzipData, readFile, saveStrToFile } from '@common/utils/nodejs'
@@ -71,6 +70,15 @@ export function useSettings() {
     if (hardwareChanged && await confirm('重新启动 LinkLine', '修改已保存，是否立即重启 LinkLine 以生效？', false, { confirm: '立即重启', cancel: '稍后' })) await ipc.restartApp()
   }
   async function setPreference(field: SettingField, input: string | boolean) {
+    // Range inputs keep emitting while dragged; toggling busy would disable the
+    // active input and interrupt the gesture after its first update.
+    if (field.slider) {
+      try { await saveRecord({ [field.key]: parseSettingValue(field, String(input)) }) } catch (error) {
+        failed.value = true
+        notice.value = error instanceof Error ? error.message : String(error)
+      }
+      return
+    }
     await run('设置已保存', async() => {
       const value = typeof input === 'boolean' ? input : parseSettingValue(field, input)
       if (field.key === 'player.playQuality') {
@@ -110,7 +118,6 @@ export function useSettings() {
         await saveRecord(patch)
         await toggleSync(true)
       } else await saveRecord(patch)
-      if (field.key === 'player.powerSaveBlocker') setPowerSaveBlocker(Boolean(value), true)
     })
   }
   async function chooseDirectory() {

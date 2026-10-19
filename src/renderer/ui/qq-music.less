@@ -876,9 +876,9 @@ html {
 }
 
 .ui-shell :is(.ui-track-panel, .ui-search-results .track-table) {
-  border: var(--ui-hairline);
-  border-radius: var(--ui-radius-card);
-  background: var(--modern-panel);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
 }
 
@@ -3808,9 +3808,8 @@ body .ui-search-suggestions {
 .ui-shell .track-table__actions button:disabled { opacity: .3; cursor: default; }
 .ui-shell .ui-library-cover.love { background: color-mix(in srgb, var(--ui-favorite) 10%, var(--modern-panel)); color: var(--ui-favorite); }
 .ui-shell .ui-library-scroll-hint { margin-left: auto; color: var(--modern-muted); font-size: 11px; }
-.ui-shell .ui-recent-page { display: flex; flex-direction: column; overflow: hidden; }
-.ui-shell .ui-recent-table { flex: 1; min-height: 0; }
-.ui-shell .ui-recent-table .track-table { height: 100%; }
+.ui-shell .ui-recent-page { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.ui-shell .ui-recent-page .ui-library-results { flex: 1; min-height: 0; overflow: hidden; }
 .ui-shell .ui-recent-page-heading { flex: none; }
 
 // Visible scrollbar styling is shared by the optional scrollbar mode below.

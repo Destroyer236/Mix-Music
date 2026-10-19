@@ -110,7 +110,7 @@ async function favoritesMigration() {
     const service = load('src/renderer/ui/services/platformAccounts.ts', {
       electron: { ipcRenderer: { on: (name, listener) => listeners.set(name, listener), removeListener() {}, invoke: async() => ({ accounts: [], favorites: remote.map(track => ({ track })) }) } },
       vue: { ref, shallowRef: ref, computed: fn => ({ get value() { return fn() } }) },
-      '@common/platformMatching': { sameRecording: (a, b) => a.name === b.name },
+      '@common/platformMatching': load('src/common/platformMatching.ts'),
       '@renderer/store/list/state': { loveList: { id: 'love' } },
       '@renderer/store/list/action': {
         getListMusics: async() => saved,
@@ -120,6 +120,7 @@ async function favoritesMigration() {
       },
       './qishuiLogin': { closeQishuiLogin() {} },
       './bodianLogin': { closeBodianLogin() {} },
+      './nativeQrLogin': { closeNativeQrLogin() {} },
     })
     await service.initializePlatformAccounts()
     assert.deepEqual(updates.map(item => [item.musicInfo.id, item.musicInfo.meta.isVip, item.musicInfo.meta.subtitle]), [['wy_1', true, 'Real alias'], ['tx_2', false, 'Real subtitle'], ['tx_4', false, 'Updated subtitle']])

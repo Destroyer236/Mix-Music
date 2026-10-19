@@ -36,7 +36,6 @@
       <button ref="offsetTrigger" type="button" class="fpl-offset-value" :title="`歌词偏移 ${offsetLabel} 秒，点击调整`" :aria-label="`歌词偏移 ${offsetLabel} 秒，点击调整`" aria-haspopup="dialog" :aria-expanded="menu === 'offset'" :disabled="!lyric.lines.length" @click="toggleMenu('offset')"><span>{{ offsetLabel }}</span><small>s</small></button>
       <button type="button" title="歌词延后 0.5 秒" aria-label="歌词延后 0.5 秒" :disabled="!lyric.lines.length" @click="changeOffset(-500)"><UiIcon name="minimize" /></button>
       <span class="fpl-divider" />
-      <button ref="settingsTrigger" type="button" title="歌词设置" aria-label="歌词设置" aria-haspopup="dialog" :aria-expanded="menu === 'settings'" @click="toggleMenu('settings')"><UiIcon name="settings" /></button>
       <slot name="tools" />
     </div>
 
@@ -56,17 +55,6 @@
         <label class="fpl-number-label">歌词偏移<input type="number" :value="lyric.tempOffset" step="100" min="-60000" max="60000" aria-label="歌词偏移毫秒" @change="editOffset"><small>ms</small></label>
         <button type="button" class="fpl-menu-row" :disabled="lyric.tempOffset === 0" @click="resetOffset"><span>重置本首歌词偏移</span><UiIcon name="refresh" /></button>
       </template>
-      <template v-else>
-        <button type="button" class="fpl-menu-row" :aria-pressed="appSetting['player.isShowLyricTranslation']" @click="toggleSetting('player.isShowLyricTranslation')"><span>显示翻译</span><span class="fpl-toggle" :class="{ on: appSetting['player.isShowLyricTranslation'] }" /></button>
-        <button type="button" class="fpl-menu-row" :aria-pressed="appSetting['player.isShowLyricRoma']" @click="toggleSetting('player.isShowLyricRoma')"><span>显示罗马音</span><span class="fpl-toggle" :class="{ on: appSetting['player.isShowLyricRoma'] }" /></button>
-        <button type="button" class="fpl-menu-row" :aria-pressed="appSetting['player.isPlayLxlrc']" @click="toggleSetting('player.isPlayLxlrc')"><span>逐字高亮</span><span class="fpl-toggle" :class="{ on: appSetting['player.isPlayLxlrc'] }" /></button>
-        <div class="fpl-menu-divider" />
-        <label class="fpl-font-label"><span>字体大小</span><span>{{ preferences.fontSize }}</span><input :value="preferences.fontSize" type="range" min="24" max="58" step="2" aria-label="歌词字体大小" @input="editFontSize"></label>
-        <label class="fpl-font-label"><span>上下间距</span><span>{{ preferences.lineSpacing }} px</span><input :value="preferences.lineSpacing" type="range" min="8" max="40" step="2" aria-label="歌词上下间距" @input="editLineSpacing"></label>
-        <div class="fpl-align" role="group" aria-label="歌词对齐"><button v-for="alignment in alignments" :key="alignment.value" type="button" :aria-pressed="preferences.align === alignment.value" @click="preferences.align = alignment.value">{{ alignment.label }}</button></div>
-        <button type="button" class="fpl-menu-row" :aria-pressed="preferences.blur" @click="preferences.blur = !preferences.blur"><span>非当前歌词模糊</span><span class="fpl-toggle" :class="{ on: preferences.blur }" /></button>
-        <button type="button" class="fpl-menu-row" :aria-pressed="preferences.animation" @click="preferences.animation = !preferences.animation"><span>歌词滚动与缩放动画</span><span class="fpl-toggle" :class="{ on: preferences.animation }" /></button>
-      </template>
     </div>
   </section>
 </template>
@@ -78,32 +66,21 @@ import { clipboardWriteText } from '@common/utils/electron'
 import { lyric, type Line } from '@renderer/store/player/lyric'
 import { isPlay, musicInfo, statusText } from '@renderer/store/player/state'
 import { playProgress } from '@renderer/store/player/playProgress'
-import { appSetting, mergeSetting, updateSetting } from '@renderer/store/setting'
+import { appSetting } from '@renderer/store/setting'
 import { setLyricOffset } from '@renderer/core/lyric'
 import { play } from '@renderer/core/player/action'
 import { getCurrentTime } from '@renderer/plugins/player'
 import { openSaveDir } from '@renderer/utils/ipc'
 import UiIcon from './UiIcon.vue'
+import { fullPlayerLyricPreferences as preferences } from '../services/fullPlayerLyricPreferences'
 import { composeLyricCopy, lyricSeekTime, parseLyricWords, parseTimedLyricText, wordProgress, type CopyLyricOptions } from './fullPlayerLyricTiming'
 
 const emit = defineEmits<{ notice: [message: string] }>()
-type Alignment = 'left' | 'center' | 'right'
-type Menu = 'copy' | 'offset' | 'settings'
-const preferences = reactive({ fontSize: 32, lineSpacing: 18, align: 'left' as Alignment, blur: true, animation: true })
-try {
-  const saved = JSON.parse(localStorage.getItem('linkline.full-player-lyrics.v1') ?? '{}') as Partial<typeof preferences>
-  if (Number.isFinite(saved.fontSize)) preferences.fontSize = Math.max(24, Math.min(58, Number(saved.fontSize)))
-  if (Number.isFinite(saved.lineSpacing)) preferences.lineSpacing = Math.max(8, Math.min(40, Number(saved.lineSpacing)))
-  if (saved.align && ['left', 'center', 'right'].includes(saved.align)) preferences.align = saved.align
-  if (typeof saved.blur === 'boolean') preferences.blur = saved.blur
-  if (typeof saved.animation === 'boolean') preferences.animation = saved.animation
-} catch { /* Defaults also work when local storage is unavailable. */ }
-const alignments: Array<{ value: Alignment, label: string }> = [{ value: 'left', label: '左对齐' }, { value: 'center', label: '居中' }, { value: 'right', label: '右对齐' }]
+type Menu = 'copy' | 'offset'
 const root = ref<HTMLElement | null>(null)
 const viewport = ref<HTMLElement | null>(null)
 const copyTrigger = ref<HTMLButtonElement | null>(null)
 const offsetTrigger = ref<HTMLButtonElement | null>(null)
-const settingsTrigger = ref<HTMLButtonElement | null>(null)
 const menuPanel = ref<HTMLElement | null>(null)
 const menu = ref<Menu | null>(null)
 const selectedLines = ref<number[]>([])
@@ -139,7 +116,7 @@ const totalOffset = computed(() => lyric.offset + lyric.tempOffset)
 const offsetLabel = computed(() => `${lyric.tempOffset > 0 ? '+' : ''}${(lyric.tempOffset / 1000).toFixed(1).replace(/\.0$/, '')}`)
 const loading = computed(() => Boolean(musicInfo.id) && musicInfo.lrc === null && !/error|失败|错误/i.test(statusText.value))
 const emptyLabel = computed(() => !musicInfo.id ? '选择一首歌曲，开始聆听' : loading.value ? '正在获取歌词…' : /error|失败|错误/i.test(statusText.value) ? '歌词暂时无法加载' : '暂无歌词，欣赏音乐吧')
-const menuTitle = computed(() => menu.value === 'copy' ? '复制歌词' : menu.value === 'offset' ? '歌词偏移' : '歌词设置')
+const menuTitle = computed(() => menu.value === 'copy' ? '复制歌词' : '歌词偏移')
 const stripWordTags = (text: string) => text.replace(/<\d+,\d+>/g, '')
 const formatTime = (time: number) => `${Math.floor(time / 60000)}:${String(Math.floor(time / 1000) % 60).padStart(2, '0')}`
 const lineStyle = (index: number) => ({ '--line-blur': `${Math.min(Math.abs(index - lyric.line) * 0.5, 2)}px` })
@@ -247,20 +224,7 @@ function editOffset(event: Event) {
   if (Number.isFinite(value)) changeOffset(Math.max(-60000, Math.min(60000, value)) - lyric.tempOffset)
   input.value = String(lyric.tempOffset)
 }
-function editFontSize(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  if (Number.isFinite(value)) preferences.fontSize = Math.max(24, Math.min(58, value))
-}
-function editLineSpacing(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  if (Number.isFinite(value)) preferences.lineSpacing = Math.max(8, Math.min(40, value))
-}
-function toggleSetting(key: 'player.isShowLyricTranslation' | 'player.isShowLyricRoma' | 'player.isPlayLxlrc') {
-  const setting = { [key]: !appSetting[key] }
-  mergeSetting(setting)
-  updateSetting(setting)
-}
-function activeTrigger() { return menu.value === 'copy' ? copyTrigger.value : menu.value === 'offset' ? offsetTrigger.value : settingsTrigger.value }
+function activeTrigger() { return menu.value === 'copy' ? copyTrigger.value : offsetTrigger.value }
 function closeMenu(restoreFocus = true) {
   const trigger = activeTrigger()
   menu.value = null
@@ -370,10 +334,7 @@ watch([() => lyric.lines, () => musicInfo.lxlrc, () => appSetting['player.isPlay
 watch(isPlay, () => { void nextTick(refreshWordClock) })
 watch(totalOffset, updateWords)
 watch(() => musicInfo.id, () => { clearTimeout(followTimer); manual.value = false; closeMenu(false); cancelScroll() })
-watch(preferences, () => {
-  try { localStorage.setItem('linkline.full-player-lyrics.v1', JSON.stringify(preferences)) } catch { /* Keep the current session preference. */ }
-  void centerCurrent(false)
-}, { deep: true })
+watch(preferences, () => { void centerCurrent(false) }, { deep: true })
 onMounted(() => {
   mounted = true
   mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -455,17 +416,6 @@ onBeforeUnmount(() => {
 .fpl-menu-row:disabled { opacity: .4; cursor: default; }
 .fpl-menu-row > .ui-svg-icon { width: 16px; height: 16px; color: var(--modern-muted); }
 .fpl-menu-hint { margin: 0 8px 10px; color: var(--modern-muted); font-size: 12px; line-height: 1.6; }
-.fpl-menu-divider { height: 1px; margin: 8px 0; background: var(--modern-border); }
-.fpl-toggle { position: relative; flex: none; width: 28px; height: 16px; border-radius: 12px; background: var(--modern-border); transition: background .2s; }
-.fpl-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--modern-muted); transition: transform .2s, background .2s; }
-.fpl-toggle.on { background: var(--modern-accent); }
-.fpl-toggle.on::after { transform: translateX(12px); background: var(--modern-accent-contrast, #fff); }
-.fpl-font-label { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 10px 8px; }
-.fpl-font-label > span:last-of-type { color: var(--modern-muted); font-variant-numeric: tabular-nums; }
-.fpl-font-label input { width: 100%; margin: 0; accent-color: var(--modern-accent); }
-.fpl-align { display: flex; gap: 3px; margin: 7px 8px; padding: 3px; border-radius: 8px; background: var(--modern-hover); }
-.fpl-align button { flex: 1; padding: 7px 0; border: 0; border-radius: 5px; background: transparent; color: var(--modern-muted); font: inherit; font-size: 11px; cursor: pointer; }
-.fpl-align button[aria-pressed='true'] { background: var(--modern-panel); color: var(--modern-text); box-shadow: 0 1px 5px #0001; }
 .fpl-number-label { display: flex; align-items: center; gap: 8px; padding: 8px; }
 .fpl-number-label input { flex: 1; min-width: 0; width: 70px; padding: 7px; border: 1px solid var(--modern-border); border-radius: 6px; background: var(--modern-hover); color: inherit; font: inherit; }
 .fpl-number-label small { color: var(--modern-muted); }

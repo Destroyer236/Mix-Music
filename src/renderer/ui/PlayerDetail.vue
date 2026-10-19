@@ -32,6 +32,7 @@
       </div>
       <footer class="ll-full-toolbar" @pointerenter="toolbarHover = true" @pointerleave="toolbarHover = false; wake()">
         <div class="ll-full-actions">
+          <button type="button" class="ui-icon-button ll-full-collapse" aria-label="收起播放详情" title="收起 · Esc" @click="setShowPlayerDetail(false)"><UiIcon name="chevronDown" /></button>
           <button type="button" class="ui-icon-button" :class="{ 'ui-active': collected }" :aria-pressed="collected" :aria-label="collected ? '取消收藏当前歌曲' : '收藏当前歌曲'" :title="collected ? '取消喜欢' : '喜欢'" :disabled="!currentTrack || favoritePending.has(currentTrack.id)" @click="toggleCollect"><UiIcon name="heart" :filled="collected" /></button>
           <button type="button" class="ui-icon-button" aria-label="查看歌曲评论" title="评论" :disabled="!currentTrack" @click="openComments"><UiIcon name="comment" /></button>
           <PlayerOptions :track="currentTrack" :collected="collected" :favorite-pending="currentTrack ? favoritePending.has(currentTrack.id) : false" @collect="toggleCollect" />

@@ -61,6 +61,7 @@ export const setPowerSaveBlocker = (enabled: boolean, force = false) => {
   } else {
     if (timeout) return
     timeout = setTimeout(() => {
+      timeout = null
       setPowerSaveBlockerRemote(false)
     }, 60_000 * 1.5)
   }

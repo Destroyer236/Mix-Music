@@ -17,6 +17,7 @@ export interface SettingField {
   min?: number
   max?: number
   step?: number
+  slider?: boolean
   hint?: string
   group?: ExternalLyricMode
   visible?: (setting: LX.AppSetting) => boolean
@@ -92,6 +93,8 @@ const bounds: Partial<Record<SettingKey, [number, number, number?]>> = {
   'externalLyric.desktop.fontSize': [20, 96],
   'externalLyric.desktop.fontWeight': [100, 900, 100],
   'externalLyric.island.scale': [0.5, 2, 0.05],
+  'externalLyric.island.cornerRadius': [0, 200],
+  'externalLyric.island.backgroundOpacity': [0, 100],
   'externalLyric.island.fontWeight': [100, 900, 100],
   'externalLyric.taskbar.maxWidth': [200, 800, 20],
   'externalLyric.taskbar.leftMargin': [0, 500],
@@ -119,6 +122,8 @@ const hints: Partial<Record<SettingKey, string>> = {
   'externalLyric.desktop.limitBounds': '移动和调整大小时，将歌词限制在屏幕可见范围。',
   'externalLyric.desktop.useCSSDrag': '使用系统原生拖动区域；开启后拖动时可能暂时停止窗口内动画。',
   'externalLyric.island.fontFamily': '留空时使用系统默认字体。',
+  'externalLyric.island.cornerRadius': '0% 为直角，100% 保持原有圆角；悬浮、顶部吸附和刘海融合分别按原形状调整。',
+  'externalLyric.island.backgroundOpacity': '0% 为全透明，100% 为不透明；只调整背景，不影响歌词文字和封面。',
   'externalLyric.island.notchFusion': '仅 macOS：让灵动岛贴合屏幕顶部刘海区域。',
   'externalLyric.island.nonOcclusive': '鼠标穿透窗口，悬停时隐藏内容，减少对其他窗口操作的遮挡。',
   'externalLyric.island.useCSSDrag': '使用系统原生拖动区域；开启后拖动时可能暂时停止窗口内动画。',
@@ -172,6 +177,7 @@ export const settingFields: SettingField[] = (Object.keys(defaultSetting) as Set
       min: range?.[0],
       max: range?.[1],
       step: range?.[2] ?? 1,
+      slider: key === 'externalLyric.island.cornerRadius' || key === 'externalLyric.island.backgroundOpacity',
       hint: hints[key],
       group: key.startsWith('externalLyric.') ? key.split('.')[1] as ExternalLyricMode : undefined,
       visible: key === 'externalLyric.desktop.backgroundMaskColor' ? setting => setting['externalLyric.desktop.backgroundMask']

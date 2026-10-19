@@ -16,6 +16,7 @@ import {
   musicInfo,
   playMusicInfo,
   playedList,
+  isPlay,
 } from '@renderer/store/player/state'
 import {
   setPlay,
@@ -86,6 +87,8 @@ export default () => {
     }
   }
   const handleEnded = () => {
+    setPlay(false)
+    removePowerSaveBlocker()
     // setTimeout(() => {
     setAllStatus(t('player__end'), false)
     if (window.lx.isPlayedStop) {
@@ -129,6 +132,9 @@ export default () => {
     if (playedList.length) clearPlayedList()
     if (newValue == 'random' && playMusicInfo.musicInfo && !playMusicInfo.isTempPlay) addPlayedList({ ...(playMusicInfo as LX.Player.PlayMusicInfo) })
   })
+  watch(() => appSetting['player.powerSaveBlocker'], enabled => {
+    setPowerSaveBlocker(enabled && isPlay.value, true)
+  })
 
   // setLoopPlay(appSetting['player.togglePlayMethod'] == 'singleLoop')
 
@@ -155,7 +161,8 @@ export default () => {
 
 
   onBeforeUnmount(() => {
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    setPowerSaveBlocker(false, true)
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.key_event.off(HOTKEY_PLAYER.next.action, handlePlayNext)
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.key_event.off(HOTKEY_PLAYER.prev.action, handlePlayPrev)

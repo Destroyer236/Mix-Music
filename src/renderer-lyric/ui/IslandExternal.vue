@@ -20,8 +20,9 @@ const gap = computed(() => Math.round(mainRowHeight.value * 0.25))
 const coverSize = computed(() => Math.round(mainRowHeight.value * 0.65))
 const coverRadius = computed(() => Math.max(6, Math.round(coverSize.value * 0.35)))
 const fontSize = computed(() => Math.max(13, Math.round(mainRowHeight.value * 0.5)))
-const snapRadius = computed(() => Math.round(mainRowHeight.value * 0.6))
-const shapeBottomRadius = computed(() => Math.max(14, Math.round(coverRadius.value * 2)))
+const radiusScale = computed(() => Math.max(0, Math.min(200, config.value.cornerRadius)) / 100)
+const snapRadius = computed(() => Math.round(mainRowHeight.value * 0.6) * radiusScale.value)
+const shapeBottomRadius = computed(() => Math.max(14, Math.round(coverRadius.value * 2)) * radiusScale.value)
 const subFontSize = computed(() => Math.max(11, Math.round(fontSize.value * 0.65)))
 const subRowHeight = computed(() => Math.round(subFontSize.value * 1.2))
 const notchFusion = computed(() => window.os === 'mac' && config.value.notchFusion && layout.snapped)
@@ -194,7 +195,7 @@ const notchPath = computed(() => {
   const overhang = Math.min(SHAPE_SIDE_OVERHANG, width / 4)
   const left = overhang
   const right = width - overhang
-  const topArc = Math.min(overhang, height / 4)
+  const topArc = Math.min(overhang * radiusScale.value, height / 4)
   const bottom = Math.min(shapeBottomRadius.value, width / 2, height / 2)
   return ['M 0 0', `L ${width} 0`, `Q ${right} 0 ${right} ${topArc}`, `L ${right} ${height - bottom}`, `Q ${right} ${height} ${right - bottom} ${height}`, `L ${left + bottom} ${height}`, `Q ${left} ${height} ${left} ${height - bottom}`, `L ${left} ${topArc}`, `Q ${left} 0 0 0`, 'Z'].join(' ')
 })
@@ -204,6 +205,7 @@ const rootStyle = computed(() => ({
   '--external-played': config.value.playedColor,
   '--external-unplayed': config.value.unplayedColor,
   '--island-background': config.value.backgroundColor,
+  '--island-background-opacity': Math.max(0, Math.min(100, config.value.backgroundOpacity)) / 100,
   '--island-padx': `${padX.value}px`,
   '--island-gap': `${gap.value}px`,
   '--island-cover': `${coverSize.value}px`,
@@ -213,6 +215,7 @@ const rootStyle = computed(() => ({
   '--island-shape-width': `${shapeWidth.value}px`,
   '--island-fusion-width': `${Math.max(1, shapeWidth.value - SHAPE_SIDE_OVERHANG * 2)}px`,
   '--island-snap-radius': `${snapRadius.value}px`,
+  '--island-floating-radius': `${contentHeight.value / 2 * radiusScale.value}px`,
   '--island-scale': lyricScale.value,
   fontFamily: config.value.fontFamily || undefined,
   fontWeight: config.value.fontWeight,
@@ -258,15 +261,17 @@ onBeforeUnmount(() => { if (pendingShrink) clearTimeout(pendingShrink) })
 .island-viewport { width: 100%; height: 100%; display: flex; justify-content: center; align-items: flex-start; }
 .island-root { position: relative; height: 100%; overflow: hidden; box-sizing: border-box; cursor: move; color: var(--island-played); transition: border-radius .3s cubic-bezier(.22,.61,.36,1), opacity .2s ease-out; }
 .island-root.is-hidden { opacity: 0; }
-.island-root:not(.is-notch-fusion) { width: fit-content; background: var(--island-background); }
+.island-root:not(.is-notch-fusion) { width: fit-content; }
+.island-root:not(.is-notch-fusion):not(.is-smooth)::before, .island-root.is-smooth:not(.is-notch-fusion) .island-content::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--island-background); opacity: var(--island-background-opacity); pointer-events: none; }
+.island-root.is-smooth:not(.is-notch-fusion) .island-content::before { z-index: -1; }
 .island-root.is-snapped { border-radius: 0 0 var(--island-snap-radius) var(--island-snap-radius); }
 .island-root.is-notch-fusion { width: 100%; background: transparent; border-radius: 0; }
-.island-root.is-floating { background: var(--island-background); border-radius: 999px; }
+.island-root.is-floating { border-radius: var(--island-floating-radius); }
 .island-root.is-smooth:not(.is-notch-fusion) { display: flex; justify-content: center; width: 100%; background: transparent; }
-.island-root.is-smooth:not(.is-notch-fusion) .island-content { flex: 0 0 auto; width: fit-content; background: var(--island-background); }
+.island-root.is-smooth:not(.is-notch-fusion) .island-content { flex: 0 0 auto; width: fit-content; }
 .island-root.is-smooth.is-snapped:not(.is-notch-fusion) .island-content { border-radius: 0 0 var(--island-snap-radius) var(--island-snap-radius); }
-.island-root.is-smooth.is-floating:not(.is-notch-fusion) .island-content { border-radius: 999px; }
-.notch-shape { position: absolute; inset: 0 auto auto 50%; width: var(--island-shape-width); height: 100%; transform: translateX(-50%); pointer-events: none; transition: width .5s cubic-bezier(.34,1.56,.64,1); }
+.island-root.is-smooth.is-floating:not(.is-notch-fusion) .island-content { border-radius: var(--island-floating-radius); }
+.notch-shape { position: absolute; inset: 0 auto auto 50%; width: var(--island-shape-width); height: 100%; transform: translateX(-50%); opacity: var(--island-background-opacity); pointer-events: none; transition: width .5s cubic-bezier(.34,1.56,.64,1); }
 .island-content { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--island-gap); min-width: 0; height: 100%; padding: 0 var(--island-padx); box-sizing: border-box; }
 .island-root:not(.is-notch-fusion) .island-content { width: fit-content; }
 .island-root.is-notch-fusion .island-content { width: 100%; }
