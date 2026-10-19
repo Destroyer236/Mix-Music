@@ -16,7 +16,7 @@ svg { flex: none; }
 .ui-shell { --modern-layout-gap: var(--modern-panel-gap); display: grid; grid-template-columns: 200px minmax(0, 1fr); height: 100%; min-height: 0; min-width: 0; }
 .ui-sidebar { display: flex; flex-direction: column; padding: 24px 14px 14px; background: var(--modern-sidebar); border-right: 1px solid var(--modern-border); min-height: 0; font-size: 12px; }
 .ui-brand { display: flex; align-items: center; gap: 11px; padding: 0 8px 27px; font-weight: 650; font-size: 18px; -webkit-app-region: drag; }
-.ui-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 10px; background: transparent; img { display: block; width: 100%; height: 100%; object-fit: cover; } }
+.ui-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; flex: none; overflow: visible; border-radius: 0; background: transparent; img { display: block; width: 100%; height: 100%; object-fit: contain; } }
 .ui-new-search { display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid var(--modern-border); border-radius: 12px; background: var(--modern-panel); color: var(--modern-text); font-size: 11px; margin-bottom: 25px; }
 .ui-key { margin-left: auto; color: var(--modern-muted); }
 .ui-nav-label { color: var(--modern-muted); font-size: 9px; padding: 0 11px 10px; }

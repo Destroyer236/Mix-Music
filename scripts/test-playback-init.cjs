@@ -16,6 +16,8 @@ const track = source => ({ id: `${source}_song`, source, name: 'Song', singer: '
 function fixture(profiles = {}) {
   const handlers = new Map()
   const profileCalls = []
+  const sessions = new Map()
+  const streamRequests = []
   let getStates
   const bySource = { tx: 'qq', wy: 'netease', qs: 'qishui', bo: 'bodian', kg: 'kugou', kw: 'kuwo', mg: 'migu', bi: 'bilibili' }
   const providers = Object.fromEntries(Object.entries(bySource).map(([source, id]) => [id, {
@@ -26,12 +28,20 @@ function fixture(profiles = {}) {
     domains: [],
     authenticated: () => true,
     profile: async() => { profileCalls.push(id); return profiles[id] ? profiles[id]() : { id: `${id}-account` } },
-    musicUrl: async() => ({ url: `https://example.test/${id}.mp3`, type: '128k' }),
+    musicUrl: async(_context, musicInfo) => {
+      if (musicInfo) streamRequests.push(musicInfo)
+      return { url: `https://example.test/${id}.mp3`, type: '128k' }
+    },
   }]))
   const dependencies = {
     electron: {
       app: { getPath: () => root },
-      session: { fromPartition: () => ({ cookies: { get: async() => [{ name: 'fixture', value: 'session' }] }, setPermissionRequestHandler() {} }) },
+      session: {
+        fromPartition: name => {
+          if (!sessions.has(name)) sessions.set(name, { cookies: { get: async() => [{ name: 'fixture', value: 'session' }] }, setPermissionRequestHandler() {} })
+          return sessions.get(name)
+        },
+      },
     },
     'node:fs/promises': { readFile: async() => '[]', writeFile: async() => {}, rename: async() => {} },
     '@common/mainIpc': { mainHandle: (channel, handler) => handlers.set(channel, handler) },
@@ -51,7 +61,10 @@ function fixture(profiles = {}) {
       },
     },
     './qishuiLogin': {},
+    './qishuiPassport': {},
+    './qishuiLoginDiagnostics': { createQishuiLoginDiagnosticWriter: () => () => {} },
     './bodianLogin': {},
+    './nativeLogin': {},
     '../userApi/playback': { getImportedPlaybackSources: () => [] },
   }
   for (const [id, provider] of Object.entries(providers)) {
@@ -67,6 +80,8 @@ function fixture(profiles = {}) {
   subject.exports.default()
   return {
     profileCalls,
+    sessions,
+    streamRequests,
     states: () => getStates(),
     invoke: (channel, params) => handlers.get(channel)({ params }),
   }
@@ -90,6 +105,16 @@ async function main() {
   await direct.invoke('platform_accounts_music_url', { source: 'wy', songId: 'song' })
   await direct.invoke('platform_playback_qualitys', track('wy'))
   assert.deepEqual(direct.profileCalls, [], 'direct source-only URLs and qualities never need profile validation')
+  const qishui = direct.states().find(state => state.provider.id === 'qishui')
+  assert.equal(qishui.context.playbackSession, direct.sessions.get('persist:win-main'), 'Qishui audio probes must share the actual player partition and its proxy settings')
+  assert.equal(qishui.context.session, direct.sessions.get('persist:linkline-account-qishui'), 'Public metadata and account requests keep their own partition')
+  assert.equal(direct.states().find(state => state.provider.id === 'netease').context.playbackSession, undefined)
+  await direct.invoke('platform_accounts_music_url', { source: 'qs', songId: 'clip', qishuiMediaType: 'ugc_clip' })
+  assert.equal(direct.streamRequests.at(-1).meta.qishuiMediaType, 'ugc_clip', 'The legacy playback route must retain known original-sound types without relying on SEO recovery')
+  await direct.invoke('platform_accounts_music_url', { source: 'qs', songId: 'clip', qishuiMediaType: 'ugc_video' })
+  assert.equal(direct.streamRequests.at(-1).meta.qishuiMediaType, undefined)
+  await direct.invoke('platform_accounts_music_url', { source: 'wy', songId: 'song', qishuiMediaType: 'ugc_clip' })
+  assert.equal(direct.streamRequests.at(-1).meta.qishuiMediaType, undefined)
 
   const unrelated = deferred()
   const f = fixture({ qq: () => unrelated.promise })

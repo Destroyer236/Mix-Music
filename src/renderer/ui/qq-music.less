@@ -157,17 +157,25 @@ html {
 
 .ui-sidebar .ui-brand {
   padding: 0 6px var(--ui-space-6);
-  gap: var(--ui-space-3);
+  gap: 10px;
   font-size: 19px;
   font-weight: 650;
   letter-spacing: -.02em;
 }
 
+.ui-brand-wordmark {
+  display: block;
+  flex: none;
+  width: 92px;
+  line-height: 0;
+  svg { display: block; width: 100%; height: auto; }
+}
+
 .ui-shell .ui-brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--modern-accent) 32%, transparent);
+  width: 36px;
+  height: 36px;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .ui-shell .ui-new-search {
@@ -3050,7 +3058,12 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
 .ui-shell .ui-sidebar {
   padding: 18px 12px 12px;
   overflow-y: auto;
-  .ui-brand { padding: 0 10px 24px; }
+  .ui-brand {
+    height: 60px;
+    padding: 0 10px 24px;
+    justify-content: flex-start;
+    align-items: center;
+  }
   .ui-sidebar-body > nav { display: flex; flex-direction: column; gap: 4px; order: 0; overflow: visible; }
   .ui-sidebar-body > nav a { flex-direction: row; justify-content: flex-start; min-height: 44px; padding: 0 14px; gap: 13px; font-size: 15px; background: transparent; border-radius: 8px; color: var(--modern-text); }
   .ui-sidebar-body > nav a svg { width: 22px; height: 22px; }

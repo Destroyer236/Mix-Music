@@ -1,7 +1,7 @@
 <template>
   <div class="ui-shell">
     <aside class="ui-sidebar">
-      <router-link class="ui-brand" to="/discover"><span class="ui-brand-mark"><img :src="linklineLogo" alt="LinkLine 标志"></span><span>LinkLine</span></router-link>
+      <router-link class="ui-brand" to="/discover" aria-label="LinkLine 首页"><span class="ui-brand-mark"><img :src="linklineLogo" alt=""></span><span class="ui-brand-wordmark"><BrandWordmark /></span></router-link>
       <div class="ui-sidebar-body scroll">
         <nav aria-label="主导航"><router-link v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="item.label" :class="{ 'ui-nav-active': route.path.startsWith(item.path) }"><UiIcon :name="item.icon" /><span>{{ item.label }}</span></router-link></nav>
         <div class="ui-personal-section">
@@ -78,6 +78,7 @@ import { migratePlayerProgressStyle } from './services/preferences'
 import { initializePlayerSessionTools } from './services/playerSessionTools'
 import { playerNotice } from './services/playerNotice'
 import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
+import BrandWordmark from './components/BrandWordmark.vue'
 void migratePlayerProgressStyle()
 const disposeSessionTools = initializePlayerSessionTools()
 onBeforeUnmount(disposeSessionTools)

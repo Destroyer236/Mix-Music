@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
-  <title id="title">LinkLine — 白底绿色声波</title>
-  <desc id="desc">白色圆角方形内，绿色声波以连续线条连接两端，适合浅色与深色界面的应用标识。</desc>
-  <rect x="5" y="5" width="86" height="86" rx="24" fill="#FFF"/>
-  <path d="M22 53h6c3.3 0 6-2.7 6-6v-8c0-3.3 2.7-6 6-6s6 2.7 6 6v18c0 3.3 2.7 6 6 6s6-2.7 6-6V45c0-3.3 2.7-6 6-6s6 2.7 6 6v3c0 2.8 2.2 5 5 5" transform="translate(-0.5 0)" fill="none" stroke="#00EB81" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <title id="title">LinkLine — 拍点</title>
+  <desc id="desc">三个错落的纯绿色圆角声部配一枚圆点，以留白构成轻巧的节拍标志。</desc>
+  <g fill="#00CF7A">
+    <rect x="16" y="40" width="12" height="30" rx="6"/>
+    <rect x="36" y="22" width="12" height="48" rx="6"/>
+    <rect x="56" y="32" width="12" height="38" rx="6"/>
+    <circle cx="76" cy="25" r="6"/>
+  </g>
 </svg>
