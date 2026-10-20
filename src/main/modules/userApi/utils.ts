@@ -6,7 +6,7 @@ import zlib from 'node:zlib'
 let userApis: LX.UserApi.UserApiInfo[] | null
 let scripts = new Map<string, string>()
 const pendingScripts = new Map<string, Promise<string>>()
-const DEFAULT_SOURCES_VERSION = 1
+const DEFAULT_SOURCES_VERSION = 2
 
 const saveData = () => {
   getStore(STORE_NAMES.USER_API).set('userApis', userApis!.map(api => {
@@ -40,9 +40,13 @@ export const getUserApis = (): LX.UserApi.UserApiInfo[] => {
       }
     }
   }
-  const migrateDefaults = (electronStore_userApi.get<number>('defaultSourcesVersion') ?? 0) < DEFAULT_SOURCES_VERSION
+  const previousDefaultsVersion = electronStore_userApi.get<number>('defaultSourcesVersion') ?? 0
+  const migrateDefaults = previousDefaultsVersion < DEFAULT_SOURCES_VERSION
   if (migrateDefaults) {
     for (const api of defaultUserApis) {
+      // Version 2 adds one source; do not restore version 1 sources that the
+      // user intentionally removed.
+      if (previousDefaultsVersion >= 1 && api.id !== 'user_api_default_qdy') continue
       if (infoFull.some(existing => existing.id === api.id || existing.scriptUrl === api.scriptUrl)) continue
       infoFull.push({ ...api })
       requiredUpdate = true

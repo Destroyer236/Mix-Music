@@ -1,5 +1,7 @@
 import { updateListMusics } from '@renderer/store/list/action'
 import { acceptStream, preferredQuality, resolvePlatformStream } from '@renderer/ui/services/platformPlayback'
+import { isTruncatedStream, readStreamDuration } from '@renderer/ui/services/streamValidation'
+import type { ResolvedPlatformStream } from '@common/platformPlayback'
 import {
   saveLyric,
 } from '@renderer/utils/ipc'
@@ -43,9 +45,39 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   rejectedUrls?: string[]
 }): Promise<string> => {
   const requested = quality ?? preferredQuality.value
-  const stream = await resolvePlatformStream(musicInfo, isRefresh, allowToggleSource, requested, { rejectedUrls })
-  acceptStream(musicInfo, stream, requested)
-  return stream.url
+  const rejected = new Set(rejectedUrls)
+  let preview: ResolvedPlatformStream | undefined
+  let failure: unknown
+  for (let attempt = 0; attempt < 16; attempt++) {
+    let stream: ResolvedPlatformStream
+    try {
+      // Keep successful source caches when rejecting a short or invalid URL;
+      // otherwise every retry starts all remote requests again.
+      stream = await resolvePlatformStream(musicInfo, attempt === 0 && isRefresh, allowToggleSource, requested, { rejectedUrls: [...rejected] })
+    } catch (error) { failure = error; break }
+    if (rejected.has(stream.url)) { failure = new Error('音源重复返回了已失效的地址'); break }
+    if (stream.isTrial) {
+      preview = stream
+      break
+    }
+    try {
+      const duration = await readStreamDuration(stream.url)
+      if (!isTruncatedStream(musicInfo.interval?.trim() ? musicInfo.interval : stream.musicInfo.interval, duration)) {
+        acceptStream(musicInfo, stream, requested)
+        return stream.url
+      }
+      preview ??= { ...stream, isTrial: true, qualityLabel: '试听' }
+      failure = new Error('音源仅返回了试听片段')
+    } catch (error) { failure = error }
+    rejected.add(stream.url)
+  }
+  // A short resource remains the final fallback, explicitly labelled as a
+  // preview. Never let an unlabelled one-minute URL shadow complete audio.
+  if (preview) {
+    acceptStream(musicInfo, preview, requested)
+    return preview.url
+  }
+  throw failure instanceof Error ? failure : new Error('未找到可播放的完整音频')
 }
 
 export const getPicUrl = async({ musicInfo, listId, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {

@@ -14,6 +14,7 @@ const source = (key: string, name: string, version: string, author = ''): LX.Use
 })
 
 export const userApis: LX.UserApi.UserApiInfoFull[] = [
+  source('qdy', '全豆要聚合音源', '9.3'),
   source('sixyin', '六音音源', 'v1.2.1', '六音'),
   source('lx', '独家音源', '6', 'w'),
   source('flower', '野花🌷', '1'),

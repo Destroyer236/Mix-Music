@@ -22,7 +22,7 @@ const packed = raw => 'gz_' + zlib.deflateSync(Buffer.from(raw)).toString('base6
 const imported = (id = 'user_api_existing') => ({ id, name: 'Existing source', description: 'User data', author: 'User', homepage: 'https://example.test/existing', version: '1.0.0', allowShowUpdateAlert: true, script: packed(script('Existing source', '1.0.0')) })
 const defaults = load('src/main/modules/userApi/config/index.ts').userApis
 const defaultIds = defaults.map(api => api.id)
-const defaultUrls = ['sixyin', 'lx', 'flower', 'huibq', 'juhe'].map(key => `https://raw.githubusercontent.com/pdone/lx-music-source/main/${key}/latest.js`)
+const defaultUrls = ['qdy', 'sixyin', 'lx', 'flower', 'huibq', 'juhe'].map(key => `https://raw.githubusercontent.com/pdone/lx-music-source/main/${key}/latest.js`)
 const fixture = (initial = {}, download = async() => script()) => {
   const state = clone(initial)
   const downloads = []
@@ -105,9 +105,9 @@ async function checkRemoteDownload() {
 }
 
 async function run() {
-  assert.equal(defaults.length, 5)
+  assert.equal(defaults.length, 6)
   assert.deepEqual(defaults.map(api => api.scriptUrl), defaultUrls)
-  assert.equal(new Set(defaultIds).size, 5)
+  assert.equal(new Set(defaultIds).size, 6)
   assert.ok(defaultIds.every(id => /^user_api_default_/.test(id)))
   assert.ok(defaults.every(api => api.script === ''))
 
@@ -116,11 +116,11 @@ async function run() {
   const list = fresh.api.getUserApis()
   assert.deepEqual(list.map(api => api.id), defaultIds)
   assert.deepEqual(fresh.downloads, [])
-  assert.equal(fresh.state.defaultSourcesVersion, 1)
-  assert.equal(fresh.state.userApis.length, 5)
+  assert.equal(fresh.state.defaultSourcesVersion, 2)
+  assert.equal(fresh.state.userApis.length, 6)
   assert.ok(fresh.state.userApis.every(api => api.script === ''))
   assert.strictEqual(fresh.api.getUserApis(), list)
-  assert.equal(fixture(fresh.state).api.getUserApis().length, 5, 'restart must not duplicate descriptors')
+  assert.equal(fixture(fresh.state).api.getUserApis().length, 6, 'restart must not duplicate descriptors')
 
   // Existing installs gain defaults without replacing scripts or unrelated data.
   const existing = imported()
@@ -128,7 +128,7 @@ async function run() {
   const legacy = { id: 'user_api_legacy', script: script('Legacy source', '0.9'), allowShowUpdateAlert: true }
   const upgrade = fixture({ userApis: [existing, configuredDefault, legacy], selectedSource: existing.id })
   const upgraded = upgrade.api.getUserApis()
-  assert.equal(upgraded.length, 7)
+  assert.equal(upgraded.length, 8)
   assert.deepEqual(upgrade.state.userApis[0], existing)
   assert.deepEqual(upgrade.state.userApis[1], configuredDefault)
   assert.equal(upgraded.find(api => api.id === legacy.id).name, 'Legacy source')
@@ -141,14 +141,19 @@ async function run() {
   const deletedId = defaultIds[2]
   fresh.api.removeApi([deletedId])
   assert.ok(!fixture(fresh.state).api.getUserApis().some(api => api.id === deletedId))
-  const allDeleted = fixture({ userApis: [], defaultSourcesVersion: 1 })
+  const allDeleted = fixture({ userApis: [], defaultSourcesVersion: 2 })
   assert.deepEqual(allDeleted.api.getUserApis(), [])
   assert.deepEqual(allDeleted.downloads, [])
+
+  const versionOne = fixture({ userApis: [defaults.find(api => api.id === 'user_api_default_sixyin')], defaultSourcesVersion: 1 })
+  assert.deepEqual(versionOne.api.getUserApis().map(api => api.id), ['user_api_default_sixyin', 'user_api_default_qdy'])
+  assert.equal(versionOne.state.defaultSourcesVersion, 2)
+  assert.deepEqual(fixture(versionOne.state).api.getUserApis().map(api => api.id), ['user_api_default_sixyin', 'user_api_default_qdy'])
 
   // Importing or getting a script before list enumeration must initialize storage.
   const coldImport = fixture({ userApis: [existing] })
   const added = await coldImport.api.importApi(script('New manual source'))
-  assert.equal(coldImport.api.getUserApis().length, 7)
+  assert.equal(coldImport.api.getUserApis().length, 8)
   assert.deepEqual(coldImport.state.userApis.find(api => api.id === existing.id), existing)
   assert.ok(coldImport.state.userApis.some(api => api.id === added.id))
   assert.deepEqual(coldImport.downloads, [])

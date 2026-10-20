@@ -89,6 +89,10 @@ const resolveImported = async(api: LX.UserApi.UserApiInfo, track: LX.Music.Music
     for (const quality of qualityFor(capability.qualitys, requested)) {
       const key = `${api.id}:${runtime.revision}:${candidate.source}:${candidate.id}:${quality}`
       const cached = cache.get(key)
+      // The media element has already identified this resource as broken or
+      // truncated. Try another tier/platform instead of asking the same tier
+      // for a newly signed URL pointing to the same preview again.
+      if (!refresh && cached && rejected.has(cached.stream.url)) { errors.push(`${source}/${quality}：音频地址已失效或仅含试听`); continue }
       if (!refresh && cached && cached.until > Date.now() && !rejected.has(cached.stream.url)) return cached.stream
       const failure = failures.get(key)
       if (!refresh && failure && failure.until > Date.now()) { errors.push(failure.error.message); continue }
