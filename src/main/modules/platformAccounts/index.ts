@@ -68,7 +68,7 @@ const initBase = async() => {
       ses.setPermissionRequestHandler((_contents, _permission, allow) => { allow(false) })
       states.set(provider.id, {
         provider,
-        context: { session: ses, cookies: async() => Object.fromEntries((await ses.cookies.get({ url: provider.cookieUrl ?? `${new URL(provider.loginUrl).origin}/` })).map(cookie => [cookie.name, cookie.value])) },
+        context: { session: ses, playbackSession: provider.id === 'qishui' ? session.fromPartition('persist:win-main') : undefined, cookies: async() => Object.fromEntries((await ses.cookies.get({ url: provider.cookieUrl ?? `${new URL(provider.loginUrl).origin}/` })).map(cookie => [cookie.name, cookie.value])) },
         account: { platform: provider.id, name: provider.name, connected: false, profile: null, lastSync: null, count: 0, error: '', canSync: !provider.webOnly && provider.syncSupported !== false, notice: provider.notice ?? '' },
         tracks: [],
         playlists: [],
@@ -387,7 +387,7 @@ const setLike = async(track: LX.Music.MusicInfo, liked: boolean): Promise<Platfo
   return [...results, ...offline]
 }
 
-const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality }) => {
+const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality, qishuiMediaType?: 'track' | 'ugc_clip' }) => {
   await initBase()
   const state = [...states.values()].find(state => state.provider.source === params.source)
   if (!state) throw new Error('此平台暂不支持直接播放')
@@ -401,7 +401,7 @@ const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | nu
     name: '',
     singer: '',
     interval: null,
-    meta: { songId, albumName: '', qualitys: [], _qualitys: {}, strMediaMid: params.mediaMid ?? '', albumId: params.albumId ?? '', id: params.id },
+    meta: { songId, albumName: '', qualitys: [], _qualitys: {}, strMediaMid: params.mediaMid ?? '', albumId: params.albumId ?? '', id: params.id, ...(params.source === 'qs' && (params.qishuiMediaType === 'track' || params.qishuiMediaType === 'ugc_clip') ? { qishuiMediaType: params.qishuiMediaType } : {}) },
   } as LX.Music.MusicInfoOnline
   const stream = await state.provider.musicUrl(state.context, track, params.quality ?? '128k')
   // The legacy SDK contract carries only url/type. Reject previews here so
@@ -569,7 +569,7 @@ export default () => {
   mainHandle<{ id: string }, Awaited<ReturnType<typeof publicPlaylist>>>('platform_qishui_playlist', async({ params }) => publicPlaylist((await getState('qishui')).context, params?.id))
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getAlbumTracks>>>('platform_qishui_album', async({ params }) => getAlbumTracks((await getState('qishui')).context, params?.id))
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getArtistTracks>>>('platform_qishui_artist', async({ params }) => getArtistTracks((await getState('qishui')).context, params?.id))
-  mainHandle<{ id: string }, Awaited<ReturnType<typeof getLyrics>>>('platform_qishui_lyric', async({ params }) => getLyrics((await getState('qishui')).context, params?.id))
+  mainHandle<{ id: string, mediaType?: 'track' | 'ugc_clip' }, Awaited<ReturnType<typeof getLyrics>>>('platform_qishui_lyric', async({ params }) => getLyrics((await getState('qishui')).context, params?.id, params?.mediaType))
   mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveShare>>>('platform_qishui_share', async({ params }) => resolveShare((await getState('qishui')).context, params?.text))
   mainHandle<{ track: LX.Music.MusicInfoOnline, quality?: PlatformQuality, isRefresh?: boolean, allowToggleSource?: boolean, rejectedUrls?: string[] }, ResolvedPlatformStream>('platform_playback_resolve', async({ params }) => {
     if (params.allowToggleSource !== false && global.lx.appSetting['player.preferredSource'] === 'auto') await initForPlayback(params?.track?.source)
@@ -616,5 +616,5 @@ export default () => {
     return snapshot()
   })
   mainHandle<{ track: LX.Music.MusicInfo, liked: boolean }, PlatformLikeResult[]>('platform_accounts_like', async({ params }) => setLike(params.track, Boolean(params.liked)))
-  mainHandle<{ source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality }, { url: string, type: LX.Quality }>('platform_accounts_music_url', async({ params }) => getMusicUrl(params))
+  mainHandle<{ source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality, qishuiMediaType?: 'track' | 'ugc_clip' }, { url: string, type: LX.Quality }>('platform_accounts_music_url', async({ params }) => getMusicUrl(params))
 }

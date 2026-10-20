@@ -134,6 +134,7 @@ function ipcFixture(authenticated = true) {
     if (id === './playback') return { createPlaybackResolver: () => ({}) }
     if (id === '../userApi/playback') return { getImportedPlaybackSources: () => [] }
     if (id === './matching') return { aggregateFavorites: () => [] }
+    if (id === './qishuiLoginDiagnostics') return { createQishuiLoginDiagnosticWriter: () => () => {} }
     if (id === './qishuiLogin' || id === './qishuiPassport' || id === './bodianLogin' || id === './nativeLogin') return {}
     return nativeRequire(id)
   })

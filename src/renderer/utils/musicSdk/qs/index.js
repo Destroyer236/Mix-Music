@@ -64,7 +64,7 @@ export default {
     },
   },
   getMusicUrl(songInfo, type) { return { promise: getPlatformMusicUrl('qs', songInfo, type) } },
-  getLyric(songInfo) { return { promise: ipcRenderer.invoke('platform_qishui_lyric', { id: String(songInfo.songmid) }) } },
+  getLyric(songInfo) { return { promise: ipcRenderer.invoke('platform_qishui_lyric', { id: String(songInfo.songmid), ...(songInfo.qishuiMediaType ? { mediaType: songInfo.qishuiMediaType } : {}) }) } },
   getPic(songInfo) { return Promise.resolve(songInfo.img || '') },
   getMusicDetailPageUrl(songInfo) { return `https://www.qishui.com/share/track?track_id=${encodeURIComponent(songInfo.songmid)}` },
 }

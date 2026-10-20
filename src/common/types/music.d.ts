@@ -32,6 +32,7 @@ declare namespace LX {
       qualitys: MusicQualityType[]
       _qualitys: _MusicQualityType
       albumId?: string | number // 歌曲专辑ID
+      qishuiMediaType?: 'track' | 'ugc_clip'
     }
 
     interface MusicInfoMeta_local extends MusicInfoMetaBase {

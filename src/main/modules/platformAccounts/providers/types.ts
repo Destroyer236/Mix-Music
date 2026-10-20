@@ -3,6 +3,7 @@ import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 
 export interface ProviderContext {
   session: Electron.Session
+  playbackSession?: Pick<Electron.Session, 'fetch'>
   cookies: () => Promise<Record<string, string>>
 }
 

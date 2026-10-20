@@ -38,6 +38,9 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
     }
 
     switch (oldMusicInfo.source) {
+      case 'qs':
+        if (oldMusicInfo.qishuiMediaType === 'track' || oldMusicInfo.qishuiMediaType === 'ugc_clip') meta.qishuiMediaType = oldMusicInfo.qishuiMediaType
+        break
       case 'kg':
         meta.hash = oldMusicInfo.hash
         meta.albumAudioId = oldMusicInfo.albumAudioId
@@ -85,6 +88,9 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo) => {
     oInfo._types = minfo.meta._qualitys
 
     switch (minfo.source) {
+      case 'qs':
+        if (minfo.meta.qishuiMediaType === 'track' || minfo.meta.qishuiMediaType === 'ugc_clip') oInfo.qishuiMediaType = minfo.meta.qishuiMediaType
+        break
       case 'kg':
         oInfo.hash = minfo.meta.hash
         oInfo.albumAudioId = minfo.meta.albumAudioId
