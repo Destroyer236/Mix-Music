@@ -20,8 +20,8 @@ const clone = value => value === undefined ? undefined : structuredClone(value)
 const script = (name = 'Downloaded fixture', version = '2.0.0') => `/**\n * @name ${name}\n * @version ${version}\n * @description Fixture source\n * @author Test\n * @homepage https://example.test/source\n */\nvoid 0;\n`
 const packed = raw => 'gz_' + zlib.deflateSync(Buffer.from(raw)).toString('base64')
 const imported = (id = 'user_api_existing') => ({ id, name: 'Existing source', description: 'User data', author: 'User', homepage: 'https://example.test/existing', version: '1.0.0', allowShowUpdateAlert: true, script: packed(script('Existing source', '1.0.0')) })
-const sourceConfig = load('src/main/modules/userApi/config/index.ts')
-const retiredIds = ['sixyin', 'lx', 'flower', 'huibq', 'juhe'].map(key => `user_api_default_${key}`)
+const sourceConfig = load('src/main/modules/userApi/config/index.ts', { '@common/userApiDefaults': load('src/common/userApiDefaults.ts') })
+const retiredIds = ['qdy', 'sixyin', 'lx', 'flower', 'huibq', 'juhe'].map(key => `user_api_default_${key}`)
 const remoteUrl = 'https://example.test/manual-source.js'
 const remoteSource = () => ({ ...imported('user_api_manual_remote'), name: 'Remote manual source', script: '', scriptUrl: remoteUrl })
 const fixture = (initial = {}, download = async() => script()) => {
@@ -141,7 +141,7 @@ async function run() {
     }
   }
 
-  // Upgrade removes the exact five presets even after rename or script caching.
+  // Upgrade removes the exact six presets even after rename or script caching.
   // Matching names/URLs and the reserved-looking ID prefix cannot erase manual imports.
   const existing = imported()
   const retired = retiredIds.map((id, index) => ({ ...remoteSource(), id, name: 'My renamed source', script: index % 2 ? '' : existing.script }))

@@ -9,6 +9,7 @@ import { appSetting } from '@renderer/store/setting'
 import { repeatMode } from '@renderer/store/player/repeatMode'
 
 let audio: HTMLAudioElement
+let cancelProbe: (() => void) | undefined
 const initAudio = () => {
   if (audio) return
   audio = new Audio()
@@ -44,6 +45,8 @@ const checkMusicUrl = async(url: string): Promise<boolean> => {
       audio.load()
     }
     const clear = () => {
+      clearTimeout(timer)
+      cancelProbe = undefined
       audio.removeEventListener('error', handleErr)
       audio.removeEventListener('canplay', handlePlay)
     }
@@ -58,6 +61,9 @@ const checkMusicUrl = async(url: string): Promise<boolean> => {
       release()
       resolve(true)
     }
+    const cancel = () => { clear(); release(); resolve(false) }
+    const timer = setTimeout(cancel, 8000)
+    cancelProbe = cancel
     audio.addEventListener('error', handleErr)
     audio.addEventListener('canplay', handlePlay)
     audio.src = url
@@ -69,34 +75,45 @@ const preloadMusicInfo = {
   isLoading: false,
   preProgress: 0,
   info: null as LX.Player.PlayMusicInfo | null,
+  readyAt: 0,
 }
 let preloadGeneration = 0
 const resetPreloadInfo = () => {
   preloadGeneration++
+  cancelProbe?.()
   preloadMusicInfo.preProgress = 0
   preloadMusicInfo.info = null
   preloadMusicInfo.isLoading = false
+  preloadMusicInfo.readyAt = 0
 }
 const preloadNextMusicUrl = async(curTime: number) => {
   if (preloadMusicInfo.isLoading || curTime - preloadMusicInfo.preProgress < 3) return
   preloadMusicInfo.isLoading = true
+  preloadMusicInfo.preProgress = curTime
   const generation = preloadGeneration
   console.log('preload next music url')
   try {
     const info = await getNextPlayMusicInfo()
     if (generation !== preloadGeneration) return
     if (info) {
-      preloadMusicInfo.info = info
       const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
       if (generation !== preloadGeneration) return
       if (url) {
         console.log('preload url', url)
         const result = await checkMusicUrl(url)
         if (generation !== preloadGeneration) return
-        if (!result) {
+        if (result) {
+          preloadMusicInfo.info = info
+          preloadMusicInfo.readyAt = Date.now()
+        } else {
           const refreshUrl = await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => '')
           if (generation !== preloadGeneration) return
-          await checkMusicUrl(refreshUrl)
+          const refreshed = await checkMusicUrl(refreshUrl)
+          if (generation !== preloadGeneration) return
+          if (refreshed) {
+            preloadMusicInfo.info = info
+            preloadMusicInfo.readyAt = Date.now()
+          }
           console.log('preload url refresh', refreshUrl)
         }
       }
@@ -120,7 +137,7 @@ export default () => {
     resetPreloadInfo()
   }
 
-  watch([() => appSetting['player.togglePlayMethod'], repeatMode], () => {
+  watch([() => appSetting['player.togglePlayMethod'], () => appSetting['player.playQuality'], () => appSetting['player.preferredSource'], repeatMode], () => {
     resetRandomNextMusicInfo()
     resetPreloadInfo()
     preloadMusicInfo.preProgress = playProgress.nowPlayTime
@@ -132,13 +149,18 @@ export default () => {
   const rOnTimeupdate = onTimeupdate(() => {
     const time = getCurrentTime()
     const duration = playProgress.maxPlayTime
-    if (duration > 10 && duration - time < 10 && !preloadMusicInfo.info) {
+    // Give public sources their full resolution budget while this track is
+    // playing, including manual skips. Refresh before the four-minute cache
+    // expires on long tracks.
+    if (preloadMusicInfo.info && Date.now() - preloadMusicInfo.readyAt >= 180000) preloadMusicInfo.info = null
+    if (duration > 10 && time >= Math.min(15, duration / 2) && !preloadMusicInfo.info) {
       void preloadNextMusicUrl(time)
     }
   })
 
 
   onBeforeUnmount(() => {
+    resetPreloadInfo()
     rOnTimeupdate()
     window.app_event.off('setProgress', setProgress)
     window.app_event.off('musicToggled', handleSetPlayInfo)

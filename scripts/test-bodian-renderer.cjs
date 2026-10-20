@@ -47,7 +47,10 @@ const ipcRenderer = {
     if (channel === 'platform_bodian_share') return { kind: shareKind, id: playlistId }
     if (channel === 'platform_bodian_playlist') return { name: 'Playlist', cover: '', list: tracks }
     if (channel === 'platform_bodian_lyric') return { lyric: '[00:01.00]Test lyric', tlyric: '[00:01.00]翻译' }
-    if (channel === 'platform_bodian_album' || channel === 'platform_bodian_artist') return { list: tracks }
+    if (channel === 'platform_bodian_album' || channel === 'platform_bodian_artist') return {
+      list: tracks.slice((argument.page - 1) * argument.limit, argument.page * argument.limit),
+      total: tracks.length, totalExact: true, page: argument.page, limit: argument.limit,
+    }
     throw new Error(`Unexpected IPC: ${channel}`)
   },
 }
@@ -101,7 +104,10 @@ async function main() {
     assert.equal(entities.totalExact, false)
     const works = await catalog.getCatalogTracks({ source: 'bo', kind, id: playlistId }, 2, 30)
     assert.equal(requests.at(-1).channel, `platform_bodian_${kind}`)
+    assert.deepEqual(requests.at(-1).argument, { id: playlistId, page: 2, limit: 30 })
     assert.equal(works.total, 401)
+    assert.equal(works.allPage, 14)
+    assert.equal(works.totalExact, true)
     assert.deepEqual(works.list.map(conversions.toNewMusicInfo), tracks.slice(30, 60))
   }
   console.log('Bodian renderer contracts passed')

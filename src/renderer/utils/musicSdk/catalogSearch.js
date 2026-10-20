@@ -110,9 +110,12 @@ export async function searchCatalog(source, kind, text, page = 1, limit = 18) {
 export async function getCatalogTracks(item, page = 1, limit = 30) {
   const { source, kind, id } = item
   if (!catalogSources[kind]?.includes(source)) throw new Error('此平台未提供该类型的音乐目录。')
-  if (source === 'qs' || source === 'bo') {
-    const platform = source === 'bo' ? 'bodian' : 'qishui'
-    const response = await ipcRenderer.invoke(`platform_${platform}_${kind}`, { id })
+  if (source === 'bo') {
+    const response = await ipcRenderer.invoke(`platform_bodian_${kind}`, { id, page, limit })
+    return { ...result(response.list.map(toOldMusicInfo), response.total, response.limit), totalExact: response.totalExact }
+  }
+  if (source === 'qs') {
+    const response = await ipcRenderer.invoke(`platform_qishui_${kind}`, { id })
     return result(response.list.slice((page - 1) * limit, page * limit).map(toOldMusicInfo), response.list.length, limit)
   }
   let list

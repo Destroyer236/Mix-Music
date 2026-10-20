@@ -10,7 +10,7 @@ import { joinPath } from '@common/utils/nodejs'
 import themes from '@common/theme/index.json'
 import { migrateWindowCloseSetting } from '@common/windowClose'
 import { isPreferredPlatformSource } from '@common/platformSources'
-import { removeRetiredDefaultSourceSettings } from '@main/modules/userApi/config'
+import { removeRetiredDefaultSourceSettings } from '@common/userApiDefaults'
 
 export const parseEnvParams = (argv = process.argv): { cmdParams: LX.CmdParams, deeplink: string | null } => {
   const cmdParams: LX.CmdParams = {}

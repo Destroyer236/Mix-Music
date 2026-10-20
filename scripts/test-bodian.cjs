@@ -95,6 +95,32 @@ async function main() {
   const beforeEmptySearch = requests.length
   assert.deepEqual(await provider.searchCatalog(context, '', 'track'), { list: [], total: 0, totalExact: true, page: 1, limit: 30, limited: false })
   assert.equal(requests.length, beforeEmptySearch)
+  for (const kind of ['artist', 'album']) {
+    const read = kind === 'artist' ? provider.getArtistTracks : provider.getAlbumTracks
+    const calls = []
+    handler = call => {
+      calls.push(call)
+      if (call.url.pathname === `/api/service/${kind}/336`) return success({ [`${kind}Info`]: { id: 336, name: 'Artist or album' } })
+      assert.equal(call.url.pathname, `/api/service/${kind}/music/336`)
+      const page = Number(call.url.searchParams.get('pn'))
+      assert.ok(page >= 1, 'Bodian catalogue pages start at one; zero repeats page one')
+      assert.equal(call.url.searchParams.get('rn'), '30')
+      return success({ resultList: [{ ...song, id: page === 1 ? 101 : 102 }], total: 1749 })
+    }
+    const first = await read(context, '336')
+    assert.equal(first.list[0].meta.songId, '101')
+    assert.equal(first.total, 1749)
+    assert.equal(first.totalExact, true)
+    assert.equal(calls.length, 2, 'opening an artist must not fetch their entire catalogue')
+    const second = await read(context, '336', 2, 30)
+    assert.equal(second.list[0].meta.songId, '102')
+    assert.equal(second.page, 2)
+    assert.equal(calls.length, 4)
+    handler = call => call.url.pathname.includes('/music/') ? success({}) : success({ [`${kind}Info`]: { id: 336 } })
+    await assert.rejects(read(context, '336'), /未返回.*作品/)
+    handler = call => call.url.pathname.includes('/music/') ? success({ resultList: [], total: 0 }) : success({ [`${kind}Info`]: { id: 337 } })
+    await assert.rejects(read(context, '336'), /编号不一致/)
+  }
   const pageCalls = []
   handler = call => {
     assert.equal(call.url.searchParams.get('source'), '5')

@@ -126,7 +126,7 @@ export const createImportedScriptRuntime = async(api: LX.UserApi.UserApiInfo, sc
       if (!capability?.actions.includes('musicUrl') || !capability.qualitys.includes(quality)) throw new Error('导入音源不支持此平台或音质')
       return new Promise((resolve, reject) => {
         const requestKey = `imported_playback_${randomUUID()}`
-        const timer = setTimeout(() => { close(new ImportedScriptTimeoutError('导入音源请求超时')) }, options.requestTimeout ?? 10000)
+        const timer = setTimeout(() => { close(new ImportedScriptTimeoutError('导入音源请求超时')) }, options.requestTimeout ?? 25000)
         pending.set(requestKey, { resolve, reject, timer })
         win.webContents.send(names.request, { requestKey, data: { source: track.source, action: 'musicUrl', info: { type: quality, musicInfo: toOldMusicInfo(track) } } })
       })

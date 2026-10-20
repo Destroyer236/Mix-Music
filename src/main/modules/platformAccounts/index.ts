@@ -515,8 +515,8 @@ export default () => {
     return searchBodianCatalog((await getState('bodian')).context, params.query, params.kind, params.page ?? 1)
   })
   mainHandle<{ id: string }, Awaited<ReturnType<typeof bodianPlaylist>>>('platform_bodian_playlist', async({ params }) => bodianPlaylist((await getState('bodian')).context, params?.id))
-  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianAlbumTracks>>>('platform_bodian_album', async({ params }) => getBodianAlbumTracks((await getState('bodian')).context, params?.id))
-  mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianArtistTracks>>>('platform_bodian_artist', async({ params }) => getBodianArtistTracks((await getState('bodian')).context, params?.id))
+  mainHandle<{ id: string, page?: number, limit?: number }, Awaited<ReturnType<typeof getBodianAlbumTracks>>>('platform_bodian_album', async({ params }) => getBodianAlbumTracks((await getState('bodian')).context, params?.id, params?.page, params?.limit))
+  mainHandle<{ id: string, page?: number, limit?: number }, Awaited<ReturnType<typeof getBodianArtistTracks>>>('platform_bodian_artist', async({ params }) => getBodianArtistTracks((await getState('bodian')).context, params?.id, params?.page, params?.limit))
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getBodianLyrics>>>('platform_bodian_lyric', async({ params }) => getBodianLyrics((await getState('bodian')).context, params?.id))
   mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveBodianShare>>>('platform_bodian_share', async({ params }) => resolveBodianShare((await getState('bodian')).context, params?.text))
   let qrLogin: ReturnType<typeof createQishuiLogin> | undefined

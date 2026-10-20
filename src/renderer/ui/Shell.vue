@@ -85,8 +85,8 @@ onBeforeUnmount(disposeSessionTools)
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
-watch(() => [route.path, route.query.text], () => {
-  if (route.path === '/search') query.value = typeof route.query.text === 'string' ? route.query.text : ''
+watch(() => route.fullPath, () => {
+  query.value = route.path === '/search' && typeof route.query.text === 'string' ? route.query.text : ''
 }, { immediate: true })
 const playlistTab = ref('created')
 const playlistOpen = ref(false)

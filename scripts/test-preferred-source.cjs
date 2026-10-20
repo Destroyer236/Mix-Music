@@ -250,6 +250,57 @@ async function main() {
   }
   calls.length = 0
 
+  // Official previews wait for public scripts beyond the native six-second
+  // deadline, including a source that resolves a complete song after that.
+  for (const connected of [false, true]) {
+    const clock = timedResolver()
+    const publicRequest = deferred()
+    const original = state('tx', trial('tx'), connected)
+    const publicSource = { id: 'user_api_slow_public', name: 'Slow public source', resolve: () => publicRequest.promise }
+    const resolver = clock.create(() => [original], () => 'auto', () => [publicSource])
+    let result
+    const request = resolver.resolve(track('tx')).then(value => { result = value; return value })
+    await flushPromises()
+    await clock.advance(6000)
+    assert.equal(result, undefined, 'native timeout cannot send the official preview to the player while a public source is pending')
+    publicRequest.resolve({ ...full('public'), platform: publicSource.name, musicInfo: track('tx') })
+    await flushPromises()
+    assert.equal((await request).platform, publicSource.name)
+  }
+  // Even a cached preview waits until the public request fails or reaches its
+  // own finite deadline. A dead public site cannot stall playback forever.
+  {
+    const clock = timedResolver()
+    const pending = deferred()
+    const original = state('tx', trial('tx'))
+    const publicSource = { id: 'user_api_stuck_public', name: 'Stuck public source', resolve: () => pending.promise }
+    const resolver = clock.create(() => [original], () => 'auto', () => [publicSource])
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let result
+      const request = resolver.resolve(track('tx'), 'auto', attempt === 1).then(value => { result = value; return value })
+      await flushPromises()
+      await clock.advance(29999)
+      assert.equal(result, undefined, 'a fresh or cached preview remains deferred during the public-source budget')
+      await clock.advance(1)
+      assert.equal((await request).isTrial, true, 'preview is the final fallback after the public-source deadline')
+    }
+    pending.reject(new Error('public source unavailable'))
+    await flushPromises()
+  }
+  // An explicitly preferred script is not allowed to short-circuit on a
+  // preview: complete native audio and other public scripts still get a turn.
+  for (const nativeFull of [false, true]) {
+    const preferredSource = { id: 'user_api_trial', name: 'Preferred preview', resolve: async() => ({ ...trial('preferred'), platform: 'Preferred preview', musicInfo: track('tx') }) }
+    let backups = 0
+    const backup = { id: 'user_api_backup', name: 'Backup full', resolve: async() => { backups++; return { ...full('backup'), platform: 'Backup full', musicInfo: track('tx') } } }
+    const resolver = createPlaybackResolver(() => [state('tx', nativeFull ? full('tx') : trial('tx'))], () => `imported:${preferredSource.id}`, () => [preferredSource, backup])
+    const stream = await resolver.resolve(track('tx'))
+    assert.notEqual(stream.isTrial, true)
+    assert.equal(stream.platform, nativeFull ? 'tx' : backup.name)
+    assert.equal(backups, nativeFull ? 0 : 1)
+  }
+  calls.length = 0
+
   // Foreground playback shares the preloader's cross-platform search and URL
   // request, then reuses the successful match on later playback attempts.
   {

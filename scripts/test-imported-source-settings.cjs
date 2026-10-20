@@ -19,6 +19,7 @@ const load = (relative, dependencies = {}) => {
 
 async function run() {
   const sources = load('src/common/platformSources.ts')
+  const sourceConfig = load('src/main/modules/userApi/config/index.ts', { '@common/userApiDefaults': load('src/common/userApiDefaults.ts') })
   const id = 'user_api_123_1720000000000'
   const source = sources.createImportedSource(id)
   assert.equal(source, 'imported:' + id)
@@ -59,14 +60,13 @@ async function run() {
   global.window = { lxData: {} }
   const renderer = load('src/renderer/store/setting.ts', {
     '@common/utils/vueTools': vue, '@common/defaultSetting': { default: defaultSetting, __esModule: true },
-    '@common/platformPlayback': load('src/common/platformPlayback.ts'), '@common/platformSources': sources, '@renderer/utils/ipc': {},
+    '@common/platformPlayback': load('src/common/platformPlayback.ts'), '@common/platformSources': sources, '@renderer/utils/ipc': {}, '@common/userApiDefaults': sourceConfig,
   })
   renderer.mergeSetting({ 'player.preferredSource': source })
   assert.equal(renderer.appSetting['player.preferredSource'], source)
   renderer.mergeSetting({ 'player.preferredSource': 'imported:wy' })
   assert.equal(renderer.appSetting['player.preferredSource'], source, 'renderer ignores invalid persisted keys')
 
-  const sourceConfig = load('src/main/modules/userApi/config/index.ts')
   const savedSettings = []
   const main = load('src/main/utils/index.ts', {
     '@common/utils': { throttle: fn => fn }, '@common/utils/migrateSetting': { default: x => x, __esModule: true },
@@ -74,7 +74,7 @@ async function run() {
     '@common/constants': { STORE_NAMES: { APP_SETTINGS: 'settings' } }, '@common/defaultSetting': { default: defaultSetting, __esModule: true },
     '@common/defaultHotKey': {}, './migrate': {}, electron: {}, '@common/utils/nodejs': {}, '@common/theme/index.json': [],
     '@common/windowClose': { migrateWindowCloseSetting: value => value }, '@common/platformSources': sources,
-    '@main/modules/userApi/config': sourceConfig,
+    '@common/userApiDefaults': sourceConfig,
   })
   assert.equal(main.mergeSetting(defaultSetting, { 'player.preferredSource': source }).setting['player.preferredSource'], source)
   assert.equal(main.mergeSetting(defaultSetting, { ...defaultSetting, 'player.preferredSource': source }).setting['player.preferredSource'], source, 'full settings restore retains imported preference')
@@ -116,22 +116,66 @@ async function run() {
   let removed
   const preferences = []
   setting['player.preferredSource'] = source
-  const useSettings = load('src/renderer/ui/settings/useSettings.ts', {
+  const useSettingsDependencies = {
     vue: { ...vue, onBeforeUnmount: () => {} }, '@renderer/store/setting': { appSetting: setting },
     '@renderer/store/list/state': {}, '@renderer/store/list/action': {}, '@renderer/store': { userApi: apis },
     '@renderer/utils/ipc': { removeUserApi: async ids => { removed = ids; return apis.list } }, '@renderer/core/apiSource': {},
     '@renderer/core/player/utils': {}, '@renderer/plugins/player': {}, '@renderer/utils': {}, '@common/utils/nodejs': {},
     '@common/utils/common': {}, '@common/utils/migrateSetting': {}, '@renderer/composables/useAppearance': {},
-    '@renderer/store/dislikeList': { dislikeInfo: {} }, '@renderer/core/dislikeList': {}, './schema': schema,
+    '@renderer/store/dislikeList': { dislikeInfo: {}, dislikeRulesVersion: vue.ref(0) }, '@renderer/core/dislikeList': {}, './schema': schema,
     '@renderer/ui/services/platformPlayback': { setPreferredSource: async value => { preferences.push(value); setting['player.preferredSource'] = value } },
     '@common/platformSources': sources, '@common/localMusic': {}, '../services/localLibrary': {},
-  }).useSettings()
+  }
+  const useSettings = load('src/renderer/ui/settings/useSettings.ts', useSettingsDependencies).useSettings()
   const removal = useSettings.removeSource({ id, name: '测试音源' })
   useSettings.answerConfirmation(true)
   await removal
   assert.deepEqual(removed, [id])
   assert.deepEqual(preferences, ['auto'])
   assert.equal(setting['player.preferredSource'], 'auto')
+
+  // Exercise the real backup -> saveRecord -> local merge path with no config
+  // event. Main emits no patch when retired values normalize to current defaults.
+  const previousBackupWindow = global.window
+  const previousBackupLx = global.lx
+  const restoredUpdates = []
+  let backupContents
+  global.window = { lx: { worker: { main: { readLxConfigFile: async() => structuredClone(backupContents) } } } }
+  try {
+    const backups = load('src/renderer/ui/settings/useSettings.ts', {
+      ...useSettingsDependencies,
+      '@renderer/store/setting': renderer,
+      '@renderer/utils/ipc': {
+        showSelectDialog: async() => ({ canceled: false, filePaths: ['synthetic-backup.lxmc'] }),
+        updateSetting: async patch => {
+          const result = main.updateSetting(patch)
+          global.lx.appSetting = result.setting
+          restoredUpdates.push(result)
+          // Deliberately send no renderer setting event, matching empty patches.
+        },
+      },
+    }).useSettings()
+    for (const retiredId of sourceConfig.retiredDefaultSourceIds) {
+      global.lx = { appSetting: { ...defaultSetting } }
+      renderer.mergeSetting(defaultSetting)
+      backupContents = { type: 'setting_v2', data: { 'common.apiSource': retiredId, 'player.preferredSource': `imported:${retiredId}` } }
+      await backups.importBackup('settings')
+      assert.equal(backups.failed.value, false, backups.notice.value)
+      assert.deepEqual(restoredUpdates.at(-1).updatedSettingKeys, [], 'already-default main settings produce no config event')
+      assert.equal(renderer.appSetting['common.apiSource'], '', 'local backup merge must not restore a retired active source')
+      assert.equal(renderer.appSetting['player.preferredSource'], 'auto', 'local backup merge must not restore a retired preferred source')
+      assert.equal(savedSettings.at(-1).setting['common.apiSource'], '')
+      assert.equal(savedSettings.at(-1).setting['player.preferredSource'], 'auto')
+    }
+    backupContents = { type: 'setting_v2', data: { 'common.apiSource': id, 'player.preferredSource': source } }
+    await backups.importBackup('settings')
+    assert.equal(backups.failed.value, false, backups.notice.value)
+    assert.equal(renderer.appSetting['common.apiSource'], id, 'manual source remains selectable through backup restore')
+    assert.equal(renderer.appSetting['player.preferredSource'], source)
+  } finally {
+    global.window = previousBackupWindow
+    global.lx = previousBackupLx
+  }
 
   // The real removal helper consumes its ID array. A runtime created while the
   // selected legacy window is closing must still be closed after list removal.

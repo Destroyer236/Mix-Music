@@ -20,6 +20,7 @@ function createImportedScript(baseUrl, options = {}) {
     if (config.mode === 'failure') throw new Error('synthetic imported source failure');
     if (config.mode === 'pending') return new Promise(() => {});
     if (config.mode === 'invalid-url') return 'file:///synthetic.wav';
+    if (config.requestDelay) await new Promise(resolve => setTimeout(resolve, config.requestDelay));
     return base + '/tone.wav?' + params;
   });
   if (config.mode !== 'init-pending') {
@@ -30,9 +31,9 @@ function createImportedScript(baseUrl, options = {}) {
 `
 }
 
-function createTone() {
+function createTone(duration = 0.5) {
   const sampleRate = 16000
-  const frames = sampleRate / 2
+  const frames = Math.round(sampleRate * duration)
   const audio = Buffer.alloc(44 + frames * 2)
   audio.write('RIFF', 0)
   audio.writeUInt32LE(audio.length - 8, 4)

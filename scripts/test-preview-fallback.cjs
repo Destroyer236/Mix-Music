@@ -72,6 +72,7 @@ function fixture({ complete = false, preview = true, quality = 'auto', nativePre
   })
   f.playback = playback
   const online = load('src/renderer/core/music/online.ts', {
+    '@renderer/ui/services/streamValidation': { readStreamDuration: async() => 180, isTruncatedStream: () => false },
     '@renderer/store/list/action': {}, '@renderer/ui/services/platformPlayback': playback, '@renderer/utils/ipc': {}, './utils': {},
   })
   const music = load('src/renderer/core/music/index.ts', { './online': online, './download': {}, './local': {} })

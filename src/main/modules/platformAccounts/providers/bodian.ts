@@ -7,6 +7,7 @@ export type CatalogKind = 'track' | 'album' | 'artist' | 'playlist'
 export interface CatalogEntity { id: string, name: string, cover: string, singer: string, description: string, count: number }
 export interface CatalogResult { list: Array<LX.Music.MusicInfoOnline | CatalogEntity>, total: number, totalExact: boolean, page: number, limit: 30, limited: boolean }
 export interface PlaylistResult { name: string, cover: string, list: LX.Music.MusicInfoOnline[] }
+export interface CatalogTracksResult extends PlaylistResult { total: number, totalExact: boolean, page: number, limit: number }
 const tracks = (rows: unknown[]): LX.Music.MusicInfo_online_common[] => rows.map(toTrack).filter((track): track is LX.Music.MusicInfo_online_common => Boolean(track))
 const validId = (value: unknown) => { const id = itemId(value); if (!id) throw new Error('无效的波点音乐条目编号'); return id }
 const playlistRef = (input: string, fallback = 4) => {
@@ -60,17 +61,37 @@ export async function publicPlaylist(context: ProviderContext, input: string): P
   const rows = await allPages(context, `/api/service/playlist/${id}/musicList`, 'list', { source })
   return { name: text(detail.name) || '波点音乐歌单', cover: mediaUrl(detail.pic), list: tracks(rows) }
 }
-export async function getAlbumTracks(context: ProviderContext, input: string): Promise<PlaylistResult> {
+async function catalogTracks(context: ProviderContext, input: string, kind: 'album' | 'artist', page: number, limit: number): Promise<CatalogTracksResult> {
   const id = validId(input)
-  const detail = object((await request(context, `/api/service/album/${id}`)).albumInfo)
-  if (itemId(detail.id ?? detail.albumId) !== id) throw new Error('波点音乐专辑编号不一致')
-  return { name: text(detail.name) || '波点音乐专辑', cover: mediaUrl(detail.pic), list: tracks(await allPages(context, `/api/service/album/music/${id}`, 'resultList', {}, 0)) }
+  page = Math.max(1, Math.min(10000, Math.floor(Number(page) || 1)))
+  limit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 30)))
+  // These catalogue endpoints are one-based: pn=0 repeats pn=1. Read only the
+  // requested page so a large artist catalogue cannot delay or break page one.
+  const [info, data] = await Promise.all([
+    request(context, `/api/service/${kind}/${id}`),
+    request(context, `/api/service/${kind}/music/${id}`, { query: { pn: page, rn: limit } }),
+  ])
+  const detail = object(info[`${kind}Info`])
+  const label = kind === 'artist' ? '歌手' : '专辑'
+  if (itemId(detail.id ?? detail[`${kind}Id`]) !== id) throw new Error(`波点音乐${label}编号不一致`)
+  if (!Array.isArray(data.resultList)) throw new Error(`波点音乐未返回${label}作品，请重试`)
+  const lowerBound = (page - 1) * limit + data.resultList.length
+  const knownTotal = data.total != null && Number.isFinite(Number(data.total)) && Number(data.total) >= lowerBound
+  return {
+    name: text(detail.name) || `波点音乐${label}`,
+    cover: mediaUrl(detail.pic),
+    list: tracks(data.resultList),
+    page,
+    limit,
+    total: knownTotal ? Number(data.total) : lowerBound + (data.resultList.length === limit ? 1 : 0),
+    totalExact: knownTotal,
+  }
 }
-export async function getArtistTracks(context: ProviderContext, input: string): Promise<PlaylistResult> {
-  const id = validId(input)
-  const detail = object((await request(context, `/api/service/artist/${id}`)).artistInfo)
-  if (itemId(detail.id ?? detail.artistId) !== id) throw new Error('波点音乐歌手编号不一致')
-  return { name: text(detail.name) || '波点音乐歌手', cover: mediaUrl(detail.pic), list: tracks(await allPages(context, `/api/service/artist/music/${id}`, 'resultList', {}, 0)) }
+export async function getAlbumTracks(context: ProviderContext, input: string, page = 1, limit = 30): Promise<CatalogTracksResult> {
+  return catalogTracks(context, input, 'album', page, limit)
+}
+export async function getArtistTracks(context: ProviderContext, input: string, page = 1, limit = 30): Promise<CatalogTracksResult> {
+  return catalogTracks(context, input, 'artist', page, limit)
 }
 export async function getLyrics(context: ProviderContext, input: string): Promise<LX.Music.LyricInfo> {
   const id = validId(input)

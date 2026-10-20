@@ -48,6 +48,7 @@ async function runElectron() {
   const http = require('node:http')
   const requests = []
   const tone = createTone()
+  const fullTone = createTone(30)
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1')
     response.setHeader('Access-Control-Allow-Origin', '*')
@@ -55,6 +56,9 @@ async function runElectron() {
       requests.push(Object.fromEntries(url.searchParams))
       response.writeHead(200, { 'Content-Type': 'application/json' })
       response.end('{}')
+    } else if (url.pathname === '/full.wav') {
+      response.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': fullTone.length })
+      response.end(fullTone)
     } else if (url.pathname === '/tone.wav') {
       response.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': tone.length, 'Accept-Ranges': 'none' })
       response.end(tone)
@@ -144,6 +148,7 @@ async function runElectron() {
       assert.equal(first.type, '320k')
       assert.equal(next.type, '128k')
       assert.notEqual(next.url, first.url)
+      assert.deepEqual(requests.map(item => item.type), ['320k', '128k'], 'rejected tier must not be requested again with a new signature')
     })
     await check('rejected imported URLs select a matching recording on the next platform', async() => {
       const api = await add({ sources: { kw: { type: 'music', actions: ['musicUrl'], qualitys: ['320k'] }, wy: { type: 'music', actions: ['musicUrl'], qualitys: ['320k'] } } })
@@ -240,6 +245,14 @@ async function runElectron() {
       await assert.rejects(runtime.request(track('kw'), '320k'), /关闭/)
       assert.deepEqual(['userApi_init', 'userApi_response', 'userApi_getProxy'].map(name => ipcMain.listenerCount(name)), baseline)
     })
+    await check('default runtime accepts a public source response beyond ten seconds', async() => {
+      const script = createImportedScript(base, { requestDelay: 10500 })
+      const api = await utils.importApi(script)
+      const runtime = await runtimeModule.createImportedScriptRuntime(api, script, { requestTimeout: undefined })
+      const response = await runtime.request(track('kw'), '320k')
+      assert.equal(new URL(response.url).origin, base)
+      runtime.close()
+    })
     await check('explicit close rejects outstanding work and cleans IPC', async() => {
       const baseline = ['userApi_init', 'userApi_response', 'userApi_getProxy'].map(name => ipcMain.listenerCount(name))
       const script = createImportedScript(base, { mode: 'pending' })
@@ -323,6 +336,30 @@ async function runElectron() {
         assert.equal(media.ended, true)
         assert.equal(media.duration, 0.5)
         assert.ok(media.currentTime >= 0.49)
+      } finally { window.destroy() }
+    })
+    await check('real media validation distinguishes a short preview from the full recording', async() => {
+      const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } })
+      try {
+        await window.loadURL('about:blank')
+        const ts = require('typescript')
+        const code = ts.transpileModule(fs.readFileSync(path.join(root, 'src/renderer/ui/services/streamValidation.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+        const result = await window.webContents.executeJavaScript(`(async()=>{const exports={};${code};const short=await exports.readStreamDuration(${JSON.stringify(base + '/tone.wav')});const full=await exports.readStreamDuration(${JSON.stringify(base + '/full.wav')});return {short,full,truncated:exports.isTruncatedStream('00:30',short),complete:!exports.isTruncatedStream('00:30',full)};})()`)
+        assert.deepEqual(result, { short: 0.5, full: 30, truncated: true, complete: true })
+        const onlineCode = ts.transpileModule(fs.readFileSync(path.join(root, 'src/renderer/core/music/online.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+        const recovery = await window.webContents.executeJavaScript(`(async()=>{
+          const compile=(code,deps={})=>{const exports={};new Function('require','exports',code)(name=>deps[name]||{},exports);return exports;};
+          const validation=compile(${JSON.stringify(code)});
+          const song={id:'kw_song',source:'kw',name:'Fixture Song',singer:'Fixture Singer',interval:'00:30',meta:{songId:'song'}};
+          const candidates=[${JSON.stringify(base + '/tone.wav')},${JSON.stringify(base + '/full.wav')}];
+          const accepted=[];const rejected=[];
+          const online=compile(${JSON.stringify(onlineCode)},{'@renderer/ui/services/streamValidation':validation,'@renderer/ui/services/platformPlayback':{
+            preferredQuality:{value:'auto'},acceptStream:(_track,stream)=>accepted.push(stream),
+            resolvePlatformStream:async(_track,_refresh,_toggle,_quality,options)=>{rejected.push(options.rejectedUrls);return {url:candidates.find(url=>!options.rejectedUrls.includes(url)),type:'320k',platform:'fixture',musicInfo:song};}
+          }});
+          const url=await online.getMusicUrl({musicInfo:song,isRefresh:false});return {url,accepted:accepted.length,rejected};
+        })()`)
+        assert.deepEqual(recovery, { url: base + '/full.wav', accepted: 1, rejected: [[], [base + '/tone.wav']] })
       } finally { window.destroy() }
     })
     const report = { passed: checked.length, checks: checked, network: '127.0.0.1 loopback only', runtime: 'real Electron BrowserWindow + bundled LX preload', selectedApiUnchanged: true }
