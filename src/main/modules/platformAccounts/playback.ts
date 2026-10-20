@@ -30,12 +30,16 @@ const streamQualityRank = (stream: PlatformStream): number => {
 }
 const maxQualityRank = Math.max(...Object.values(qualityRank))
 const sourceTimeoutMs = 6000
+// Imported scripts need time to initialize, request audio and try a lower
+// quality. A native provider's shorter deadline must not select a preview while
+// a public source is still resolving complete audio.
+const importedTimeoutMs = 30000
 const qualityWaitMs = 700
 
 // Keep an unresponsive search, native API, or imported script from holding up
 // every other playable source. The underlying request can still fill its cache.
-const bounded = async<T>(request: Promise<T>): Promise<T> => new Promise<T>((resolve, reject) => {
-  const timer = scheduleTimeout(() => { reject(new Error('音源响应超时')) }, sourceTimeoutMs)
+const bounded = async<T>(request: Promise<T>, timeout = sourceTimeoutMs): Promise<T> => new Promise<T>((resolve, reject) => {
+  const timer = scheduleTimeout(() => { reject(new Error('音源响应超时')) }, timeout)
   void request.then(resolve, reject).finally(() => { cancelTimeout(timer) })
 })
 
@@ -115,9 +119,17 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
     const errors: string[] = []
     const requestedSource = getPreferredSource()
     const imports = getImportedSources()
+    const importedTrials: Array<{ source: ImportedPlaybackSource, stream: ResolvedPlatformStream }> = []
+    const importActive = (source: ImportedPlaybackSource) => getImportedSources().some(active => active.id === source.id)
     const preferredImport = allowToggleSource ? imports.find(source => source.id === getImportedSourceId(requestedSource)) : undefined
     if (preferredImport) {
-      try { return accept(await preferredImport.resolve(track, quality, states, refresh, allowToggleSource, options)) } catch (error) { errors.push(`${preferredImport.name}：${error instanceof Error ? error.message : '无法播放'}`) }
+      try {
+        const stream = accept(await bounded(preferredImport.resolve(track, quality, states, refresh, allowToggleSource, options), importedTimeoutMs))
+        if (importActive(preferredImport)) {
+          if (!stream.isTrial) return stream
+          importedTrials.push({ source: preferredImport, stream })
+        }
+      } catch (error) { errors.push(`${preferredImport.name}：${error instanceof Error ? error.message : '无法播放'}`) }
     }
     const preferred = allowToggleSource && isPreferredPlatformSource(requestedSource) && requestedSource !== 'auto'
       ? states.find(state => state.provider.source === requestedSource)
@@ -133,12 +145,12 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
     const ordered = [...new Set([preferred, original, ...alternatives].filter((state): state is PlaybackState => Boolean(state)))]
     const trials: Array<{ state: PlaybackState, generation: number, stream: ResolvedPlatformStream }> = []
     const signature = JSON.stringify([track.source, track.id, track.name, track.singer, track.interval, track.meta.albumName, track.meta.recordingVersion, quality, [...rejected]])
-    const requestCandidate = async(id: string, request: () => Promise<ResolvedPlatformStream | null>): Promise<ResolvedPlatformStream | null> => {
+    const requestCandidate = async(id: string, request: () => Promise<ResolvedPlatformStream | null>, timeout = sourceTimeoutMs): Promise<ResolvedPlatformStream | null> => {
       const key = `${id}:${signature}`
       const failed = failures.get(key)
       if (!refresh && failed && failed.until > Date.now()) throw failed.error
       try {
-        const stream = await bounded(request())
+        const stream = await bounded(request(), timeout)
         failures.delete(key)
         return stream
       } catch (error) {
@@ -182,7 +194,7 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
           const generation = state.generation
           return { name: state.provider.name, active: () => state.generation === generation, request: requestCandidate(`native:${state.provider.id}:${generation}`, async() => resolveNative(state)) }
         }),
-        ...imports.map(source => ({ name: source.name, active: () => getImportedSources().some(active => active.id === source.id), request: requestCandidate(`imported:${source.id}`, async() => source.resolve(track, quality, states, refresh, allowToggleSource, options).then(accept)) })),
+        ...imports.map(source => ({ name: source.name, active: () => importActive(source), request: requestCandidate(`imported:${source.id}`, async() => source.resolve(track, quality, states, refresh, allowToggleSource, options).then(accept), importedTimeoutMs) })),
       ]
       // Resolve all sources together. Once complete audio is available, allow a
       // short window for higher quality instead of serially waiting on every
@@ -228,7 +240,7 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
     for (const state of ordered) {
       const generation = state.generation
       try {
-        const stream = await resolveNative(state)
+        const stream = await requestCandidate(`native:${state.provider.id}:${generation}`, async() => resolveNative(state))
         if (!stream) continue
         // A preferred platform's official preview must not shadow another
         // platform's complete recording. Keep it only as a final fallback.
@@ -238,16 +250,17 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
     }
     // Explicit source preferences keep their original ordered fallback path;
     // automatic playback already compared imported and native sources above.
-    const importedTrials: ResolvedPlatformStream[] = []
     for (const source of imports) {
       if (source === preferredImport) continue
       try {
-        const stream = accept(await source.resolve(track, quality, states, refresh, allowToggleSource, options))
-        if (stream.isTrial) importedTrials.push(stream)
+        const stream = await requestCandidate(`imported:${source.id}`, async() => source.resolve(track, quality, states, refresh, allowToggleSource, options).then(accept), importedTimeoutMs)
+        if (!stream || !importActive(source)) continue
+        if (stream.isTrial) importedTrials.push({ source, stream })
         else return stream
       } catch (error) { errors.push(`${source.name}：${error instanceof Error ? error.message : '无法播放'}`) }
     }
-    if (importedTrials.length) return importedTrials[0]
+    const importedTrial = importedTrials.find(candidate => importActive(candidate.source))
+    if (importedTrial) return importedTrial.stream
     const trial = trials.find(candidate => candidate.state.generation === candidate.generation)
     if (trial) return trial.stream
     throw new Error(errors.length ? errors.join('；') : '没有找到有播放权限的同版本歌曲，请登录平台或检查播放权限')

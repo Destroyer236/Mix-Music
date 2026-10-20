@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, session } from 'electron'
 import { env as runtimeEnv } from 'node:process'
 import './utils/logInit'
 import '@common/error'
@@ -17,6 +17,7 @@ import path from 'node:path'
 import { mkdirSync } from 'node:fs'
 import { prepareUserDataDirectory } from './utils/userDataDirectory'
 import { applyStartupPreferences } from './utils/startupPreferences'
+import { clearStartupCaches } from './utils/startupCache'
 
 // 初始化应用
 const init = () => {
@@ -62,6 +63,7 @@ listenerAppEvent(init)
 
 
 // https://github.com/electron/electron/issues/16809
-void app.whenReady().then(() => {
+void app.whenReady().then(async() => {
+  await clearStartupCaches({ dataPath: dataDirectory.userDataPath, defaultSession: session.defaultSession, fromPartition: partition => session.fromPartition(partition) }).catch(error => { console.warn('LinkLine startup cache cleanup failed:', error) })
   isLinux ? setTimeout(init, 300) : init()
 })
