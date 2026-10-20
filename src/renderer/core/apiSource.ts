@@ -4,7 +4,7 @@ import { setUserApi as setUserApiAction } from '@renderer/utils/ipc'
 import musicSdk from '@renderer/utils/musicSdk'
 import apiSourceInfo from '@renderer/utils/musicSdk/api-source-info'
 
-let prevId = ''
+let prevId: string | null = null
 export const setUserApi = async(apiId: string) => {
   if (prevId == apiId) return
   prevId = apiId

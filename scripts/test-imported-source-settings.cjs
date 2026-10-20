@@ -66,14 +66,52 @@ async function run() {
   renderer.mergeSetting({ 'player.preferredSource': 'imported:wy' })
   assert.equal(renderer.appSetting['player.preferredSource'], source, 'renderer ignores invalid persisted keys')
 
+  const sourceConfig = load('src/main/modules/userApi/config/index.ts')
+  const savedSettings = []
   const main = load('src/main/utils/index.ts', {
     '@common/utils': { throttle: fn => fn }, '@common/utils/migrateSetting': { default: x => x, __esModule: true },
-    '@main/utils/store': {}, '@common/constants': {}, '@common/defaultSetting': { default: defaultSetting, __esModule: true },
-    '@common/defaultHotKey': {}, './migrate': {}, electron: {}, '@common/utils/nodejs': {}, '@common/theme/index.json': [], '@common/windowClose': {}, '@common/platformSources': sources,
+    '@main/utils/store': { default: () => ({ override: value => savedSettings.push(structuredClone(value)) }), __esModule: true },
+    '@common/constants': { STORE_NAMES: { APP_SETTINGS: 'settings' } }, '@common/defaultSetting': { default: defaultSetting, __esModule: true },
+    '@common/defaultHotKey': {}, './migrate': {}, electron: {}, '@common/utils/nodejs': {}, '@common/theme/index.json': [],
+    '@common/windowClose': { migrateWindowCloseSetting: value => value }, '@common/platformSources': sources,
+    '@main/modules/userApi/config': sourceConfig,
   })
   assert.equal(main.mergeSetting(defaultSetting, { 'player.preferredSource': source }).setting['player.preferredSource'], source)
   assert.equal(main.mergeSetting(defaultSetting, { ...defaultSetting, 'player.preferredSource': source }).setting['player.preferredSource'], source, 'full settings restore retains imported preference')
   assert.equal(main.mergeSetting(defaultSetting, { 'player.preferredSource': 'imported:wy' }).setting['player.preferredSource'], 'auto')
+  assert.equal(defaultSetting['common.apiSource'], '', 'fresh installs must start without a selected custom source')
+  const previousLx = global.lx
+  const previousEnv = global.envParams
+  global.envParams = { cmdParams: {} }
+  try {
+    for (const retiredId of sourceConfig.retiredDefaultSourceIds) {
+      global.lx = { appSetting: { ...defaultSetting, 'common.apiSource': id, 'player.preferredSource': source } }
+      const backup = { 'common.apiSource': retiredId, 'player.preferredSource': `imported:${retiredId}`, 'player.volume': 0.45 }
+      const before = structuredClone(backup)
+      const restored = main.updateSetting(backup)
+      assert.equal(restored.setting['common.apiSource'], '')
+      assert.equal(restored.setting['player.preferredSource'], 'auto')
+      assert.equal(restored.updatedSetting['common.apiSource'], '', 'renderer update patch must clear a removed source')
+      assert.equal(restored.updatedSetting['player.preferredSource'], 'auto', 'renderer update patch must reset a removed preference')
+      assert.ok(restored.updatedSettingKeys.includes('common.apiSource'))
+      assert.ok(restored.updatedSettingKeys.includes('player.preferredSource'))
+      assert.equal(savedSettings.at(-1).setting['common.apiSource'], '')
+      assert.equal(savedSettings.at(-1).setting['player.preferredSource'], 'auto')
+      assert.equal(savedSettings.at(-1).setting['player.volume'], 0.45)
+      assert.deepEqual(backup, before)
+      const initialized = main.updateSetting({ ...defaultSetting, ...backup }, true)
+      assert.equal(initialized.setting['common.apiSource'], '')
+      assert.equal(initialized.setting['player.preferredSource'], 'auto')
+      assert.equal(savedSettings.at(-1).setting['common.apiSource'], '')
+      assert.equal(savedSettings.at(-1).setting['player.preferredSource'], 'auto')
+    }
+    const manual = main.updateSetting({ 'common.apiSource': id, 'player.preferredSource': source }, true)
+    assert.equal(manual.setting['common.apiSource'], id)
+    assert.equal(manual.setting['player.preferredSource'], source)
+  } finally {
+    global.lx = previousLx
+    global.envParams = previousEnv
+  }
 
   let removed
   const preferences = []
@@ -129,7 +167,7 @@ async function run() {
   assert.deepEqual(removedIds, [id, 'user_api_second'], 'mutating persistence helper cannot consume caller IDs')
   assert.deepEqual(closeCalls, [[id, 'user_api_second'], [id, 'user_api_second']])
   assert.equal(liveRuntimes.size, 0, 'second close removes runtimes created during the awaited legacy close')
-  console.log('Imported-source settings: identifiers, options, reactivity, schema, backup, persistence, deletion reset and main removal race passed.')
+  console.log('Imported-source settings: identifiers, options, reactivity, schema, backup, persistence, retired-source preference migration, deletion reset and main removal race passed.')
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1 })

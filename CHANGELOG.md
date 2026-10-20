@@ -2,6 +2,10 @@
 
 本文件记录 LinkLine 的版本变化。完整发行说明见 [docs/releases/](docs/releases/)，下载文件见[本项目 Releases](https://github.com/yaonikaixin999999/LinkLine/releases)。
 
+## 未发布
+
+- 默认不再附带或自动导入音源脚本；清理旧版自动添加的五个预置音源及缓存，并重置对应的音源选择，保留用户手动导入的脚本。
+
 ## [1.2.1](https://github.com/yaonikaixin999999/LinkLine/releases/tag/v1.2.1) — 2026-10-20
 
 - 更新「拍点」Logo 与几何 LinkLine 字标，同步安装包、应用及托盘图标；左上角品牌缩小并靠左排列。

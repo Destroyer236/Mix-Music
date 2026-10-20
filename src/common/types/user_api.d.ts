@@ -18,7 +18,7 @@ declare namespace LX {
       name: string
       description: string
       script: string
-      /** Remote default scripts are downloaded and cached only on first use. */
+      /** Remote scripts are downloaded and cached only on first use. */
       scriptUrl?: string
       allowShowUpdateAlert: boolean
       author?: string

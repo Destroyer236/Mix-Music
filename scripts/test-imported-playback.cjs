@@ -68,7 +68,7 @@ async function runElectron() {
   const selected = 'user_api_selected_untouched'
   global.lx = { event_app: new EventEmitter(), appSetting: { 'common.apiSource': selected } }
   const utils = load('src/main/modules/userApi/utils.ts', {
-    './config': { userApis: [] }, '@common/constants': { STORE_NAMES: { USER_API: 'test' } },
+    './config': load('src/main/modules/userApi/config/index.ts'), '@common/constants': { STORE_NAMES: { USER_API: 'test' } },
     '@main/utils/store': { __esModule: true, default: () => ({ get: key => store[key], set: (key, value) => { store[key] = value } }) },
   })
   const nativeRuntime = load('src/main/modules/userApi/playbackRuntime.ts', { './main': { getProxy: () => ({ host: '', port: '' }) } })

@@ -10,6 +10,7 @@ import { joinPath } from '@common/utils/nodejs'
 import themes from '@common/theme/index.json'
 import { migrateWindowCloseSetting } from '@common/windowClose'
 import { isPreferredPlatformSource } from '@common/platformSources'
+import { removeRetiredDefaultSourceSettings } from '@main/modules/userApi/config'
 
 export const parseEnvParams = (argv = process.argv): { cmdParams: LX.CmdParams, deeplink: string | null } => {
   const cmdParams: LX.CmdParams = {}
@@ -127,7 +128,7 @@ export const updateSetting = (setting?: Partial<LX.AppSetting>, isInit: boolean 
     originSetting = { ...defaultSetting }
   } else originSetting = global.lx.appSetting
 
-  const result = mergeSetting(originSetting, setting)
+  const result = mergeSetting(originSetting, removeRetiredDefaultSourceSettings(setting))
 
   result.setting.version = defaultSetting.version
 

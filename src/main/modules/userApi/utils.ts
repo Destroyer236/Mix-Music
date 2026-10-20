@@ -1,4 +1,4 @@
-import { userApis as defaultUserApis } from './config'
+import { retiredDefaultSourceIds } from './config'
 import { STORE_NAMES } from '@common/constants'
 import getStore from '@main/utils/store'
 import zlib from 'node:zlib'
@@ -6,7 +6,6 @@ import zlib from 'node:zlib'
 let userApis: LX.UserApi.UserApiInfo[] | null
 let scripts = new Map<string, string>()
 const pendingScripts = new Map<string, Promise<string>>()
-const DEFAULT_SOURCES_VERSION = 1
 
 const saveData = () => {
   getStore(STORE_NAMES.USER_API).set('userApis', userApis!.map(api => {
@@ -22,8 +21,8 @@ export const getUserApis = (): LX.UserApi.UserApiInfo[] => {
 
   const electronStore_userApi = getStore(STORE_NAMES.USER_API)
   const stored = electronStore_userApi.get<LX.UserApi.UserApiInfoFull[]>('userApis')
-  const infoFull = Array.isArray(stored) ? stored.map(api => ({ ...api })) : []
-  let requiredUpdate = !Array.isArray(stored)
+  const infoFull = Array.isArray(stored) ? stored.filter(api => !retiredDefaultSourceIds.has(api.id)).map(api => ({ ...api })) : []
+  let requiredUpdate = !Array.isArray(stored) || infoFull.length !== stored.length
   if (infoFull.length) {
     for (let i = 0; i < infoFull.length; i++) {
       const api = infoFull[i]
@@ -40,14 +39,6 @@ export const getUserApis = (): LX.UserApi.UserApiInfo[] => {
       }
     }
   }
-  const migrateDefaults = (electronStore_userApi.get<number>('defaultSourcesVersion') ?? 0) < DEFAULT_SOURCES_VERSION
-  if (migrateDefaults) {
-    for (const api of defaultUserApis) {
-      if (infoFull.some(existing => existing.id === api.id || existing.scriptUrl === api.scriptUrl)) continue
-      infoFull.push({ ...api })
-      requiredUpdate = true
-    }
-  }
   userApis = infoFull.map(api => {
     if (api.allowShowUpdateAlert == null) api.allowShowUpdateAlert = false
     const { script, ...info } = api
@@ -55,9 +46,6 @@ export const getUserApis = (): LX.UserApi.UserApiInfo[] => {
     return info
   })
   if (requiredUpdate) saveData()
-  // Write the marker only after the list is safely persisted. Removing a
-  // default source is then respected on subsequent launches.
-  if (migrateDefaults) electronStore_userApi.set('defaultSourcesVersion', DEFAULT_SOURCES_VERSION)
   return userApis
 }
 

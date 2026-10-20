@@ -139,7 +139,38 @@ async function run() {
   waitingClose.resolve()
   await choosingB
   assert.deepEqual(loaded, ['a', 'c'], 'a delayed previous selection cannot replace the current source')
-  console.log('User API window: lazy script loading, early ready event, cancellation, stale downloads, close race, failure status and rapid source switching passed.')
+
+  // An empty default is a real initial selection and must settle renderer startup.
+  const previousWindow = global.window
+  const initialApi = deferred()
+  const ipcSelections = []
+  const persistedSelections = []
+  const apiSource = { value: 'uninitialized' }
+  const qualityList = { value: { old: ['320k'] } }
+  const emptySetting = { 'common.apiSource': '' }
+  global.window = { lx: { apiInitPromise: [initialApi.promise, false, result => {
+    global.window.lx.apiInitPromise[1] = true
+    initialApi.resolve(result)
+  }] } }
+  try {
+    const rendererSelection = load('src/renderer/core/apiSource.ts', {
+      '@renderer/store': { apiSource, qualityList, userApi: {} },
+      '@renderer/store/setting': { appSetting: emptySetting, setApiSource: id => persistedSelections.push(id) },
+      '@renderer/utils/ipc': { setUserApi: async id => { ipcSelections.push(id); assert.equal(id, '', 'empty startup must not request an imported script') } },
+      '@renderer/utils/musicSdk': { __esModule: true, default: { supportQuality: {} } },
+      '@renderer/utils/musicSdk/api-source-info': { __esModule: true, default: [] },
+    })
+    await rendererSelection.setUserApi('')
+    assert.equal(global.window.lx.apiInitPromise[1], true)
+    assert.equal(await initialApi.promise, true)
+    assert.equal(apiSource.value, '')
+    assert.deepEqual(qualityList.value, {})
+    assert.deepEqual(ipcSelections, [''])
+    assert.deepEqual(persistedSelections, [])
+    await rendererSelection.setUserApi('')
+    assert.deepEqual(ipcSelections, [''], 'repeated empty selection must not reinitialize')
+  } finally { global.window = previousWindow }
+  console.log('User API window: lazy script loading, early ready event, cancellation, stale downloads, close race, failure status, rapid source switching and empty renderer initialization passed.')
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1 })

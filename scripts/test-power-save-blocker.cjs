@@ -32,6 +32,7 @@ function nativeFixture() {
       stop(id) { stops.push(id); return active.delete(id) },
     } },
     '@common/utils': { throttle: action => action },
+    '@main/modules/userApi/config': load('src/main/modules/userApi/config/index.ts', {}),
   }, name => name.startsWith('@') || name.startsWith('./') ? {} : undefined)
   return { ...subject, active, starts, stops }
 }
