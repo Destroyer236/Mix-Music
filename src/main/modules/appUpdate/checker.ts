@@ -1,6 +1,6 @@
-import { LINKLINE_BACKUP_MIRROR, LINKLINE_DOWNLOAD_MIRROR, LINKLINE_RELEASES_URL, LINKLINE_REPOSITORY, LINKLINE_UPDATE_MANIFEST, UPDATE_SOURCES, isUpdateSource, releaseAssetDownloadUrl, type AppRelease, type AppReleaseAsset, type UpdateCheckRequest, type UpdateCheckResult, type UpdateSource } from '@common/appUpdate'
+import { LINKLINE_BACKUP_MIRROR, LINKLINE_DOWNLOAD_MIRROR, LINKLINE_LEGACY_REPOSITORY, LINKLINE_RELEASES_URL, LINKLINE_REPOSITORY, LINKLINE_UPDATE_MANIFEST, UPDATE_SOURCES, isUpdateSource, releaseAssetDownloadUrl, type AppRelease, type AppReleaseAsset, type UpdateCheckRequest, type UpdateCheckResult, type UpdateSource } from '@common/appUpdate'
 
-export const RELEASES_API_URL = 'https://api.github.com/repos/yaonikaixin999999/LinkLine/releases?per_page=100'
+export const RELEASES_API_URL = `${LINKLINE_REPOSITORY.replace('https://github.com/', 'https://api.github.com/repos/')}/releases?per_page=100`
 export const RELEASES_FEED_URL = `${LINKLINE_RELEASES_URL}.atom`
 const CACHE_TTL = 60_000
 const HISTORY_LIMIT = 20
@@ -50,7 +50,7 @@ const officialReleasePage = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
   try {
     const url = new URL(value)
-    return url.origin === 'https://github.com' && /^\/yaonikaixin999999\/LinkLine\/releases\/tag\/[^/]+$/.test(url.pathname) && !url.username && !url.password && !url.search && !url.hash ? url.href : null
+    return url.origin === 'https://github.com' && /^\/(?:Destroyer236\/Mix-Music|yaonikaixin999999\/LinkLine)\/releases\/tag\/[^/]+$/.test(url.pathname) && !url.username && !url.password && !url.search && !url.hash ? url.href : null
   } catch { return null }
 }
 const officialAsset = (value: unknown): string | null => releaseAssetDownloadUrl(value, 'github')
@@ -99,7 +99,9 @@ export const parseApiReleases = (json: string): AppRelease[] => {
 
 export const parseUpdateManifest = (json: string): AppRelease[] => {
   const manifest = record(JSON.parse(json))
-  if (manifest?.schemaVersion !== 1 || manifest.repository !== LINKLINE_REPOSITORY || !Array.isArray(manifest.releases)) throw new Error('国内加速返回了无效的 Mix Music 更新清单。')
+  // 清单可能由改名前的版本生成，仓库标识按新旧两处都接受。
+  const manifestRepository = manifest?.repository
+  if (manifest?.schemaVersion !== 1 || (manifestRepository !== LINKLINE_REPOSITORY && manifestRepository !== LINKLINE_LEGACY_REPOSITORY) || !Array.isArray(manifest.releases)) throw new Error('国内加速返回了无效的 Mix Music 更新清单。')
   const releases: AppRelease[] = []
   for (const value of manifest.releases.slice(0, 100)) {
     const release = record(value)
@@ -158,7 +160,10 @@ export const parseFeedReleases = async(xml: string, fetchText: (url: string) => 
     const page = await fetchText(pageUrl)
     // Fail closed if GitHub returns a login/challenge/error page instead of release details.
     const title = decodeXml(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(page)?.[1] ?? '')
-    if (!title.includes('yaonikaixin999999/LinkLine') || !/^\s*Release\s/i.test(title)) throw new Error('无法验证正式版本信息，请稍后重试。')
+    // GitHub 的 Release 页标题形如「Release v1.2.1 · Destroyer236/Mix-Music」，
+    // 旧仓库的页面同样接受，以便历史版本仍可校验。
+    if (!title.includes('Destroyer236/Mix-Music') && !title.includes('yaonikaixin999999/LinkLine')) throw new Error('无法验证正式版本信息，请稍后重试。')
+    if (!title.toLowerCase().includes('release')) throw new Error('无法验证正式版本信息，请稍后重试。')
     if (/<(?:span|a)\b[^>]*>\s*Pre-release\s*<\/(?:span|a)>/i.test(page)) return null
     let assets: AppReleaseAsset[] = []
     try {
@@ -210,6 +215,15 @@ export const createUpdateChecker = (currentVersion: string, fetchText: (url: str
             sourceLabel = 'GitHub 官方（发布清单）'
             usedFallback = true
           }
+        }
+        // 新仓库可能还没建立 Release（例如刚改名迁移时），此时官方源会返回空列表。
+        // 回退到仓库内的发布清单，保证仍能识别已发布的版本而不是误报“尚未发布”。
+        if (history.length === 0) {
+          try {
+            history = parseUpdateManifest(await fetch(LINKLINE_UPDATE_MANIFEST))
+            sourceLabel = 'GitHub 官方（发布清单）'
+            usedFallback = true
+          } catch { /* 清单也不可用时保留“尚未发布”状态。 */ }
         }
       }
       history = history.map(release => ({ ...release, assets: release.assets.map(asset => ({ ...asset, downloadUrl: releaseAssetDownloadUrl(asset.url, requestedSource)! })) }))

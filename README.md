@@ -11,16 +11,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yaonikaixin999999/LinkLine/releases/latest"><img src="https://img.shields.io/github/v/release/yaonikaixin999999/LinkLine?label=Release&color=14945a" alt="最新正式版本"></a>
+  <a href="https://github.com/Destroyer236/Mix-Music/releases/latest"><img src="https://img.shields.io/github/v/release/Destroyer236/Mix-Music?label=Release&color=14945a" alt="最新正式版本"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-14945a" alt="Windows 10 / 11 x64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-14945a" alt="Apache License 2.0"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.2.1/LinkLine-v1.2.1-x64-Setup.exe"><strong>下载 Windows 版</strong></a> ·
-  <a href="https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.2.1/LinkLine-v1.2.1-x64-Setup.exe">国内加速下载</a> ·
+  <a href="https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.0/MixMusic-v1.3.0-x64-Setup.exe"><strong>下载 Windows 版</strong></a> ·
+  <a href="https://gh-proxy.com/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.0/MixMusic-v1.3.0-x64-Setup.exe">国内加速下载</a> ·
   <a href="docs/项目说明.md">使用手册</a> ·
-  <a href="https://github.com/yaonikaixin999999/LinkLine/issues">反馈问题</a>
+  <a href="https://github.com/Destroyer236/Mix-Music/issues">反馈问题</a>
 </p>
 
 Mix Music 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。连接平台账号，汇总喜欢的歌曲与自建歌单；导入本地音乐，按歌手、专辑和文件夹整理。用随主题变化的沉浸播放器、滚动歌词与独立外部歌词，听见分散在不同地方的音乐。
@@ -79,13 +79,13 @@ Mix Music 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。�
 
 ## 下载与安装
 
-当前版本 **1.2.1**，支持 **Windows 10 / 11，64 位（x64）**。
+当前版本 **1.3.0**，支持 **Windows 10 / 11，64 位（x64）**。
 
 | 下载入口 | 链接 |
 | --- | --- |
-| GitHub 官方 | [下载 LinkLine-v1.2.1-x64-Setup.exe](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.2.1/LinkLine-v1.2.1-x64-Setup.exe) |
-| 国内加速 | [gh-proxy.com](https://gh-proxy.com/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.2.1/LinkLine-v1.2.1-x64-Setup.exe) · [备用 ghfast.top](https://ghfast.top/https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.2.1/LinkLine-v1.2.1-x64-Setup.exe) |
-| 版本与校验 | [所有正式版本](https://github.com/yaonikaixin999999/LinkLine/releases) · [SHA-256 校验文件](https://github.com/yaonikaixin999999/LinkLine/releases/download/v1.2.1/SHA256SUMS.txt) |
+| GitHub 官方 | [下载 MixMusic-v1.3.0-x64-Setup.exe](https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.0/MixMusic-v1.3.0-x64-Setup.exe) |
+| 国内加速 | [gh-proxy.com](https://gh-proxy.com/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.0/MixMusic-v1.3.0-x64-Setup.exe) · [备用 ghfast.top](https://ghfast.top/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.0/MixMusic-v1.3.0-x64-Setup.exe) |
+| 版本与校验 | [所有正式版本](https://github.com/Destroyer236/Mix-Music/releases) · [SHA-256 校验文件](https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.0/SHA256SUMS.txt) |
 
 下载后运行安装程序，按提示完成安装。国内入口由第三方服务转发官方文件，连接失败时可切换官方或备用入口。已有用户可在应用内的「检查更新」下载安装包，升级前可导出备份。
 
@@ -133,7 +133,7 @@ QQ 音乐使用手机 QQ 扫描应用内二维码，也可打开内嵌的官方�
 
 ## 开发与资料
 
-[使用手册](docs/项目说明.md)涵盖歌词、下载、快捷键、账号同步、数据备份及常见问题。源码反馈请通过 [Issues](https://github.com/yaonikaixin999999/LinkLine/issues) 提交。
+[使用手册](docs/项目说明.md)涵盖歌词、下载、快捷键、账号同步、数据备份及常见问题。源码反馈请通过 [Issues](https://github.com/Destroyer236/Mix-Music/issues) 提交。
 
 <details>
 <summary><strong>从源码运行与构建</strong></summary>

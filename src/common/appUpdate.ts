@@ -1,4 +1,6 @@
-export const LINKLINE_REPOSITORY = 'https://github.com/yaonikaixin999999/LinkLine'
+export const LINKLINE_REPOSITORY = 'https://github.com/Destroyer236/Mix-Music'
+/** 改名前的仓库。历史 Release 仍托管在这里，安装包链接继续有效。 */
+export const LINKLINE_LEGACY_REPOSITORY = 'https://github.com/yaonikaixin999999/LinkLine'
 export const LINKLINE_RELEASES_URL = `${LINKLINE_REPOSITORY}/releases`
 export const LINKLINE_UPDATE_CHECK = 'linkline_update_check'
 /** Request the main process to download a validated Mix Music installer. */
@@ -7,16 +9,19 @@ export const LINKLINE_UPDATE_DOWNLOAD = 'linkline_update_download'
 export const LINKLINE_UPDATE_DOWNLOAD_PROGRESS = 'linkline_update_download_progress'
 /** Request the main process to launch the downloaded installer. */
 export const LINKLINE_UPDATE_INSTALL = 'linkline_update_install'
-export const LINKLINE_UPDATE_MANIFEST = 'https://raw.githubusercontent.com/yaonikaixin999999/LinkLine/main/updates/stable-linkline.json'
+export const LINKLINE_UPDATE_MANIFEST = 'https://raw.githubusercontent.com/Destroyer236/Mix-Music/main/updates/stable-linkline.json'
 export const LINKLINE_DOWNLOAD_MIRROR = 'https://gh-proxy.com/'
 export const LINKLINE_BACKUP_MIRROR = 'https://ghfast.top/'
 
+/** 允许引用的仓库路径：当前仓库，以及托管历史版本的旧仓库。 */
+export const RELEASE_REPOSITORY_PATH = /^\/(?:Destroyer236\/Mix-Music|yaonikaixin999999\/LinkLine)\//
+
 /**
- * Windows 安装包文件名模板。发布产物按 productName 命名，因此当前版本用
- * 「Mix Music」，改名前的历史 Release 仍是「LinkLine」，两者都要能识别。
+ * Windows 安装包文件名模板。发布产物用无空格的 `MixMusic` 前缀，
+ * 改名前的历史 Release 仍是 `LinkLine`，两者都要能识别。
  */
-export const INSTALLER_FILE_NAME = (version: string, productName = 'Mix Music') => `${productName}-v${version}-x64-Setup.exe`
-export const INSTALLER_FILE_NAME_RXP = /^(?:Mix Music|LinkLine)-v\d+\.\d+\.\d+-x64-Setup\.exe$/i
+export const INSTALLER_FILE_NAME = (version: string, productName = 'MixMusic') => `${productName}-v${version}-x64-Setup.exe`
+export const INSTALLER_FILE_NAME_RXP = /^(?:MixMusic|LinkLine)-v\d+\.\d+\.\d+-x64-Setup\.exe$/i
 /** 在 Release 资产里按版本挑出 x64 安装包，兼容改名前后两种命名。 */
 export const findInstallerAsset = <T extends { name: string }>(assets: T[] | undefined, version: string): T | undefined => {
   const expected = INSTALLER_FILE_NAME(version).toLowerCase()
@@ -37,7 +42,8 @@ export const releaseAssetDownloadUrl = (value: unknown, source: UpdateSource): s
   if (typeof value !== 'string') return null
   try {
     const url = new URL(value)
-    if (url.origin !== 'https://github.com' || url.username || url.password || url.search || url.hash || !/^\/yaonikaixin999999\/LinkLine\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)) return null
+    if (url.origin !== 'https://github.com' || url.username || url.password || url.search || url.hash || !/^\/[^/]+\/[^/]+\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)) return null
+    if (!RELEASE_REPOSITORY_PATH.test(url.pathname)) return null
     return source === 'mirror' ? `${LINKLINE_DOWNLOAD_MIRROR}${url.href}` : url.href
   } catch { return null }
 }

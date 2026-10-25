@@ -1,6 +1,6 @@
 {
   "name": "mixmusic",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Mix Music — 多平台音乐桌面客户端，基于 LXMusic 开源项目再开发",
   "main": "./dist/main.js",
   "scripts": {
@@ -92,7 +92,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yaonikaixin999999/LinkLine.git"
+    "url": "git+https://github.com/Destroyer236/Mix-Music.git"
   },
   "keywords": [
     "music-player",
@@ -100,8 +100,8 @@
     "vuejs3"
   ],
   "author": {
-    "name": "yaonikaixin999999",
-    "email": "154858262+yaonikaixin999999@users.noreply.github.com"
+    "name": "Zephyr",
+    "url": "https://github.com/Destroyer236"
   },
   "contributors": [
     {
@@ -111,9 +111,9 @@
   ],
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/yaonikaixin999999/LinkLine/issues"
+    "url": "https://github.com/Destroyer236/Mix-Music/issues"
   },
-  "homepage": "https://github.com/yaonikaixin999999/LinkLine#readme",
+  "homepage": "https://github.com/Destroyer236/Mix-Music#readme",
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.13",
     "@types/better-sqlite3": "^7.6.13",

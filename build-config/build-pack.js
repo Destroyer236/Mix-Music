@@ -8,10 +8,11 @@ const afterPack = require('./build-after-pack')
 * @type {import('electron-builder').Configuration}
 * @see https://www.electron.build/configuration/configuration
 */
+// 安装包文件名不带空格，便于 URL 引用与自动更新校验；展示名由 productName 提供。
 const options = {
   appId: 'com.mixmusic.desktop',
   productName: 'Mix Music',
-  copyright: 'Copyright © 2026 yaonikaixin999999; LX Music contributors',
+  copyright: 'Copyright © 2026 Zephyr; LX Music contributors',
   npmRebuild: false,
   beforePack,
   afterPack,
@@ -76,7 +77,7 @@ const winOptions = {
  */
 const linuxOptions = {
   linux: {
-    maintainer: 'yaonikaixin999999 <154858262+yaonikaixin999999@users.noreply.github.com>',
+    maintainer: 'Zephyr <Destroyer236@users.noreply.github.com>',
     // artifactName: '${productName}-${version}.${env.ARCH}.${ext}',
     icon: './resources/icons',
     category: 'Utility;AudioVideo;Audio;Player;Music;',
@@ -173,31 +174,31 @@ const createTarget = {
   win(arch, packageType) {
     switch (packageType) {
       case 'setup':
-        winOptions.artifactName = `\${productName}-v\${version}-${arch}-Setup.\${ext}`
+        winOptions.artifactName = `MixMusic-v\${version}-${arch}-Setup.\${ext}`
         return {
           buildOptions: { win: ['nsis'] },
           options: winOptions,
         }
       case 'green':
-        winOptions.artifactName = `\${productName}-v\${version}-win_${arch}-green.\${ext}`
+        winOptions.artifactName = `MixMusic-v\${version}-win_${arch}-green.\${ext}`
         return {
           buildOptions: { win: ['7z'] },
           options: winOptions,
         }
       case 'win7_setup':
-        winOptions.artifactName = `\${productName}-v\${version}-win7_${arch}-Setup.\${ext}`
+        winOptions.artifactName = `MixMusic-v\${version}-win7_${arch}-Setup.\${ext}`
         return {
           buildOptions: { win: ['nsis'] },
           options: winOptions,
         }
       case 'win7_green':
-        winOptions.artifactName = `\${productName}-v\${version}-win7_${arch}-green.\${ext}`
+        winOptions.artifactName = `MixMusic-v\${version}-win7_${arch}-green.\${ext}`
         return {
           buildOptions: { win: ['7z'] },
           options: winOptions,
         }
       case 'portable':
-        winOptions.artifactName = `\${productName}-v\${version}-${arch}-portable.\${ext}`
+        winOptions.artifactName = `MixMusic-v\${version}-${arch}-portable.\${ext}`
         return {
           buildOptions: { win: ['portable'] },
           options: winOptions,
@@ -214,25 +215,25 @@ const createTarget = {
   linux(arch, packageType) {
     switch (packageType) {
       case 'deb':
-        linuxOptions.artifactName = `\${productName}_\${version}_${arch == 'x64' ? 'amd64' : arch}.\${ext}`
+        linuxOptions.artifactName = `MixMusic_\${version}_${arch == 'x64' ? 'amd64' : arch}.\${ext}`
         return {
           buildOptions: { linux: ['deb'] },
           options: linuxOptions,
         }
       case 'appImage':
-        linuxOptions.artifactName = `\${productName}_\${version}_${arch}.\${ext}`
+        linuxOptions.artifactName = `MixMusic_\${version}_${arch}.\${ext}`
         return {
           buildOptions: { linux: ['AppImage'] },
           options: linuxOptions,
         }
       case 'pacman':
-        linuxOptions.artifactName = `\${productName}_\${version}_${arch}.\${ext}`
+        linuxOptions.artifactName = `MixMusic_\${version}_${arch}.\${ext}`
         return {
           buildOptions: { linux: ['pacman'] },
           options: linuxOptions,
         }
       case 'rpm':
-        linuxOptions.artifactName = `\${productName}-\${version}.${arch}.\${ext}`
+        linuxOptions.artifactName = `MixMusic-\${version}.${arch}.\${ext}`
         return {
           buildOptions: { linux: ['rpm'] },
           options: linuxOptions,
@@ -249,7 +250,7 @@ const createTarget = {
   mac(arch, packageType) {
     switch (packageType) {
       case 'dmg':
-        macOptions.artifactName = `\${productName}-\${version}-${arch}.\${ext}`
+        macOptions.artifactName = `MixMusic-\${version}-${arch}.\${ext}`
         return {
           buildOptions: { mac: ['dmg'] },
           options: macOptions,
