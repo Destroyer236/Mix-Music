@@ -1,4 +1,4 @@
-// Retire only entries created automatically by earlier LinkLine versions.
+// Retire only entries created automatically by earlier Mix Music versions.
 // Manually imported scripts have their own IDs and remain user-managed.
 export const retiredDefaultSourceIds = new Set([
   'user_api_default_qdy',

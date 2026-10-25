@@ -30,7 +30,7 @@ export const addHistoryWord = async(word: string) => {
   let index = historyList.indexOf(word)
   if (index == 0) return
   if (index > -1) historyList.splice(index, 1)
-  if (historyList.length >= 15) historyList.splice(14, historyList.length - 14)
+  if (historyList.length >= 20) historyList.splice(19, historyList.length - 19)
   historyList.unshift(word)
   saveSearchHistoryListThrottle(toRaw(historyList))
 }

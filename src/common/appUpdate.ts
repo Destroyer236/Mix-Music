@@ -1,7 +1,7 @@
 export const LINKLINE_REPOSITORY = 'https://github.com/yaonikaixin999999/LinkLine'
 export const LINKLINE_RELEASES_URL = `${LINKLINE_REPOSITORY}/releases`
 export const LINKLINE_UPDATE_CHECK = 'linkline_update_check'
-/** Request the main process to download a validated LinkLine installer. */
+/** Request the main process to download a validated Mix Music installer. */
 export const LINKLINE_UPDATE_DOWNLOAD = 'linkline_update_download'
 /** Sent by the main process while an installer download is in progress. */
 export const LINKLINE_UPDATE_DOWNLOAD_PROGRESS = 'linkline_update_download_progress'
@@ -11,15 +11,28 @@ export const LINKLINE_UPDATE_MANIFEST = 'https://raw.githubusercontent.com/yaoni
 export const LINKLINE_DOWNLOAD_MIRROR = 'https://gh-proxy.com/'
 export const LINKLINE_BACKUP_MIRROR = 'https://ghfast.top/'
 
+/**
+ * Windows 安装包文件名模板。发布产物按 productName 命名，因此当前版本用
+ * 「Mix Music」，改名前的历史 Release 仍是「LinkLine」，两者都要能识别。
+ */
+export const INSTALLER_FILE_NAME = (version: string, productName = 'Mix Music') => `${productName}-v${version}-x64-Setup.exe`
+export const INSTALLER_FILE_NAME_RXP = /^(?:Mix Music|LinkLine)-v\d+\.\d+\.\d+-x64-Setup\.exe$/i
+/** 在 Release 资产里按版本挑出 x64 安装包，兼容改名前后两种命名。 */
+export const findInstallerAsset = <T extends { name: string }>(assets: T[] | undefined, version: string): T | undefined => {
+  const expected = INSTALLER_FILE_NAME(version).toLowerCase()
+  const legacy = INSTALLER_FILE_NAME(version, 'LinkLine').toLowerCase()
+  return assets?.find(asset => asset.name.toLowerCase() === expected) ?? assets?.find(asset => asset.name.toLowerCase() === legacy)
+}
+
 export type UpdateSource = 'github' | 'mirror'
 export const UPDATE_SOURCES: Readonly<Record<UpdateSource, { label: string, description: string }>> = {
-  github: { label: 'GitHub 官方', description: '从 LinkLine 的 GitHub 仓库检查版本并下载。' },
-  mirror: { label: '国内加速（第三方）', description: '通过 GH-Proxy / GHFast 读取 LinkLine 的更新信息，使用第三方加速下载安装包。' },
+  github: { label: 'GitHub 官方', description: '从 Mix Music 的 GitHub 仓库检查版本并下载。' },
+  mirror: { label: '国内加速（第三方）', description: '通过 GH-Proxy / GHFast 读取 Mix Music 的更新信息，使用第三方加速下载安装包。' },
 }
 
 export const isUpdateSource = (value: unknown): value is UpdateSource => value === 'github' || value === 'mirror'
 
-/** Only LinkLine's own published release files can be sent through a mirror. */
+/** Only Mix Music's own published release files can be sent through a mirror. */
 export const releaseAssetDownloadUrl = (value: unknown, source: UpdateSource): string | null => {
   if (typeof value !== 'string') return null
   try {

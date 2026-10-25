@@ -2,8 +2,28 @@
   <UiModal :show="show" :title="action === 'add' ? '加入你的歌单' : '下载音乐'" :subtitle="tracks.length === 1 ? `${tracks[0].name} · ${tracks[0].singer || '未知歌手'}` : `已选择 ${tracks.length} 首歌曲`" @close="emit('close')">
     <div v-if="error" class="ui-dialog-error" role="alert">{{ error }}</div>
     <template v-if="action === 'add'">
-      <div class="ui-track-targets"><button v-for="item in targets" :key="item.id" type="button" :disabled="busy" @click="addTo(item.id)"><span class="ui-track-target-icon"><UiIcon :name="item.id === 'love' ? 'heart' : 'list'" /></span><span>{{ item.name }}</span><span class="ui-track-target-arrow"><UiIcon name="arrowUpRight" /></span></button></div>
+      <div class="ui-track-targets"><button v-for="item in localTargets" :key="item.id" type="button" :disabled="busy" @click="addTo(item.id)"><span class="ui-track-target-icon"><UiIcon :name="item.id === 'love' ? 'heart' : 'list'" /></span><span>{{ item.name }}</span><span class="ui-track-target-arrow"><UiIcon name="arrowUpRight" /></span></button></div>
       <form class="ui-track-create" @submit.prevent="createAndAdd"><input v-model="newName" maxlength="80" placeholder="创建新歌单并加入" aria-label="新歌单名称"><button type="submit" :disabled="busy || !newName.trim()" aria-label="创建新歌单"><UiIcon name="plus" /></button></form>
+      <section v-if="platformGroups.length" class="ui-track-platform">
+        <h3 class="ui-track-platform-title">音乐平台歌单</h3>
+        <p v-if="!platformTracks.length" class="ui-track-platform-note">当前歌曲来自本地，无法匹配到在线平台。</p>
+        <template v-else>
+          <div class="ui-track-platform-tabs" role="tablist" aria-label="选择音乐平台">
+            <button v-for="group in platformGroups" :key="group.platform" type="button" role="tab" :aria-selected="activePlatform === group.platform" :class="{ active: activePlatform === group.platform }" :disabled="busy" @click="activePlatform = group.platform">
+              <span>{{ group.name }}</span><span class="ui-track-platform-count">{{ group.playlists.length }}</span>
+            </button>
+          </div>
+          <div class="ui-track-targets ui-track-platform-lists">
+            <button v-for="item in activePlaylists" :key="item.id" type="button" :disabled="busy" @click="addToPlatform(item)">
+              <span class="ui-track-target-icon"><UiIcon name="list" /></span>
+              <span class="ui-track-platform-label"><span>{{ item.name }}</span><small>{{ item.count }} 首</small></span>
+              <span class="ui-track-target-arrow"><UiIcon name="arrowUpRight" /></span>
+            </button>
+          </div>
+        </template>
+        <p v-if="emptyPlatforms.length" class="ui-track-platform-note">{{ emptyPlatforms.join('、') }} 还没有同步到歌单，可先在侧栏同步平台歌单。</p>
+        <p v-if="unsupported.length" class="ui-track-platform-note">暂不支持添加歌曲到歌单：{{ unsupported.join('、') }}</p>
+      </section>
     </template>
     <template v-else>
       <div v-if="!onlineTracks.length" class="ui-dialog-note">本地音乐已经保存在你的电脑中，无需重复下载。</div>
@@ -27,7 +47,9 @@ import { QUALITYS } from '@common/constants'
 import { LOCAL_LIBRARY_ID } from '@common/localMusic'
 import { appSetting } from '@renderer/store/setting'
 import { updateSetting } from '@renderer/utils/ipc'
-import { setFavorites } from '../services/platformAccounts'
+import { addTrackToPlaylist, initializePlatformAccounts, platformName, platformPlaylists, platformSnapshot, setFavorites, writablePlatforms } from '../services/platformAccounts'
+import { platformNames } from '@common/platformAccounts'
+import type { PlatformId, PlatformPlaylist } from '@common/platformAccounts'
 
 interface TrackActionProps { show: boolean, tracks: LX.Music.MusicInfo[], fromListId?: string, action: 'add' | 'download' }
 const props: TrackActionProps = withDefaults(defineProps<TrackActionProps>(), { fromListId: '' })
@@ -35,8 +57,31 @@ const emit = defineEmits<{ (event: 'close'): void, (event: 'success', message: s
 const busy = ref(false)
 const error = ref('')
 const newName = ref('')
-const targets = computed(() => [{ ...loveList, name: '我的收藏' }, ...userLists].filter(item => item.id !== props.fromListId && (item.id !== LOCAL_LIBRARY_ID || props.tracks.every(track => track.source === 'local'))))
+const activePlatform = ref<PlatformId | null>(null)
+const localTargets = computed(() => [{ ...loveList, name: '我的收藏' }, ...userLists].filter(item => item.id !== props.fromListId && (item.id !== LOCAL_LIBRARY_ID || props.tracks.every(track => track.source === 'local'))))
 const onlineTracks = computed<LX.Music.MusicInfoOnline[]>(() => props.tracks.filter((track: LX.Music.MusicInfo): track is LX.Music.MusicInfoOnline => track.source !== 'local'))
+// 平台歌单写入只支持单曲：多选时隐藏整块，避免出现"加到歌单的哪一首"这种歧义。
+const platformTracks = computed<LX.Music.MusicInfoOnline[]>(() => onlineTracks.value.length === 1 ? onlineTracks.value : [])
+const platformGroups = computed(() => {
+  const groups = new Map<PlatformId, { platform: PlatformId, name: string, playlists: PlatformPlaylist[] }>()
+  for (const playlist of platformPlaylists.value) {
+    if (!writablePlatforms.value.has(playlist.platform)) continue
+    let group = groups.get(playlist.platform)
+    if (!group) groups.set(playlist.platform, group = { platform: playlist.platform, name: platformName(playlist.platform), playlists: [] })
+    group.playlists.push(playlist)
+  }
+  return [...groups.values()]
+})
+const activePlaylists = computed(() => platformGroups.value.find(group => group.platform === activePlatform.value)?.playlists ?? [])
+// 区分三种情况：provider 不支持写入 / 支持但尚未同步到歌单 / 未连接账号。
+const unsupported = computed(() => (Object.keys(platformNames) as PlatformId[]).filter(id => {
+  const account = platformSnapshot.value.accounts.find(item => item.platform === id)
+  return account?.connected && !account.canAddToPlaylist
+}).map(id => platformName(id)))
+const emptyPlatforms = computed(() => (Object.keys(platformNames) as PlatformId[]).filter(id => {
+  const account = platformSnapshot.value.accounts.find(item => item.platform === id)
+  return account?.connected && account.canAddToPlaylist && !platformGroups.value.some(group => group.platform === id)
+}).map(id => platformName(id)))
 const qualities = computed<LX.Quality[]>(() => QUALITYS.filter((quality: LX.Quality) => onlineTracks.value.length && onlineTracks.value.every((track: LX.Music.MusicInfoOnline) => qualityList.value[track.source]?.includes(quality) && track.meta.qualitys.some((item: LX.Music.MusicQualityType) => item.type === quality))))
 const qualityLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'SQ', ape: 'APE 无损', wav: 'WAV 无损', '320k': 'HQ', '192k': '清晰 192 kbps', '128k': 'SD' }
 function qualityLabel(quality: LX.Quality) { return qualityLabels[quality] }
@@ -45,7 +90,16 @@ watch(() => props.show, show => {
   error.value = ''
   newName.value = ''
   void getUserLists().catch(() => { error.value = '暂时无法读取歌单，请稍后重试。' })
+  // 平台歌单依赖账号快照；未初始化时先拉一次，避免下拉为空。
+  void initializePlatformAccounts().then(() => {
+    if (!activePlatform.value && platformGroups.value.length) activePlatform.value = platformGroups.value[0].platform
+  }).catch(() => {})
+  if (!activePlatform.value && platformGroups.value.length) activePlatform.value = platformGroups.value[0].platform
 })
+watch(platformGroups, groups => {
+  if (activePlatform.value && groups.some(group => group.platform === activePlatform.value)) return
+  activePlatform.value = groups[0]?.platform ?? null
+}, { immediate: true })
 async function run(task: () => Promise<void>, message: string) {
   if (busy.value) return
   busy.value = true
@@ -54,6 +108,14 @@ async function run(task: () => Promise<void>, message: string) {
 }
 async function addTo(id: string) {
   await run(async() => { if (id === loveList.id) await setFavorites(props.tracks, true); else await addListMusics(id, props.tracks) }, `已加入 ${props.tracks.length} 首歌曲`)
+}
+async function addToPlatform(playlist: PlatformPlaylist) {
+  const track = platformTracks.value[0]
+  if (!track) return
+  await run(async() => {
+    const result = await addTrackToPlaylist(playlist.id, track)
+    if (result.status !== 'success') throw new Error(result.message)
+  }, `已加入「${playlist.name}」`)
 }
 async function createAndAdd() {
   const name = newName.value.trim()
@@ -78,4 +140,12 @@ async function download(quality: LX.Quality) {
 .ui-track-create { display: flex; gap: 8px; margin-top: 16px; input { flex: 1; width: 0; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); background: var(--modern-bg); color: var(--modern-text); padding: 10px 12px; font-family: inherit; font-size: 12px; } button { width: 38px; border: 0; border-radius: 10px; background: var(--modern-text); color: var(--modern-panel); font-size: 22px; cursor: pointer; &:disabled { opacity: .4; } } }
 .ui-track-quality { display: flex; flex-direction: column; gap: 8px; button { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); padding: 13px 16px; background: var(--modern-panel); color: var(--modern-text); text-align: left; cursor: pointer; &:hover { background: var(--modern-accent-soft); } &:disabled { opacity: .5; } strong { display: block; font-size: 13px; font-weight: 500; } div span { font-size: 11px; color: var(--modern-muted); margin-top: 3px; display: block; } } }
 .ui-track-location { margin-top: 18px; overflow-wrap: anywhere; }
+.ui-track-platform { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--modern-border); }
+.ui-track-platform-title { font-size: 13px; font-weight: 600; color: var(--modern-text); margin-bottom: 4px; }
+.ui-track-platform-note { color: var(--modern-muted); font-size: 12px; line-height: 1.7; margin-top: 10px; }
+.ui-track-platform-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 10px; button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--modern-border); border-radius: 999px; padding: 7px 13px; background: var(--modern-panel); color: var(--modern-muted); font-size: 12px; font-family: inherit; cursor: pointer; transition: background .15s, color .15s, border-color .15s; &:hover:not(:disabled) { background: var(--modern-hover); color: var(--modern-text); } &.active { background: var(--modern-text); border-color: transparent; color: var(--modern-panel); } &:disabled { opacity: .5; cursor: default; } } }
+.ui-track-platform-count { min-width: 16px; padding: 0 5px; border-radius: 999px; background: var(--modern-hover); color: var(--modern-muted); font-size: 10px; line-height: 16px; text-align: center; }
+.ui-track-platform-tabs button.active .ui-track-platform-count { background: rgba(255, 255, 255, .22); color: inherit; }
+.ui-track-platform-lists { margin-top: 0; }
+.ui-track-platform-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; small { color: var(--modern-muted); font-size: 11px; } }
 </style>

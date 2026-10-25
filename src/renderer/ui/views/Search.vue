@@ -1,12 +1,15 @@
 <template>
   <div ref="pageContainer" class="ui-search ui-discovery-page" @keyup.space.stop>
-    <header v-if="!keyword" class="ui-search-heading"><div><p>发现音乐</p><h1>从喜欢的声音开始</h1></div></header>
-    <div class="ui-search-navigation"><div class="ui-search-kind-tabs" role="group" aria-label="搜索类型"><button v-for="item in searchKinds" :key="item.value" type="button" :class="{ active: kind === item.value }" :aria-pressed="kind === item.value" @click="changeKind(item.value)">{{ item.label }}</button></div><UiSelect :model-value="source" :options="sourceOptions" aria-label="搜索音源" @change="changeSource" /></div>
+    <header v-if="!keyword && !isEchoSkin" class="ui-search-heading"><div><p>发现音乐</p><h1>从喜欢的声音开始</h1></div></header>
+    <div v-if="keyword || !isEchoSkin" class="ui-search-navigation"><div class="ui-search-kind-tabs" role="group" aria-label="搜索类型"><button v-for="item in searchKinds" :key="item.value" type="button" :class="{ active: kind === item.value }" :aria-pressed="kind === item.value" @click="changeKind(item.value)">{{ item.label }}</button></div><UiSelect :model-value="source" :options="sourceOptions" aria-label="搜索音源" @change="changeSource" /></div>
     <p v-if="sourceNotice" class="ui-discovery-note">{{ sourceNotice }}</p>
     <div v-if="message" class="ui-inline-message" role="status"><span>{{ message }}</span><button type="button" aria-label="关闭提示" @click="message = ''"><UiIcon name="close" /></button></div>
     <template v-if="!keyword">
+      <SearchLanding v-if="isEchoSkin" />
+      <template v-else>
       <section v-if="appSetting['search.isShowHistorySearch'] && historyList.length" class="ui-search-history"><div class="ui-section-heading"><h2>最近搜索</h2><button type="button" @click="clearHistoryList('')">清空</button></div><div class="ui-search-history__items"><span v-for="(word, index) in historyList" :key="word"><button type="button" @click="submit(word)">{{ word }}</button><button type="button" :aria-label="`删除搜索记录 ${word}`" @click="removeHistoryWord(index)"><UiIcon name="close" /></button></span></div></section>
       <section class="ui-search-start"><div class="ui-search-start__mark" aria-hidden="true"><UiIcon name="music" /></div><h2>音乐，为每一种心情</h2><p>试试一位歌手、一个歌名，或一种想要的氛围。</p><div class="ui-search-prompts"><button v-for="prompt in prompts" :key="prompt.text" type="button" @click="submit(prompt.text, 'songlist')"><span><UiIcon :name="prompt.icon" /></span><strong>{{ prompt.label }}</strong><small>{{ prompt.text }}</small><b aria-hidden="true"><UiIcon name="arrowUpRight" /></b></button></div></section>
+      </template>
     </template>
     <section v-else-if="selectedEntity && kind !== 'artist'" class="ui-search-results ui-catalog-detail">
       <button type="button" class="ui-catalog-back" @click="closeEntity"><UiIcon name="back" />返回{{ kind === 'album' ? '专辑' : '歌手' }}搜索结果</button>
@@ -58,6 +61,8 @@ import { historyList } from '@renderer/store/search/state'
 import { addHistoryWord, clearHistoryList, getHistoryList, removeHistoryWord, setSearchText } from '@renderer/store/search/action'
 import { sourceNames } from '@renderer/store'
 import { appSetting } from '@renderer/store/setting'
+import SearchLanding from '../echo/SearchLanding.vue'
+import { appearance } from '@renderer/composables/useAppearance'
 import { getSearchSetting, setSearchSetting } from '@renderer/utils/data'
 import type { ListInfoItem } from '@renderer/store/songList/state'
 
@@ -95,6 +100,7 @@ const message = ref('')
 const actionOpen = ref(false)
 const action = ref<'add' | 'download'>('add')
 const actionTracks = ref<LX.Music.MusicInfo[]>([])
+const isEchoSkin = computed(() => appearance.skin === 'echo')
 const searchKinds: Array<{ value: SearchKind, label: string }> = [{ value: 'music', label: '歌曲' }, { value: 'album', label: '专辑' }, { value: 'artist', label: '歌手' }, { value: 'songlist', label: '歌单' }]
 const sourcesFor = (value: SearchKind) => value === 'music' ? musicSources : value === 'songlist' ? playlistSources : getCatalogSources(value)
 const availableSources = computed(() => sourcesFor(kind.value).filter((item): item is LX.OnlineSource => item !== 'all'))

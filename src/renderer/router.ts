@@ -18,6 +18,7 @@ export default createRouter({
     { path: '/songList/list', name: 'SongList', component: SongLists, meta: { name: 'SongList' } },
     { path: '/songList/detail', name: 'SongListDetail', component: SongListDetail, meta: { name: 'SongList' } },
     { path: '/leaderboard', name: 'Leaderboard', component: Charts, meta: { name: 'Leaderboard' } },
+    { path: '/account', name: 'Account', component: async() => import('./ui/views/Account.vue'), meta: { name: 'Account' } },
     { path: '/local', name: 'LocalMusic', component: async() => import('./ui/views/LocalMusic.vue'), meta: { name: 'LocalMusic' } },
     { path: '/list', name: 'List', component: Library, meta: { name: 'List' }, beforeEnter: to => to.query.id === LOCAL_LIBRARY_ID ? { path: '/local', replace: true } : undefined },
     { path: '/download', name: 'Download', component: Downloads, meta: { name: 'Download' } },

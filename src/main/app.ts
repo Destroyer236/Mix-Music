@@ -136,13 +136,15 @@ export const setUserDataPath = () => {
 }
 
 export const registerDeeplink = (startApp: () => void) => {
+  // `linkline` 是改名前的协议名，继续注册以便旧链接仍能唤起本应用。
+  const schemes = ['mixmusic', 'linkline']
   if (process.env.NODE_ENV !== 'production' && process.platform === 'win32') {
     // Set the path of electron.exe and your app.
     // These two additional parameters are only available on windows.
     // console.log(process.execPath, process.argv)
-    app.setAsDefaultProtocolClient('linkline', process.execPath, process.argv.slice(1))
+    for (const scheme of schemes) app.setAsDefaultProtocolClient(scheme, process.execPath, process.argv.slice(1))
   } else {
-    app.setAsDefaultProtocolClient('linkline')
+    for (const scheme of schemes) app.setAsDefaultProtocolClient(scheme)
   }
 
   // deep link

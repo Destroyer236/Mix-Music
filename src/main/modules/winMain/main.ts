@@ -63,8 +63,8 @@ const requestClose = () => {
   nativeCloseDialog = true
   void dialog.showMessageBox(window, {
     type: 'question',
-    title: '关闭 LinkLine 窗口？',
-    message: '关闭 LinkLine 窗口？',
+    title: '关闭 Mix Music 窗口？',
+    message: '关闭 Mix Music 窗口？',
     detail: '最小化到托盘后，音乐会继续播放；退出应用会停止播放。',
     buttons: ['取消', '退出应用', '最小化到托盘'],
     defaultId: 2,
@@ -191,7 +191,7 @@ export const createWindow = () => {
     transparent: !disableTransparent,
     hasShadow: disableTransparent,
     // enableRemoteModule: false,
-    icon: path.join(global.staticPath, 'images/linkline-icon.png'),
+    icon: path.join(global.staticPath, 'images/mixmusic-icon.png'),
     resizable: true,
     maximizable: true,
     minWidth: 720,

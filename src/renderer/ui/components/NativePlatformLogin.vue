@@ -7,8 +7,9 @@
       </div>
       <p role="status" :class="{ error: nativeQrLogin?.status === 'error' }">{{ statusText }}</p>
       <p class="ui-dialog-note">登录后自动汇总红心歌曲和歌单。播放范围以平台版权及当前账号权限为准。</p>
+      <p v-if="nativeQrLogin?.platform === 'qq'" class="ui-dialog-note">没有手机 QQ？可以使用「官方登录页」，用账号密码或微信扫码登录。</p>
     </div>
-    <template #footer><button type="button" class="ui-dialog-button" @click="closeNativeQrLogin">关闭</button><button v-if="nativeQrLogin?.status !== 'confirmed'" type="button" class="ui-dialog-button ui-dialog-button-primary" :disabled="nativeQrLogin?.status === 'loading'" @click="refresh">刷新二维码</button></template>
+    <template #footer><button type="button" class="ui-dialog-button" @click="closeNativeQrLogin">关闭</button><button v-if="nativeQrLogin?.platform === 'qq' && nativeQrLogin?.status !== 'confirmed'" type="button" class="ui-dialog-button" @click="openOfficialLogin">官方登录页</button><button v-if="nativeQrLogin?.status !== 'confirmed'" type="button" class="ui-dialog-button ui-dialog-button-primary" :disabled="nativeQrLogin?.status === 'loading'" @click="refresh">刷新二维码</button></template>
   </UiModal>
 </template>
 
@@ -16,15 +17,22 @@
 import { computed, onBeforeUnmount } from 'vue'
 import UiModal from './UiModal.vue'
 import { closeNativeQrLogin, nativeQrLogin, startNativeQrLogin } from '../services/nativeQrLogin'
+import { loginPlatformWeb } from '../services/platformAccounts'
 
-const platformName = computed(() => nativeQrLogin.value?.platform === 'qq' ? 'QQ 音乐' : '网易云音乐')
-const subtitle = computed(() => nativeQrLogin.value?.platform === 'qq' ? '使用手机 QQ 扫码，在手机上确认登录' : '使用网易云音乐 App 扫码，在手机上确认登录')
+const platformLabel = computed(() => nativeQrLogin.value?.platform ?? 'netease')
+const platformName = computed(() => ({ qq: 'QQ 音乐', netease: '网易云音乐', kugouConcept: '酷狗概念版' })[platformLabel.value])
+const subtitle = computed(() => ({
+  qq: '使用手机 QQ 扫码，在手机上确认登录',
+  netease: '使用网易云音乐 App 扫码，在手机上确认登录',
+  kugouConcept: '使用酷狗音乐 App 扫码，授权后即可同步歌单与红心',
+})[platformLabel.value])
 const statusText = computed(() => {
   const login = nativeQrLogin.value
   if (!login) return ''
   return { loading: `正在连接${platformName.value}…`, waiting: '等待扫码', scanned: '已扫码，请在手机上确认', confirmed: '登录成功，正在同步音乐库', expired: '二维码已过期，请刷新后重试', error: login.error }[login.status]
 })
 function refresh() { if (nativeQrLogin.value) void startNativeQrLogin(nativeQrLogin.value.platform) }
+async function openOfficialLogin() { closeNativeQrLogin(); await loginPlatformWeb('qq') }
 onBeforeUnmount(closeNativeQrLogin)
 </script>
 

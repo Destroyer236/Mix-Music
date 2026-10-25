@@ -36,7 +36,7 @@ const subTextFor = (index: number, line: Line | null) => {
 }
 
 const displayLine = ref<Line | null>(null)
-const displayFallback = ref('LinkLine')
+const displayFallback = ref('Mix Music')
 const displayIndex = ref(-1)
 const displaySubText = ref('')
 const showSubLine = computed(() => config.value.doubleLine || displaySubText.value !== '')

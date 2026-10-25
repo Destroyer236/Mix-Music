@@ -67,7 +67,7 @@ export function useSettings() {
     const hardwareChanged = typeof setting['common.disableHardwareAcceleration'] === 'boolean' && setting['common.disableHardwareAcceleration'] !== appSetting['common.disableHardwareAcceleration']
     await ipc.updateSetting(setting)
     mergeSetting(setting)
-    if (hardwareChanged && await confirm('重新启动 LinkLine', '修改已保存，是否立即重启 LinkLine 以生效？', false, { confirm: '立即重启', cancel: '稍后' })) await ipc.restartApp()
+    if (hardwareChanged && await confirm('重新启动 Mix Music', '修改已保存，是否立即重启 Mix Music 以生效？', false, { confirm: '立即重启', cancel: '稍后' })) await ipc.restartApp()
   }
   async function setPreference(field: SettingField, input: string | boolean) {
     // Range inputs keep emitting while dragged; toggling busy would disable the

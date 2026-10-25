@@ -29,7 +29,7 @@ const init = () => {
   })
 }
 
-app.setName('LinkLine')
+app.setName('Mix Music')
 const dataDirectory = prepareUserDataDirectory({
   appDataPath: app.getPath('appData'),
   env: runtimeEnv,
@@ -64,6 +64,6 @@ listenerAppEvent(init)
 
 // https://github.com/electron/electron/issues/16809
 void app.whenReady().then(async() => {
-  await clearStartupCaches({ dataPath: dataDirectory.userDataPath, defaultSession: session.defaultSession, fromPartition: partition => session.fromPartition(partition) }).catch(error => { console.warn('LinkLine startup cache cleanup failed:', error) })
+  await clearStartupCaches({ dataPath: dataDirectory.userDataPath, defaultSession: session.defaultSession, fromPartition: partition => session.fromPartition(partition) }).catch(error => { console.warn('Mix Music startup cache cleanup failed:', error) })
   isLinux ? setTimeout(init, 300) : init()
 })

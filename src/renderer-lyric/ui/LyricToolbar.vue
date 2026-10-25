@@ -1,7 +1,7 @@
 <template>
   <button v-if="setting['desktopLyric.isLock']" type="button" class="lyric-unlock" title="解锁桌面歌词" aria-label="解锁桌面歌词" @click="save({ 'desktopLyric.isLock': false })"><UiIcon name="lock" /></button>
   <header v-else class="lyric-toolbar">
-    <div class="lyric-toolbar-title"><span class="lyric-toolbar-dot" :class="{ playing: isPlay }" /><div><strong>{{ musicInfo.id ? musicInfo.name : 'LinkLine' }}</strong><small>{{ musicInfo.id ? musicInfo.singer || '未知歌手' : '桌面歌词' }}</small></div></div>
+    <div class="lyric-toolbar-title"><span class="lyric-toolbar-dot" :class="{ playing: isPlay }" /><div><strong>{{ musicInfo.id ? musicInfo.name : 'Mix Music' }}</strong><small>{{ musicInfo.id ? musicInfo.singer || '未知歌手' : '桌面歌词' }}</small></div></div>
     <div class="lyric-toolbar-buttons">
       <button type="button" title="上一首" aria-label="上一首" @click="control('prev')"><UiIcon name="prev" /></button>
       <button type="button" :title="isPlay ? '暂停' : '播放'" :aria-label="isPlay ? '暂停' : '播放'" @click="control(isPlay ? 'pause' : 'play')"><UiIcon :name="isPlay ? 'pause' : 'play'" filled /></button>

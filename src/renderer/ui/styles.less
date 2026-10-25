@@ -22,6 +22,7 @@ svg { flex: none; }
 .ui-nav-label { color: var(--modern-muted); font-size: 9px; padding: 0 11px 10px; }
 .ui-sidebar nav, .ui-sidebar-lists, .ui-sidebar-footer { display: flex; flex-direction: column; gap: 4px; a, button { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 10px; color: var(--modern-muted); background: transparent; text-align: left; font-size: 11px; min-height: 35px; span:not(.ui-list-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } &:hover { background: var(--modern-hover); color: var(--modern-text); } &.ui-nav-active { background: var(--modern-accent-soft); color: var(--modern-accent-ink); font-weight: 550; } } }
 .ui-sidebar-lists { min-height: 0; overflow: auto; flex: 1; a { padding: 8px 12px; } }
+.ui-playlist-group-title { margin: 10px 0 2px; padding: 0 12px; font-size: 10px; line-height: 1.6; color: var(--modern-muted); letter-spacing: .02em; &:first-child { margin-top: 2px; } }
 .ui-sidebar-body > nav { min-height: 0; overflow-y: auto; flex-shrink: 1; }
 .ui-library-label { margin-top: 23px; }
 .ui-list-dot { height: 6px; width: 6px; background: var(--modern-muted); border-radius: 50%; margin: 0 7px; flex: none; opacity: .45; }
@@ -30,6 +31,9 @@ svg { flex: none; }
 .ui-topbar { position: relative; height: 65px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 calc(8px + var(--modern-layout-gap)); -webkit-app-region: drag; }
 .ui-topbar > * { position: relative; z-index: 1; }
 .ui-breadcrumb { display: flex; align-items: center; gap: 10px; font-size: 10px; min-width: 0; flex: 1; -webkit-app-region: drag; span { color: var(--modern-muted); } strong { font-weight: 500; white-space: nowrap; } }
+// 顶栏搜索框宿主：原版/qq 皮肤下弹性撑开（接管原先 .ui-global-search 的
+// margin-right:auto 推位职责），echo 皮肤在 echo-skin.less 中改为固定宽度
+.echo-search-host { display: flex; flex: 1 1 auto; min-width: 0; }
 .ui-global-search, .ui-window-controls { -webkit-app-region: no-drag; }
 .ui-breadcrumb-separator { opacity: .4; }
 .ui-global-search { display: flex; gap: 8px; align-items: center; background: var(--modern-panel); border: 1px solid var(--modern-border); border-radius: 10px; padding: 7px 10px; width: 230px; color: var(--modern-muted); input { width: 100%; background: transparent; border: none; color: var(--modern-text); outline: none; font-size: 10px; } svg { width: 15px; height: 15px; } kbd { font-size: 10px; } }

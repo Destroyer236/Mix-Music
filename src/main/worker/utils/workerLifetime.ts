@@ -10,8 +10,8 @@ export function protectWorkerCalls<T extends object>(remote: T, worker: Pick<Wor
     for (const reject of pending) reject(failure)
     pending.clear()
   }
-  worker.once('error', (error: Error) => { fail(new Error(`音乐库服务不可用，请重启 LinkLine 后重试。${error.message}`)) })
-  worker.once('exit', (code: number) => { fail(new Error(`音乐库服务已停止（${code}），请重启 LinkLine 后重试。`)) })
+  worker.once('error', (error: Error) => { fail(new Error(`音乐库服务不可用，请重启 Mix Music 后重试。${error.message}`)) })
+  worker.once('exit', (code: number) => { fail(new Error(`音乐库服务已停止（${code}），请重启 Mix Music 后重试。`)) })
   return new Proxy(remote, {
     get(target, property: string | symbol) {
       if (property === 'then') return undefined

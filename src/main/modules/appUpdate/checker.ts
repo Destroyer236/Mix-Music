@@ -99,7 +99,7 @@ export const parseApiReleases = (json: string): AppRelease[] => {
 
 export const parseUpdateManifest = (json: string): AppRelease[] => {
   const manifest = record(JSON.parse(json))
-  if (manifest?.schemaVersion !== 1 || manifest.repository !== LINKLINE_REPOSITORY || !Array.isArray(manifest.releases)) throw new Error('国内加速返回了无效的 LinkLine 更新清单。')
+  if (manifest?.schemaVersion !== 1 || manifest.repository !== LINKLINE_REPOSITORY || !Array.isArray(manifest.releases)) throw new Error('国内加速返回了无效的 Mix Music 更新清单。')
   const releases: AppRelease[] = []
   for (const value of manifest.releases.slice(0, 100)) {
     const release = record(value)
@@ -112,7 +112,7 @@ export const parseUpdateManifest = (json: string): AppRelease[] => {
     if (compareVersions(pageTag, version.text) !== 0) continue
     releases.push({ version: version.text, name: text(release.name, 300) || version.text, body: text(release.body), publishedAt, pageUrl, assets: parseAssets(release.assets, false) })
   }
-  if (manifest.releases.length && !releases.length) throw new Error('国内加速返回了无效的 LinkLine 版本信息。')
+  if (manifest.releases.length && !releases.length) throw new Error('国内加速返回了无效的 Mix Music 版本信息。')
   return normalizeHistory(releases)
 }
 

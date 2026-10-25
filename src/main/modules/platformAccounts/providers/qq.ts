@@ -8,9 +8,9 @@ import type { PlatformProvider, ProviderContext } from './types'
 
 const API = 'https://u.y.qq.com/cgi-bin/musicu.fcg'
 const COOKIE_URL = 'https://y.qq.com/'
-const loginRedirect = `${COOKIE_URL}portal/wx_redirect.html?login_type=1&surl=${encodeURIComponent(COOKIE_URL)}`
-const loginUrl = new URL('https://graph.qq.com/oauth2.0/authorize')
-loginUrl.search = new URLSearchParams({ response_type: 'code', client_id: '100497308', redirect_uri: loginRedirect, scope: 'get_user_info', state: 'linkline', display: 'pc' }).toString()
+// 网页登录窗口内嵌官方站点：官方登录弹窗提供 QQ 扫码、密码登录与微信扫码，
+// 登录由 y.qq.com 完成并自行写入音乐 Cookie，登录窗口只负责检测登录态。
+const loginUrl = COOKIE_URL
 
 interface QqSong {
   id?: number
@@ -238,7 +238,38 @@ async function profile(context: ProviderContext): Promise<PlatformProfile> {
   const avatar = String(userInfo.headurl ?? userInfo.headpic ?? userInfo.headPic ?? userInfo.avatar ?? favorite.avatar ?? '')
   const favoriteId = Number(favorite.tid ?? favorite.id)
   if (!euin && (!Number.isSafeInteger(favoriteId) || favoriteId <= 0)) throw new Error('QQ 音乐未返回红心歌单标识，请重试')
-  return { id: uin, nickname, avatar, extra: { euin, likesTid: String(favorite.tid ?? favorite.id ?? '0') } }
+  const vipInfo = asRecord(profileData.vipInfo ?? profileData.vipinfo ?? userInfo.vipInfo ?? userInfo.vipinfo)
+  const vipType = Number(vipInfo.vipType ?? vipInfo.music_vip_level ?? userInfo.vipType ?? userInfo.music_vip_level ?? profileData.vipType ?? 0) || 0
+  const vipTypeName = vipType > 0 ? (({ 1: '绿钻VIP', 2: '豪华绿钻' })[vipType] ?? '绿钻VIP') : ''
+  // SRFVipQuery_V2 返回各档位到期时间（网页登录弹层同款接口）；
+  // 查询失败时只显示会员类型，不影响账号状态。
+  const vipDue = vipTypeName ? await qqVipDue(context, uin) : null
+  return {
+    id: uin,
+    nickname,
+    avatar,
+    ...(vipTypeName ? { vip: { label: vipTypeName, dueDate: vipDue } } : {}),
+    extra: { euin, likesTid: String(favorite.tid ?? favorite.id ?? '0') },
+  }
+}
+
+// 绿钻到期时间：iSuperVip=1 取 superEndTime（豪华），否则 iVipFlag=1 取 sOverDateTime。
+// 响应里的时间是 "YYYY-MM-DD HH:mm:ss" 字符串；无效或过期返回 null。
+const vipTimestamp = (value: unknown): number | null => {
+  const text = String(value ?? '')
+  const time = Date.parse(text.length > 10 ? `${text.slice(0, 10)}T${text.slice(11) || '00:00:00'}` : text)
+  return Number.isFinite(time) ? time : null
+}
+async function qqVipDue(context: ProviderContext, uin: string): Promise<number | null> {
+  try {
+    // cgi() 已解包到 req.data，infoMap 就在返回值顶层。
+    const data = await cgi(context, 'userInfo.VipQueryServer', 'SRFVipQuery_V2', { uin_list: [uin] })
+    const info = asRecord(asRecord(data.infoMap)[uin])
+    if (!info) return null
+    if (Number(info.iSuperVip) === 1) return vipTimestamp(info.superEndTime)
+    if (Number(info.iVipFlag) === 1) return vipTimestamp(info.sOverDateTime)
+    return null
+  } catch { return null }
 }
 
 async function likes(context: ProviderContext, user: PlatformProfile): Promise<LX.Music.MusicInfoOnline[]> {
@@ -425,7 +456,8 @@ async function musicUrl(context: ProviderContext, track: LX.Music.MusicInfoOnlin
   }
 }
 
-async function like(context: ProviderContext, _user: PlatformProfile, track: LX.Music.MusicInfoOnline, liked: boolean): Promise<void> {
+// 红心写入 dirId=201 + tid=0；写入自建歌单则为 dirId=0 + tid=<歌单tid>。
+async function songIdentity(context: ProviderContext, track: LX.Music.MusicInfoOnline): Promise<{ songId: number, songType: number }> {
   let songId = track.source === 'tx' ? track.meta.id : undefined
   let songType = 0
   if (songId == null) {
@@ -435,6 +467,11 @@ async function like(context: ProviderContext, _user: PlatformProfile, track: LX.
     songType = Number(info.type ?? 0)
   }
   if (!Number.isFinite(songId)) throw new Error('QQ 音乐歌曲缺少数字 ID')
+  return { songId, songType }
+}
+
+async function like(context: ProviderContext, _user: PlatformProfile, track: LX.Music.MusicInfoOnline, liked: boolean): Promise<void> {
+  const { songId, songType } = await songIdentity(context, track)
   const data = await cgi(context, 'music.musicasset.PlaylistDetailWrite', liked ? 'AddSonglist' : 'DelSonglist', {
     dirId: 201,
     tid: 0,
@@ -452,7 +489,7 @@ export const qqProvider: PlatformProvider = {
   name: 'QQ 音乐',
   loginUrl: loginUrl.toString(),
   cookieUrl: COOKIE_URL,
-  domains: ['y.qq.com', 'qq.com', 'gtimg.cn'],
+  domains: ['y.qq.com', 'qq.com', 'gtimg.cn', 'weixin.qq.com'],
   profile,
   likes,
   playlists,
@@ -462,6 +499,20 @@ export const qqProvider: PlatformProvider = {
   musicQualitys,
   musicUrl,
   like,
+  async addToPlaylist(context, user, playlist, track) {
+    if (playlist.platform !== 'qq' || playlist.ownerId !== user.id) throw new Error('歌单不属于当前 QQ 音乐账号，请重新同步')
+    const tid = Number(playlist.remoteId)
+    if (!Number.isSafeInteger(tid) || tid <= 0) throw new Error('无效的 QQ 音乐歌单标识')
+    const { songId, songType } = await songIdentity(context, track)
+    const data = await cgi(context, 'music.musicasset.PlaylistDetailWrite', 'AddSonglist', {
+      dirId: 0,
+      tid,
+      bFmtUtf8: true,
+      v_songInfo: [{ songId, songType }],
+    })
+    const retCode = Number(data.retCode ?? data.retcode ?? -1)
+    if (retCode !== 0) throw new Error(`QQ 音乐加歌失败 (${retCode})`)
+  },
 }
 
 export default qqProvider

@@ -1,11 +1,20 @@
-export type PlatformId = 'qq' | 'netease' | 'qishui' | 'bodian' | 'kugou' | 'kuwo' | 'migu' | 'bilibili'
+export type PlatformId = 'qq' | 'netease' | 'qishui' | 'bodian' | 'kugou' | 'kugouConcept' | 'kuwo' | 'migu' | 'bilibili'
 
-export const platformNames: Record<PlatformId, string> = { qq: 'QQ 音乐', netease: '网易云音乐', qishui: '汽水音乐', bodian: '波点音乐', kugou: '酷狗音乐', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩' }
+export const platformNames: Record<PlatformId, string> = { qq: 'QQ 音乐', netease: '网易云音乐', qishui: '汽水音乐', bodian: '波点音乐', kugou: '酷狗音乐', kugouConcept: '酷狗概念版', kuwo: '酷我音乐', migu: '咪咕音乐', bilibili: '哔哩哔哩' }
+
+export interface PlatformProfileVip {
+  /** 会员展示名称，例如「黑胶VIP」。 */
+  label: string
+  /** 到期毫秒时间戳；平台未提供时为 null。 */
+  dueDate: number | null
+}
 
 export interface PlatformProfile {
   id: string
   nickname: string
   avatar: string
+  /** 平台会员状态；接口未提供的平台缺省。 */
+  vip?: PlatformProfileVip
   extra?: Record<string, string>
 }
 
@@ -19,6 +28,8 @@ export interface PlatformAccount {
   error: string
   notice?: string
   canSync?: boolean
+  /** 该平台的 provider 是否实现了「添加歌曲到歌单」。 */
+  canAddToPlaylist?: boolean
 }
 
 export interface PlatformFavorite {
@@ -65,6 +76,15 @@ export interface PlatformSnapshot {
 
 export interface PlatformLikeResult {
   platform: PlatformId
+  status: 'success' | 'unavailable' | 'unmatched' | 'ambiguous' | 'failed'
+  message: string
+  track?: LX.Music.MusicInfoOnline
+}
+
+/** 单个平台「加入歌单」的结果；status 语义与红心一致。 */
+export interface PlatformPlaylistAddResult {
+  platform: PlatformId
+  playlistId: string
   status: 'success' | 'unavailable' | 'unmatched' | 'ambiguous' | 'failed'
   message: string
   track?: LX.Music.MusicInfoOnline

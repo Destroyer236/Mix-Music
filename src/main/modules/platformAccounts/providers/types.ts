@@ -28,4 +28,9 @@ export interface PlatformProvider {
   musicQualitys?: (context: ProviderContext, track: LX.Music.MusicInfoOnline) => Promise<PlatformQuality[]>
   musicUrl?: (context: ProviderContext, track: LX.Music.MusicInfoOnline, quality: PlatformQuality) => Promise<PlatformStream>
   like: (context: ProviderContext, profile: PlatformProfile, track: LX.Music.MusicInfoOnline, liked: boolean) => Promise<void>
+  /**
+   * 把歌曲加入指定平台歌单。未实现的平台在 UI 上置灰并展示 notice 原因。
+   * 实现方需自行校验歌单归属，并确认平台已接受写入（可回读歌单）。
+   */
+  addToPlaylist?: (context: ProviderContext, profile: PlatformProfile, playlist: PlatformPlaylist, track: LX.Music.MusicInfoOnline) => Promise<void>
 }

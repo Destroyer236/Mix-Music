@@ -57,7 +57,7 @@ function startRenderer() {
       },
       client: {
         logging: 'warn',
-        overlay: true,
+        overlay: { errors: false, warnings: false },
       },
       setupMiddlewares(middlewares, devServer) {
         devServer.app.use(hotMiddlewareRenderer)
@@ -105,7 +105,7 @@ function startRendererLyric() {
       // },
       client: {
         logging: 'warn',
-        overlay: true,
+        overlay: { errors: false, warnings: false },
       },
       setupMiddlewares(middlewares, devServer) {
         devServer.app.use(hotMiddlewareRenderer)

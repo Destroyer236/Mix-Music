@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron'
 import { computed, ref, shallowRef } from 'vue'
-import type { PlatformId, PlatformLikeResult, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
+import type { PlatformId, PlatformLikeResult, PlatformPlaylistAddResult, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { platformNames } from '@common/platformAccounts'
 import { recordingKey, sameRecording } from '@common/platformMatching'
 import { addListMusics, getListMusics, removeListMusics, updateListMusics } from '@renderer/store/list/action'
@@ -8,6 +8,7 @@ import { loveList } from '@renderer/store/list/state'
 import { startQishuiLogin, closeQishuiLogin } from './qishuiLogin'
 import { startBodianLogin, closeBodianLogin } from './bodianLogin'
 import { startNativeQrLogin, closeNativeQrLogin } from './nativeQrLogin'
+import { startMiguPhoneLogin, closeMiguPhoneLogin } from './miguPhoneLogin'
 
 const importedKey = 'linkline.platform-favorites.imported.v1'
 const imported = new Set<string>()
@@ -24,9 +25,33 @@ export const favoriteTracks = ref<LX.Music.MusicInfo[]>([])
 export const favoritePending = ref(new Set<string>())
 export const favoriteNotice = ref<{ title: string, results: PlatformLikeResult[], error: string, pending: boolean, localUpdated: boolean } | null>(null)
 export const connectedPlatforms = computed(() => platformSnapshot.value.accounts.filter(account => account.connected))
+// echo 侧栏资料卡与账号页共用：优先酷狗账号资料，其次按平台顺序取首个
+// 已登录者；全部未登录时为 null（资料卡整体隐藏）。
+export const echoProfile = computed(() => {
+  const accounts = platformSnapshot.value.accounts
+  const preferred = accounts.find(item => item.platform === 'kugouConcept' && item.connected && item.profile) ??
+    accounts.find(item => item.platform === 'kugou' && item.connected && item.profile) ??
+    accounts.find(item => item.connected && item.profile)
+  return preferred?.profile ?? null
+})
 export const platformPlaylists = computed(() => platformSnapshot.value.playlists ?? [])
 export async function loadPlatformPlaylist(id: string, refresh = false): Promise<PlatformPlaylistDetail> {
   return ipcRenderer.invoke('platform_accounts_playlist', { id, refresh })
+}
+/** 已连接且 provider 实现了歌单写入的平台；UI 用它决定哪些平台可选。 */
+export const writablePlatforms = computed(() => {
+  const ids = new Set<PlatformId>()
+  for (const account of platformSnapshot.value.accounts) {
+    if (account.connected && account.canAddToPlaylist) ids.add(account.platform)
+  }
+  return ids
+})
+/** 按平台分组的可写歌单，供「添加到歌单」弹窗使用。 */
+export const writablePlaylists = computed(() => platformPlaylists.value.filter(playlist => writablePlatforms.value.has(playlist.platform)))
+export async function addTrackToPlaylist(playlistId: string, track: LX.Music.MusicInfo): Promise<PlatformPlaylistAddResult> {
+  // Music records are JSON data; detach nested Vue proxies before Electron IPC.
+  const info: LX.Music.MusicInfo = JSON.parse(JSON.stringify(track))
+  return ipcRenderer.invoke('platform_accounts_playlist_add', { playlistId, track: info })
 }
 
 let initialized: Promise<void> | null = null
@@ -138,6 +163,7 @@ export function disposePlatformAccounts() {
   closeNativeQrLogin()
   closeQishuiLogin()
   closeBodianLogin()
+  closeMiguPhoneLogin()
   stopped = true
   ipcRenderer.removeListener('platform_accounts_changed', onSnapshot)
   window.app_event.off('myListUpdate', onListUpdate)
@@ -155,14 +181,30 @@ async function accountAction(channel: string, platform: PlatformId | null) {
   } catch (error) { platformError.value = describeError(error) } finally { platformBusy.value = new Set([...platformBusy.value].filter(id => !ids.includes(id))) }
 }
 export const loginPlatform = async(platform: PlatformId) => {
-  if (platform === 'qq' || platform === 'netease') { closeQishuiLogin(); closeBodianLogin(); return startNativeQrLogin(platform) }
+  if (platform === 'migu') { closeNativeQrLogin(); closeQishuiLogin(); closeBodianLogin(); startMiguPhoneLogin(); return }
+  if (platform === 'qq' || platform === 'netease' || platform === 'kugouConcept') { closeQishuiLogin(); closeBodianLogin(); return startNativeQrLogin(platform) }
   closeNativeQrLogin()
   if (platform === 'qishui') { closeBodianLogin(); return startQishuiLogin() }
   if (platform === 'bodian') { closeQishuiLogin(); return startBodianLogin() }
   return accountAction('platform_accounts_login', platform)
 }
+// QQ 音乐与咪咕提供内嵌官方页登录（账号密码 / 微信扫码 / 官网表单），作为主登录方式的备选。
+export const loginPlatformWeb = async(platform: PlatformId) => {
+  if (platform === 'qq' || platform === 'migu') {
+    closeNativeQrLogin()
+    closeQishuiLogin()
+    closeBodianLogin()
+    closeMiguPhoneLogin()
+    return accountAction('platform_accounts_login', platform)
+  }
+  return loginPlatform(platform)
+}
 export const syncPlatforms = async(platform: PlatformId | null = null) => accountAction('platform_accounts_sync', platform)
 export const logoutPlatform = async(platform: PlatformId) => accountAction('platform_accounts_logout', platform)
+/** 酷狗概念版：领取每日畅听会员，可选再升级为概念会员。 */
+export async function claimKugouVip(upgrade = false): Promise<{ received: boolean, message: string, upgraded: boolean, upgradeMessage: string, rewardedHours: number }> {
+  return ipcRenderer.invoke('platform_kugou_claim_vip', { upgrade }) as Promise<{ received: boolean, message: string, upgraded: boolean, upgradeMessage: string, rewardedHours: number }>
+}
 
 export async function setFavorite(track: LX.Music.MusicInfo, liked: boolean): Promise<PlatformLikeResult[]> {
   // Music records are JSON data; detach nested Vue proxies before Electron IPC.

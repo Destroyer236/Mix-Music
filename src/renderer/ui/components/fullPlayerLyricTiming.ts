@@ -42,7 +42,7 @@ export function composeLyricCopy(lines: CopyLyricLine[], options: CopyLyricOptio
   return content.join(separator)
 }
 
-/** LinkLine's normalized LX lyric format stores each word relative to its line. */
+/** Mix Music's normalized LX lyric format stores each word relative to its line. */
 export function parseLyricWords(source: string | null): Map<number, LyricWord[]> {
   const result = new Map<number, LyricWord[]>()
   for (const line of (source ?? '').split(/\r?\n|\r/)) {

@@ -2,7 +2,7 @@
   <div class="desktop-external" :class="{ hovered, locked: config.locked, animated: config.animation }" :style="rootStyle" @pointerdown="startDrag" @mouseenter="hovered = true" @mouseleave="hovered = false">
     <div v-if="config.alwaysShowSongInfo && !hovered" class="desktop-persistent" :style="{ textAlign: config.align === 'justify' ? 'center' : config.align }"><div :class="{ mask: config.backgroundMask }"><strong>{{ track.title }}</strong><small>{{ track.artist }}</small></div></div>
     <header class="desktop-header">
-      <button type="button" class="focus-main" title="显示 LinkLine" aria-label="显示 LinkLine" @click="control('focus-main')"><UiIcon name="quality" /></button>
+      <button type="button" class="focus-main" title="显示 Mix Music" aria-label="显示 Mix Music" @click="control('focus-main')"><UiIcon name="quality" /></button>
       <div class="desktop-song"><strong>{{ track.title }}</strong><small>{{ track.artist || '桌面歌词' }}</small></div>
       <div class="desktop-playback">
         <button type="button" title="上一首" aria-label="上一首" @click="control('prev')"><UiIcon name="prev" /></button>

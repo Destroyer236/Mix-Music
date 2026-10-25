@@ -8,4 +8,4 @@ if not exist "dist\main.js" (
     exit /b 1
   )
 )
-start "LinkLine" /d "%~dp0" "node_modules\electron\dist\electron.exe" .
+start "Mix Music" /d "%~dp0" "node_modules\electron\dist\electron.exe" .

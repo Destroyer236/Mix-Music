@@ -212,6 +212,32 @@ async function playlistTracks(context: ProviderContext, profile: PlatformProfile
   return ids.flatMap(id => { const song = songs.get(id); return song ? [song] : [] })
 }
 
+// 添加歌曲到歌单：必须走明文 /api/ 路由。weapi 路由会误报 502「歌单内歌曲重复」，
+// 且参数名是 trackIds（JSON 数组字符串），不是 tracks。
+async function manipulateTracks(context: ProviderContext, playlist: PlatformPlaylist, songId: number, op: 'add' | 'del'): Promise<void> {
+  const cookies = await context.cookies()
+  const body = new URLSearchParams({
+    op,
+    pid: playlist.remoteId,
+    trackIds: JSON.stringify([songId]),
+    imme: 'true',
+    csrf_token: cookies.__csrf ?? '',
+  }).toString()
+  const response = await context.session.fetch(`https://music.163.com/api/playlist/manipulate/tracks?csrf_token=${encodeURIComponent(cookies.__csrf ?? '')}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Referer: 'https://music.163.com/' },
+    body,
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!response.ok) throw new Error(`网易云歌单操作失败 (${response.status})`)
+  const result = await response.json()
+  if (result.code === 200) return
+  // 502 表示歌曲已在歌单内：幂等成功，避免重复添加被当成错误。
+  if (op === 'add' && result.code === 502) return
+  if (result.code === 401) throw new Error('歌单不属于当前网易云账号，请重新同步')
+  throw new Error(String(result.message ?? `网易云歌单操作失败 (${String(result.code)})`))
+}
+
 export const neteaseProvider: PlatformProvider = {
   id: 'netease',
   source: 'wy',
@@ -225,7 +251,23 @@ export const neteaseProvider: PlatformProvider = {
     if (!(await context.cookies()).MUSIC_U) throw new Error('请先登录网易云音乐')
     const body = await request(context, 'nuser/account/get')
     if (!body.profile?.userId) throw new Error('登录已失效，请重新登录')
-    return { id: String(body.profile.userId), nickname: body.profile.nickname ?? '网易云用户', avatar: body.profile.avatarUrl ?? '' }
+    // account.vipType 是权威的简单刻度（0 无 / 10 音乐包 / 11 黑胶VIP / 12 黑胶SVIP）；
+    // profile.vipType 会返回 110 之类的扩展值，只作回退。
+    const vipType = Number(body.account?.vipType ?? body.profile.vipType) || 0
+    // 会员详情接口提供红V等级与到期时间（实测字段：associator/musicPackage.expireTime）；
+    // 请求失败时只显示会员类型，不影响账号状态。
+    const vipDetail = vipType > 0 ? await request(context, 'music-vip-membership/front/vip/info', { userId: Number(body.profile.userId) }).catch(() => null) : null
+    const detail = vipDetail?.data != null && typeof vipDetail.data === 'object' ? vipDetail.data : {}
+    const redVipLevel = Number(detail.redVipLevel ?? body.profile.redVipLevel) || 0
+    const vipLabel = (({ 10: '音乐包', 11: '黑胶VIP', 12: '黑胶SVIP' }))[vipType] ?? (vipType > 0 ? 'VIP' : '')
+    const membership = vipType === 10 ? detail.musicPackage : detail.associator
+    const expireTime = Number(membership?.expireTime) || 0
+    return {
+      id: String(body.profile.userId),
+      nickname: body.profile.nickname ?? '网易云用户',
+      avatar: body.profile.avatarUrl ?? '',
+      ...(vipLabel ? { vip: { label: redVipLevel > 0 ? `${vipLabel}·红V${redVipLevel}` : vipLabel, dueDate: expireTime > Date.now() ? expireTime : null } } : {}),
+    }
   },
   async likes(context, profile) {
     const body = await request(context, 'song/like/get', { uid: profile.id })
@@ -308,5 +350,9 @@ export const neteaseProvider: PlatformProvider = {
   },
   async like(context, profile, track, liked) {
     await request(context, 'radio/like', { alg: 'itembased', trackId: Number(track.meta.songId), like: liked, time: '3' })
+  },
+  async addToPlaylist(context, profile, playlist, track) {
+    if (playlist.platform !== 'netease' || playlist.ownerId !== profile.id) throw new Error('歌单不属于当前网易云账号，请重新同步')
+    await manipulateTracks(context, playlist, trackId(track), 'add')
   },
 }

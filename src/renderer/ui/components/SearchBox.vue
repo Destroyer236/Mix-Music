@@ -1,7 +1,8 @@
 <template>
   <form ref="form" class="ui-global-search" role="search" aria-label="全局音乐搜索" @submit.prevent="submit()" @focusout="onBlur">
     <UiIcon name="search" />
-    <input ref="field" v-model="input" type="search" role="combobox" autocomplete="off" :spellcheck="false" maxlength="200" aria-label="搜索音乐" placeholder="搜索歌曲、专辑、歌手或歌单" aria-autocomplete="list" :aria-expanded="visible" :aria-controls="visible ? 'global-search-suggestions' : undefined" :aria-activedescendant="visible && selected >= 0 ? `global-search-option-${selected}` : undefined" @focus="onFocus" @click="opened = true" @input="opened = true" @keydown="onKey" @compositionstart="composing = true" @compositionend="composing = false">
+    <input ref="field" v-model="input" type="search" role="combobox" autocomplete="off" :spellcheck="false" maxlength="200" aria-label="搜索音乐" :placeholder="isEchoSkin ? '搜索音乐、歌手、专辑' : '搜索歌曲、专辑、歌手或歌单'" aria-autocomplete="list" :aria-expanded="visible" :aria-controls="visible ? 'global-search-suggestions' : undefined" :aria-activedescendant="visible && selected >= 0 ? `global-search-option-${selected}` : undefined" @focus="onFocus" @click="opened = true" @input="opened = true" @keydown="onKey" @compositionstart="composing = true" @compositionend="composing = false">
+    <router-link v-if="isEchoSkin" to="/search" class="ui-search-page-link" aria-label="打开搜索页" title="打开搜索页" @click="dismiss">搜索页</router-link>
     <button v-if="input" type="button" class="ui-search-clear" aria-label="清空搜索" title="清空搜索" @click="clear"><UiIcon name="close" /></button>
     <button type="submit" class="ui-search-submit" aria-label="搜索" title="搜索 · Enter" :disabled="!input.trim()"><UiIcon name="arrowRight" /></button>
     <Teleport to="body">
@@ -42,6 +43,7 @@ import { historyList } from '@renderer/store/search/state'
 import { getHistoryList } from '@renderer/store/search/action'
 import { appSetting } from '@renderer/store/setting'
 import { createSearchSuggestions, type SuggestionState } from '../searchSuggestions'
+import { appearance } from '../../composables/useAppearance'
 import UiIcon from './UiIcon.vue'
 import TrackArtwork from './TrackArtwork.vue'
 const props = defineProps<{ modelValue: string }>()
@@ -54,6 +56,7 @@ const panel = ref<HTMLElement | null>(null)
 const opened = ref(false)
 const composing = ref(false)
 const selected = ref(-1)
+const isEchoSkin = computed(() => appearance.skin === 'echo')
 const position = ref<Record<string, string>>({})
 const suggestions = ref<SuggestionState>({ items: [], songs: [], artists: [], loading: false, failed: false })
 const history = computed(() => appSetting['search.isShowHistorySearch'] ? historyList.slice(0, 15) : [])
@@ -162,4 +165,5 @@ watch(visible, async show => {
   if (visible.value) place()
 })
 onBeforeUnmount(() => { controller.dispose(); removeListeners() })
+defineExpose({ focus: () => { field.value?.focus() } })
 </script>

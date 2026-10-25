@@ -1,8 +1,26 @@
 <template>
   <div class="ui-shell">
     <aside class="ui-sidebar">
-      <router-link class="ui-brand" to="/discover" aria-label="LinkLine 首页"><span class="ui-brand-mark"><img :src="linklineLogo" alt=""></span><span class="ui-brand-wordmark"><BrandWordmark /></span></router-link>
+      <router-link v-if="!isEchoSkin" class="ui-brand" to="/discover" aria-label="Mix Music 首页"><span class="ui-brand-mark"><img :src="brandLogo" alt=""></span><span class="ui-brand-wordmark"><BrandWordmark /></span></router-link>
+      <div v-else-if="echoProfile" class="echo-profile">
+        <button type="button" class="echo-profile-link" aria-label="平台账号信息" title="平台账号信息" @click="router.push('/account')">
+          <span class="echo-profile-avatar"><img v-if="echoProfile?.avatar" :src="echoProfile.avatar" alt="" referrerpolicy="no-referrer"><UiIcon v-else name="music" /></span>
+          <span class="echo-profile-copy">
+            <span class="echo-profile-name">{{ echoProfile ? echoProfile.nickname : '未登录' }}</span>
+            <span class="echo-profile-meta"><template v-if="echoProfile"><span v-if="echoProfile.vip" class="echo-profile-badge">{{ echoProfile.vip.label }}</span><span v-else class="echo-profile-badge is-none">NOVIP</span></template><span v-else>点击登录账号</span></span>
+          </span>
+        </button>
+        <span class="echo-profile-divider" aria-hidden="true" />
+        <router-link to="/setting" class="ui-icon-button echo-profile-gear" aria-label="设置与偏好" title="设置与偏好"><UiIcon name="gear" /></router-link>
+      </div>
       <div class="ui-sidebar-body scroll">
+        <template v-if="isEchoSkin">
+          <div v-for="group in echoNavGroups" :key="group.title" class="echo-nav-group">
+            <h2 class="echo-nav-header">{{ group.title }}<UiIcon name="chevronDown" /></h2>
+            <nav :aria-label="group.title"><router-link v-for="item in group.items" :key="item.label" :to="item.to" :title="item.label" :class="{ 'ui-nav-active': item.active }"><UiIcon :name="item.icon" /><span>{{ item.label }}</span></router-link></nav>
+          </div>
+        </template>
+        <template v-else>
         <nav aria-label="主导航"><router-link v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="item.label" :class="{ 'ui-nav-active': route.path.startsWith(item.path) }"><UiIcon :name="item.icon" /><span>{{ item.label }}</span></router-link></nav>
         <div class="ui-personal-section">
           <div class="ui-nav-label">我的音乐</div>
@@ -12,25 +30,30 @@
             <router-link to="/local" :aria-label="`本地下载·${deviceMusicCount}`" :title="`本地下载 · ${deviceMusicCount} 首`" :class="{ 'ui-nav-active': route.path === '/local' || route.path === '/download' }"><UiIcon name="download" /><span>本地下载<span class="ui-recent-count">·{{ deviceMusicCount }}</span></span></router-link>
           </div>
         </div>
+        </template>
         <section class="ui-playlist-section" aria-label="我的歌单">
           <button ref="playlistGroupTrigger" type="button" class="ui-playlist-compact-entry" aria-label="歌单分组与创建" title="我的歌单" aria-haspopup="menu" :aria-expanded="playlistGroupOpen" popovertarget="sidebar-playlist-group-menu" @click="positionPlaylistGroup"><UiIcon :name="playlistTab === 'created' ? 'list' : 'heart'" /></button>
           <div class="ui-playlist-tabs"><div role="tablist" aria-label="歌单分组"><button id="sidebar-created-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'created'" aria-label="自建歌单" @click="playlistTab = 'created'"><UiIcon name="list" /><span>自建歌单</span></button><span aria-hidden="true">|</span><button id="sidebar-collected-tab" type="button" role="tab" aria-controls="sidebar-playlists" :aria-selected="playlistTab === 'collected'" aria-label="收藏歌单" @click="playlistTab = 'collected'"><UiIcon name="heart" /><span>收藏歌单</span></button></div><button type="button" class="ui-create-playlist" aria-label="创建歌单" title="创建歌单" @click="playlistOpen = true"><UiIcon name="plus" /></button></div>
           <div id="sidebar-playlists" class="ui-sidebar-lists scroll" role="tabpanel" :aria-labelledby="playlistTab === 'created' ? 'sidebar-created-tab' : 'sidebar-collected-tab'">
-            <router-link v-for="list in sidebarLists" :key="list.id" :aria-label="list.name" :title="list.name" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === list.id }" :to="{ path: '/list', query: { id: list.id } }" @contextmenu.prevent="openPlaylistMenu($event, list)" @keydown="playlistKey($event, list)"><SidebarPlaylistCover :list="list" :native="!list.platform" /><span>{{ list.name }}</span></router-link>
-            <p v-if="playlistTab === 'collected' && !sidebarLists.length" class="ui-playlist-empty">还没有收藏的歌单</p>
+            <template v-for="group in sidebarGroups" :key="group.key">
+              <p v-if="group.label" class="ui-playlist-group-title">{{ group.label }}</p>
+              <router-link v-for="list in group.lists" :key="list.id" :aria-label="list.name" :title="list.name" :class="{ 'ui-nav-active': route.path === '/list' && route.query.id === list.id }" :to="{ path: '/list', query: { id: list.id } }" @contextmenu.prevent="openPlaylistMenu($event, list)" @keydown="playlistKey($event, list)"><SidebarPlaylistCover :list="list" :native="!list.platform" /><span>{{ list.name }}</span></router-link>
+            </template>
+            <p v-if="!sidebarGroups.length" class="ui-playlist-empty">{{ playlistTab === 'collected' ? '还没有收藏的歌单' : '还没有歌单' }}</p>
           </div>
         </section>
       </div>
     </aside>
     <div class="ui-workspace">
-      <header class="ui-topbar"><div class="ui-breadcrumb"><button type="button" class="ui-icon-button" aria-label="返回上一页" @click="router.back()"><UiIcon name="back" /></button></div><SearchBox v-model="query" @submit="search" /><router-link to="/setting" class="ui-icon-button ui-settings-entry" aria-label="设置与偏好" title="设置与偏好" :class="{ 'ui-active': route.path === '/setting' }"><UiIcon name="gear" /></router-link><button type="button" class="ui-icon-button" aria-label="外观定制" title="外观定制" @click="appearancePanelOpen = true"><UiIcon name="palette" /></button><button type="button" class="ui-icon-button" :aria-label="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" :title="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" @click="toggleAppearanceMode"><UiIcon :name="resolvedAppearanceMode === 'light' ? 'moon' : 'sun'" /></button><button type="button" class="ui-icon-button linkline-update-topbar" :class="{ 'ui-active': updateAvailable, spinning: updateChecking }" :title="updateButtonLabel" :aria-label="updateButtonLabel" :aria-busy="updateChecking" @click="openUpdateCenter"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" /><span v-if="updateAvailable" class="linkline-update-dot" aria-hidden="true" /></button><WindowControls /></header>
+      <header class="ui-topbar"><div class="ui-breadcrumb"><button type="button" class="ui-icon-button" aria-label="返回上一页" @click="router.back()"><UiIcon name="back" /></button></div><template v-if="isEchoSkin"><button v-if="!echoSearchOpen" type="button" class="ui-icon-button" aria-label="搜索" title="搜索" @click="openEchoSearch"><UiIcon name="search" /></button></template><div class="echo-search-host" :class="{ 'is-collapsed': isEchoSkin && !echoSearchOpen }" @keydown.esc.capture="closeEchoSearch" @focusout="onEchoSearchFocusout"><SearchBox ref="searchBox" v-model="query" @submit="onSearchSubmit" /></div><div v-if="isEchoSkin" class="echo-topbar-filler" aria-hidden="true" /><router-link to="/setting" class="ui-icon-button ui-settings-entry" aria-label="设置与偏好" title="设置与偏好" :class="{ 'ui-active': route.path === '/setting' }"><UiIcon name="gear" /></router-link><button type="button" class="ui-icon-button" aria-label="外观定制" title="外观定制" @click="appearancePanelOpen = true"><UiIcon name="palette" /></button><button type="button" class="ui-icon-button" :aria-label="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" :title="resolvedAppearanceMode === 'light' ? '切换深色' : '切换浅色'" @click="toggleAppearanceMode"><UiIcon :name="resolvedAppearanceMode === 'light' ? 'moon' : 'sun'" /></button><button type="button" class="ui-icon-button linkline-update-topbar" :class="{ 'ui-active': updateAvailable, spinning: updateChecking }" :title="updateButtonLabel" :aria-label="updateButtonLabel" :aria-busy="updateChecking" @click="openUpdateCenter"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" /><span v-if="updateAvailable" class="linkline-update-dot" aria-hidden="true" /></button><WindowControls /></header>
       <main id="view" class="ui-main-panel">
-        <router-view v-slot="{ Component }">
-          <Transition name="ll-module-fade" :mode="isShowAnimation ? 'out-in' : undefined" :css="isShowAnimation">
-            <RecentPlayback v-if="recentVisible" key="RecentPlayback" :tracks="recentTracks" :persistence-error="musicLinksError" />
-            <component :is="Component" v-else :key="route.name || route.path" />
-          </Transition>
-        </router-view>
+          <router-view v-slot="{ Component }">
+            <Transition name="ll-module-fade" :mode="isShowAnimation ? 'out-in' : undefined" :css="isShowAnimation">
+              <RecentPlayback v-if="recentVisible" key="RecentPlayback" :tracks="recentTracks" :persistence-error="musicLinksError" />
+              <EchoHome v-else-if="isEchoHome" key="EchoHome" />
+              <component :is="Component" v-else :key="route.name || route.path" />
+            </Transition>
+          </router-view>
       </main>
       <UpdateCenter />
     </div>
@@ -48,12 +71,12 @@
   </div>
 </template>
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { isShowAnimation } from '@renderer/store/setting'
 import { userLists } from '@renderer/store/list/state'
 import { LOCAL_LIBRARY_ID } from '@common/localMusic'
-import { platformPlaylists, favoriteTracks, loadPlatformPlaylist } from './services/platformAccounts'
+import { platformPlaylists, favoriteTracks, loadPlatformPlaylist, echoProfile, platformName } from './services/platformAccounts'
 import { useDeviceMusicCount } from './useDeviceMusicCount'
 import { useRecentPlayback } from './useRecentPlayback'
 import { useFavoriteLinks, musicLinksError } from './useMusicLinks'
@@ -66,7 +89,8 @@ import SidebarPlaylistCover from './components/SidebarPlaylistCover.vue'
 import UiModal from './components/UiModal.vue'
 import PlaylistDialog from './components/PlaylistDialog.vue'
 import RecentPlayback from './components/RecentPlayback.vue'
-import { appearancePanelOpen, resolvedAppearanceMode, toggleAppearanceMode } from '@renderer/composables/useAppearance'
+import { appearance, appearancePanelOpen, resolvedAppearanceMode, toggleAppearanceMode } from '@renderer/composables/useAppearance'
+import EchoHome from './echo/EchoHome.vue'
 import UiIcon from './components/UiIcon.vue'
 import SearchBox from './components/SearchBox.vue'
 import PlayerBar from './PlayerBar.vue'
@@ -77,7 +101,7 @@ import { checkUpdateOnStartup, openUpdateCenter, updateAvailable, updateChecking
 import { migratePlayerProgressStyle } from './services/preferences'
 import { initializePlayerSessionTools } from './services/playerSessionTools'
 import { playerNotice } from './services/playerNotice'
-import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
+import brandLogo from '@renderer/assets/images/mixmusic-logo.svg'
 import BrandWordmark from './components/BrandWordmark.vue'
 void migratePlayerProgressStyle()
 const disposeSessionTools = initializePlayerSessionTools()
@@ -85,8 +109,20 @@ onBeforeUnmount(disposeSessionTools)
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
+const echoSearchOpen = ref(false)
+const searchBox = ref(null)
+function openEchoSearch() { echoSearchOpen.value = true; void nextTick(() => searchBox.value?.focus?.()) }
+function closeEchoSearch() { echoSearchOpen.value = false }
+function onSearchSubmit() { search(); closeEchoSearch() }
+function onEchoSearchFocusout(event) {
+  if (!isEchoSkin.value || !echoSearchOpen.value) return
+  const host = event.currentTarget
+  const to = event.relatedTarget
+  if ((!to || !host.contains(to)) && !query.value.trim()) closeEchoSearch()
+}
 watch(() => route.fullPath, () => {
   query.value = route.path === '/search' && typeof route.query.text === 'string' ? route.query.text : ''
+  echoSearchOpen.value = false
 }, { immediate: true })
 const playlistTab = ref('created')
 const playlistOpen = ref(false)
@@ -115,6 +151,28 @@ function playlistGroupKey(event) {
 }
 watch(() => route.fullPath, closePlaylistGroup)
 const recentVisible = computed(() => route.path === '/list' && route.query.view === 'recent')
+// EchoMusic 皮肤下 Discover 路由渲染 EchoMusic 结构主页，其余路由保持原组件。
+const isEchoHome = computed(() => appearance.skin === 'echo' && route.name === 'Discover')
+const isEchoSkin = computed(() => appearance.skin === 'echo')
+// EchoMusic 侧栏分组（对照其 Sidebar.vue 的「发现音乐 / 我的乐库」），映射到 Mix Music 现有页面。
+const echoNavGroups = computed(() => [
+  {
+    title: '发现音乐',
+    items: [
+      { icon: 'music', label: '为您推荐', to: '/discover', active: route.path === '/discover' },
+      { icon: 'discover', label: '探索发现', to: '/songList/list', active: route.path.startsWith('/songList') },
+      { icon: 'chart', label: '排行榜', to: '/leaderboard', active: route.path === '/leaderboard' },
+    ],
+  },
+  {
+    title: '我的乐库',
+    items: [
+      { icon: 'heart', label: '我最爱', to: '/list?id=love', active: route.path === '/list' && route.query.id === 'love' && route.query.view !== 'recent' },
+      { icon: 'clock', label: '播放历史', to: '/list?view=recent', active: recentVisible.value },
+      { icon: 'download', label: '本地下载', to: '/local', active: route.path === '/local' || route.path === '/download' },
+    ],
+  },
+])
 const recentTracks = useRecentPlayback()
 const deviceMusicCount = useDeviceMusicCount()
 useFavoriteLinks()
@@ -122,6 +180,26 @@ usePlaylistCoverTracking()
 const sidebarLists = computed(() => {
   const lists = userLists.filter(list => list.id !== LOCAL_LIBRARY_ID && Boolean(list.source && list.sourceListId) === (playlistTab.value === 'collected'))
   return playlistTab.value === 'created' ? [...lists, ...platformPlaylists.value] : lists
+})
+/**
+ * 侧栏按来源分组：本地歌单在前，各音乐平台各自成组。
+ * 平台歌单带 platform 字段，本地歌单没有。
+ */
+const sidebarGroups = computed(() => {
+  const groups = []
+  const local = sidebarLists.value.filter(list => !list.platform)
+  if (local.length) groups.push({ key: 'local', label: '', lists: local })
+  const byPlatform = new Map()
+  for (const list of sidebarLists.value) {
+    if (!list.platform) continue
+    const items = byPlatform.get(list.platform) ?? []
+    items.push(list)
+    byPlatform.set(list.platform, items)
+  }
+  for (const [platform, lists] of byPlatform) {
+    groups.push({ key: platform, label: platformName(platform), lists })
+  }
+  return groups
 })
 const menuTarget = shallowRef(null)
 const menuTrigger = shallowRef(null)
@@ -174,7 +252,7 @@ function contextSaved() {
 watch(() => [route.fullPath, playlistTab.value], closePlaylistMenu)
 onBeforeUnmount(() => { menuVersion++; window.removeEventListener('resize', closePlaylistGroup) })
 const openCreatedPlaylist = id => { playlistTab.value = 'created'; void router.push({ path: '/list', query: { id } }) }
-const updateButtonLabel = computed(() => updateChecking.value ? '正在检查更新，打开更新中心' : updateAvailable.value ? `发现 LinkLine ${updateResult.value.latestRelease?.version ?? ''}，打开更新中心` : '检查更新')
+const updateButtonLabel = computed(() => updateChecking.value ? '正在检查更新，打开更新中心' : updateAvailable.value ? `发现 Mix Music ${updateResult.value.latestRelease?.version ?? ''}，打开更新中心` : '检查更新')
 onMounted(() => { window.addEventListener('resize', closePlaylistGroup); checkUpdateOnStartup() })
 const navigation = [{ path: '/discover', label: '推荐', icon: 'discover' }, { path: '/songList', label: '精选歌单', icon: 'list' }, { path: '/leaderboard', label: '排行榜', icon: 'chart' }]
 const search = () => { if (query.value.trim()) void router.push({ path: '/search', query: { text: query.value.trim() } }) }

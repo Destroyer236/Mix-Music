@@ -81,3 +81,13 @@ src/**/*-internal.js
 
 # Personal music links, recommendation history and future local runtime data
 /data/
+
+# 第三方参考源码（独立仓库，含自有 .git 与许可）
+/EchoMusic/
+
+# 本机调试产物：CDP 脚本、临时截图、抓包与日志
+.cdp-*.cjs
+/.*.png
+/nul
+/.zcode/
+/.tmp-gh/

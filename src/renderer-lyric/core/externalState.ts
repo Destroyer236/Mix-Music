@@ -8,7 +8,7 @@ const queryMode = new URLSearchParams(window.location.search).get('mode')
 export const mode: ExternalLyricMode = queryMode === 'island' || queryMode === 'taskbar' ? queryMode : 'desktop'
 export const settings = reactive({ ...externalLyricDefaults })
 export const config = computed(() => getExternalLyricConfig(settings, mode))
-export const track = reactive({ id: null as string | null, title: 'LinkLine', artist: '', cover: '' })
+export const track = reactive({ id: null as string | null, title: 'Mix Music', artist: '', cover: '' })
 export const playing = ref(false)
 export const lines = ref<ExternalLine[]>([])
 export const now = ref(0)
@@ -56,7 +56,7 @@ function receive(event: LX.DesktopLyric.LyricActions) {
     case 'set_info': {
       const info = event.data as typeof event.data & { pic?: string, playbackRate?: number, offset?: number }
       track.id = info.id
-      track.title = info.name || 'LinkLine'
+      track.title = info.name || 'Mix Music'
       track.artist = info.singer ?? ''
       track.cover = info.pic ?? ''
       rate = info.playbackRate ?? 1
@@ -81,7 +81,7 @@ function receive(event: LX.DesktopLyric.LyricActions) {
       synchronize(0, false)
       lines.value = []
       track.id = null
-      track.title = 'LinkLine'
+      track.title = 'Mix Music'
       track.artist = ''
       track.cover = ''
       break

@@ -1,7 +1,7 @@
 {
-  "name": "linkline",
+  "name": "mixmusic",
   "version": "1.2.1",
-  "description": "LinkLine — 多平台音乐桌面客户端，基于 LXMusic 开源项目再开发",
+  "description": "Mix Music — 多平台音乐桌面客户端，基于 LXMusic 开源项目再开发",
   "main": "./dist/main.js",
   "scripts": {
     "start": "electron .",
@@ -78,16 +78,16 @@
   },
   "macLanguagesInfoPlistStrings": {
     "en": {
-      "CFBundleDisplayName": "LinkLine",
-      "CFBundleName": "LinkLine"
+      "CFBundleDisplayName": "Mix Music",
+      "CFBundleName": "Mix Music"
     },
     "zh_CN": {
-      "CFBundleDisplayName": "LinkLine",
-      "CFBundleName": "LinkLine"
+      "CFBundleDisplayName": "Mix Music",
+      "CFBundleName": "Mix Music"
     },
     "zh_TW": {
-      "CFBundleDisplayName": "LinkLine",
-      "CFBundleName": "LinkLine"
+      "CFBundleDisplayName": "Mix Music",
+      "CFBundleName": "Mix Music"
     }
   },
   "repository": {

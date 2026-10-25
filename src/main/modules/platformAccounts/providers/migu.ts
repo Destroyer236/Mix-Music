@@ -142,7 +142,73 @@ export const miguProvider: PlatformProvider = {
     const user = record(body.data?.userInfo ?? body.data?.userInfoItem ?? body.data)
     const id = String(user.userId ?? user.uid ?? '')
     if (!id || id !== cookies.mg_auth_uid) throw new Error('咪咕音乐登录已失效，请重新登录')
-    return { id, nickname: String(user.nickName ?? user.nickname ?? '咪咕用户'), avatar: image(user.imageUrl ?? user.avatar ?? user.middleIcon) }
+    // 官网 SDK 写入的 mg_auth_* 是不带回话期的会话 Cookie，应用重启即失效。
+    // profile 验证通过后统一升级为持久 Cookie，让登录态跨重启保留。
+    const persistent: Array<[string, string]> = [
+      ['mg_auth_pacmtoken', cookies.mg_auth_pacmtoken],
+      ['mg_auth_sid', cookies.mg_auth_sid ?? ''],
+      ['mg_auth_pid', cookies.mg_auth_pid ?? ''],
+      ['mg_auth_msisdn', cookies.mg_auth_msisdn ?? ''],
+      ['mg_auth_uid', cookies.mg_auth_uid],
+      ['mg_auth_authType', cookies.mg_auth_authType ?? ''],
+    ]
+    const expirationDate = Date.now() / 1000 + 365 * 86400
+    for (const [name, value] of persistent) {
+      if (!value) continue
+      await context.session.cookies.set({ url: 'https://music.migu.cn/', domain: '.migu.cn', path: '/', name, value, secure: true, sameSite: 'lax', expirationDate })
+    }
+    // 会员信息：官网会员中心的 memberCards[].identityItems[].memberItems[] 带
+    // notInForce 与 validTime（YYYYMMDDHHmmss，2099 开头为连续包月）。取最新一档
+    // 生效会员的名称与到期时间；member/icon 仅作为接口失败时的名称兜底。
+    const memberCenter = await request(context, 'https://c.musicapp.migu.cn/user/member/center/v3.0').catch(() => null)
+    let memberName = ''
+    let bestTime = 0
+    let continuous = false
+    for (const card of Array.isArray(memberCenter?.data?.memberCards) ? memberCenter.data.memberCards : []) {
+      for (const identity of card?.identityItems ?? []) {
+        for (const memberItem of identity?.memberItems ?? []) {
+          if (memberItem?.notInForce) continue
+          const name = String(memberItem?.name ?? identity?.name ?? '').trim()
+          const validTime = String(memberItem?.validTime ?? '')
+          if (validTime.startsWith('2099')) {
+            if (!continuous) { continuous = true; memberName = name || memberName }
+            continue
+          }
+          const match = /^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/.exec(validTime)
+          if (!match) continue
+          const time = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4] ?? 23), Number(match[5] ?? 59), Number(match[6] ?? 59)).getTime()
+          if (!Number.isFinite(time) || time <= Date.now()) continue
+          if (time > bestTime) { bestTime = time; memberName = name || memberName }
+        }
+      }
+    }
+    let dueDate: number | null = null
+    if (!memberName && !continuous) {
+      const member = await request(context, 'https://c.musicapp.migu.cn/pc/open/api/member/icon/v1.0').catch(() => null)
+      memberName = Array.isArray(member?.data) ? String((member.data as any[])[0]?.memberTypeName ?? '').trim() : ''
+    } else if (continuous) {
+      dueDate = null
+    } else if (bestTime > 0) {
+      dueDate = bestTime
+    } else {
+      memberName = ''
+    }
+    // 咪咕主要以手机号登录；官网信任接口返回 userInfoItem.msisdn（手机号），
+    // 老接口偶尔直接带在 userInfo 里。两处都取不到就不显示。
+    const direct = [user.msisdn, user.mobile, user.phoneNumber, user.telephone].map(value => String(value ?? '').trim()).find(Boolean) ?? ''
+    const phone = direct || await request(context, 'https://c.musicapp.migu.cn/pc/user/api/user-info/trust-uid/v1.0')
+      .then(trust => {
+        const info = record(record(trust?.data ?? trust).userInfoItem)
+        return String(record(trust?.data ?? trust).userInfoItem?.msisdn ?? info.msisdn ?? '').trim()
+      })
+      .catch(() => '')
+    return {
+      id,
+      nickname: String(user.nickName ?? user.nickname ?? '咪咕用户'),
+      avatar: image(user.imageUrl ?? user.avatar ?? user.middleIcon),
+      ...(memberName ? { vip: { label: memberName, dueDate } } : {}),
+      ...(phone ? { extra: { phone } } : {}),
+    }
   },
   async likes(context) {
     const body = await request(context, '/pc/user/home-page/v2.0')
@@ -211,5 +277,15 @@ export const miguProvider: PlatformProvider = {
       ? await request(context, '/pc/user/api/add-music-list-song/v1.0', { contentIds: [meta.contentId] }, { post: true })
       : await request(context, '/pc/user/h5-import-musiclist/v1.0', { channel: '23', contentId: meta.contentId, songflag: '2' }, { post: true })
     if (liked && !(Number(body.data?.successNum) > 0) && !(body.data?.fail2RepeatContentIdList?.includes(meta.contentId))) throw new Error('咪咕音乐没有确认红心操作成功')
+  },
+  async addToPlaylist(context, user, playlist, track) {
+    if (playlist.platform !== 'migu' || playlist.ownerId !== user.id) throw new Error('歌单不属于当前咪咕音乐账号，请重新同步')
+    const meta = await detail(context, track)
+    if (!meta.contentId) throw new Error('咪咕音乐未找到歌曲的 contentId')
+    // 同一个接口：红心只传 contentIds，加入指定歌单额外传 id（歌单 musicListId）。
+    const body = await request(context, '/pc/user/api/add-music-list-song/v1.0', { id: playlist.remoteId, contentIds: [meta.contentId] }, { post: true })
+    const success = Number(body.data?.successNum) > 0
+    const repeated = (body.data?.fail2RepeatContentIdList ?? []).includes(meta.contentId)
+    if (!success && !repeated) throw new Error('咪咕音乐没有确认加歌成功')
   },
 }

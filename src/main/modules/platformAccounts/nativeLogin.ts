@@ -271,7 +271,7 @@ export function createNativeLogin(context: ProviderContext, platform: NativeLogi
               ++flow.qrUnexpectedCount
               const code = Number(body.code)
               const status = body.code != null && Number.isSafeInteger(code) && Math.abs(code) <= 999999 ? String(code) : 'missing'
-              if (flow.qrUnexpectedCount === 1) console.warn('LinkLine NetEase QR unexpected status:', status)
+              if (flow.qrUnexpectedCount === 1) console.warn('Mix Music NetEase QR unexpected status:', status)
               if ([301, 302, 400, 401, 403, 405, 406, 415, 429, 500, 502, 503].includes(code) || flow.qrUnexpectedCount >= 3) throw new Error(`网易云音乐扫码状态异常（${status}），请刷新二维码后重试`)
             }
             // Never leave persistent business failures looking like a waiting QR.

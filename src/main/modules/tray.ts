@@ -303,7 +303,7 @@ const setLyric = (lyricLineText?: string) => {
   }
 }
 
-const defaultTip = 'LinkLine'
+const defaultTip = 'Mix Music'
 const setTip = () => {
   if (!tray) return
 

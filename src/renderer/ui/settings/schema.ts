@@ -40,7 +40,7 @@ export const categories = [
   { id: 'hotkeys', name: '快捷键', description: '设置应用内和系统全局快捷键。', keywords: '热键 快捷键 键盘' },
   { id: 'data', name: '备份与数据', description: '导入、导出资料，管理缓存和数据。', keywords: '备份 导入 导出 缓存 数据' },
   { id: 'updates', name: '检查更新', description: '自动检查新版本，选择下载来源，查看更新日志与历史版本。', keywords: '版本 更新 日志 下载 GitHub Releases 自动 官方 国内 加速 镜像 安装包' },
-  { id: 'about', name: '关于', description: '版本、开源项目与使用说明。', keywords: '版本 开源 LinkLine LXMusic 源码 许可' },
+  { id: 'about', name: '关于', description: '版本、开源项目与使用说明。', keywords: '版本 开源 Mix Music LXMusic 源码 许可' },
 ]
 
 const choices = (values: Array<[string | number, string]>): Option[] => values.map(([value, label]) => ({ value, label }))
@@ -107,7 +107,7 @@ const bounds: Partial<Record<SettingKey, [number, number, number?]>> = {
 
 const hints: Partial<Record<SettingKey, string>> = {
   'common.transparentWindow': '更改后重新启动应用生效。',
-  'common.disableHardwareAcceleration': '默认使用硬件加速。开启此项后改用软件渲染，可能减少 GPU 内存占用，但会增加 CPU 负担；重新启动 LinkLine 后生效。',
+  'common.disableHardwareAcceleration': '默认使用硬件加速。开启此项后改用软件渲染，可能减少 GPU 内存占用，但会增加 CPU 负担；重新启动 Mix Music 后生效。',
   'common.closeAction': '右上角关闭按钮与 Alt+F4 使用同一行为；托盘菜单中的「退出」始终退出应用。',
   'tray.enable': '默认启用。最小化到托盘后继续播放音乐，可从托盘恢复窗口。关闭后，后台模式将恢复为每次询问。',
   'common.font': '选择系统字体，也可以手动填写字体家族列表。',
@@ -213,7 +213,7 @@ export function parseSettingValue(field: SettingField, text: string): LX.AppSett
   return text
 }
 
-/** Normalize imported backups to the settings exposed by LinkLine. */
+/** Normalize imported backups to the settings exposed by Mix Music. */
 export function validateSettingBackup(input: unknown): Partial<LX.AppSetting> {
   const source: Record<string, unknown> = input && typeof input === 'object' && !Array.isArray(input) ? { ...input } : {}
   const legacyDesktopFields: Record<string, SettingKey> = {

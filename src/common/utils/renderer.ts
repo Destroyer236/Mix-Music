@@ -342,7 +342,7 @@ export const scrollXRTo = (element: ScrollElement<HTMLElement>, to: number, dura
   */
 let dom_title = document.getElementsByTagName('title')[0]
 export const setTitle = (title: string | null) => {
-  title ||= 'LinkLine'
+  title ||= 'Mix Music'
   dom_title.innerText = title
 }
 

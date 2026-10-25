@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import type { PlatformProfile } from '@common/platformAccounts'
 import type { PlatformQuality, PlatformStream } from '@common/platformPlayback'
 import type { PlatformProvider, ProviderContext } from './types'
 import { songVip } from '@common/musicAccess'
@@ -28,13 +29,17 @@ async function request(context: ProviderContext, endpoint: string, params: Recor
   const cookies = await context.cookies()
   const url = new URL(endpoint, 'https://www.kuwo.cn')
   for (const [key, value] of Object.entries({ ...params, httpsStatus: 1, reqId: randomUUID(), plat: 'web_www' })) url.searchParams.set(key, String(value))
-  const response = await context.session.fetch(url.toString(), { headers: new Headers({ Referer: 'https://www.kuwo.cn/', Origin: 'https://www.kuwo.cn', Secret: webSecret(cookies[secretCookie] ?? '') }), signal: AbortSignal.timeout(20000) })
+  const response = await context.session.fetch(url.toString(), { headers: new Headers({ Referer: 'https://www.kuwo.cn/', Origin: 'https://www.kuwo.cn', csrf: cookies.kw_token ?? '', Secret: webSecret(cookies[secretCookie] ?? '') }), signal: AbortSignal.timeout(20000) })
   if (!response.ok) throw new Error(`酷我音乐请求失败 (${response.status})`)
   const body = await response.json()
   if (Number(body.code) !== 200) throw new Error(String(body.message ?? body.msg ?? '酷我官网拒绝请求，请在官网登录后重试'))
   return body.data
 }
 const unsupportedSync = async(): Promise<never> => { throw new Error(notice) }
+const httpsImage = (value: unknown): string => {
+  const url = String(value ?? '')
+  return /^https:\/\//.test(url) ? url : url.startsWith('//') ? `https:${url}` : ''
+}
 function toTrack(song: any): LX.Music.MusicInfo_online_common | null {
   const id = String(song.rid ?? song.musicrid ?? '').replace(/^MUSIC_/, '')
   if (!id || !song.name) return null
@@ -53,11 +58,46 @@ export const kuwoProvider: PlatformProvider = {
   loginUrl: 'https://www.kuwo.cn/?login=open',
   cookieUrl: 'https://www.kuwo.cn/',
   domains: ['kuwo.cn', 'qq.com', 'gtimg.cn', 'weibo.com', 'sina.com.cn'],
-  webOnly: true,
   syncSupported: false,
   notice,
-  authenticated: () => false,
-  profile: unsupportedSync,
+  authenticated: cookies => /^\d+$/.test(cookies.userid ?? ''),
+  async profile(context) {
+    const cookies = await context.cookies()
+    const id = String(cookies.userid ?? '')
+    if (!/^\d+$/.test(id)) throw new Error('请在酷我官网完成网页登录')
+    // 官网登录签发的是老式 Cookie（userid/sid/uname3/pic3），不包含 www API 的 kw_token，
+    // 因此资料直接取自 Cookie；会员信息走 VIP 中心 gvi 接口（实测可用）。
+    const decode = (value: unknown) => {
+      const text = String(value ?? '').trim()
+      try { return decodeURIComponent(text) } catch { return text }
+    }
+    let vip: PlatformProfile['vip']
+    try {
+      const cookieHeader = Object.entries(cookies).filter(([key, value]) => key && value).map(([key, value]) => `${key}=${value}`).join('; ')
+      const vipResponse = await context.session.fetch(`https://vip1.kuwo.cn/vip/v2/user/vip?op=gvi&uid=${encodeURIComponent(id)}`, {
+        headers: new Headers({ Referer: 'https://www.kuwo.cn/', Cookie: cookieHeader }),
+        signal: AbortSignal.timeout(15000),
+      })
+      const body = await vipResponse.json().catch(() => null)
+      const now = Date.now()
+      const products = Array.isArray(body?.data) ? body.data : []
+      const active = products.filter((product: any) => Number(product?.expireDate) > now)
+      const legacyExpire = Number(body?.data?.vipExpire) > now ? Number(body.data.vipExpire) : 0
+      const luxuryExpire = Number(body?.data?.vipLuxuryExpire) > now ? Number(body.data.vipLuxuryExpire) : 0
+      const isLuxury = active.some((product: any) => product.productType === 'VIP3' || product.productType === 'VIP4') || luxuryExpire > 0
+      const isMember = isLuxury || active.some((product: any) => product.productType === 'VIP1' || product.productType === 'VIP2') || legacyExpire > 0
+      if (isMember) {
+        const due = Math.max(0, ...active.map((product: any) => Number(product.expireDate) || 0), legacyExpire, luxuryExpire)
+        vip = { label: isLuxury ? '豪华VIP' : 'VIP会员', dueDate: due || null }
+      }
+    } catch { /* 会员查询失败不影响登录状态 */ }
+    return {
+      id,
+      nickname: decode(cookies.uname3) || decode(cookies.username) || '酷我用户',
+      avatar: httpsImage(decode(cookies.pic3)),
+      ...(vip ? { vip } : {}),
+    }
+  },
   likes: unsupportedSync,
   playlists: unsupportedSync,
   playlistTracks: unsupportedSync,

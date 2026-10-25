@@ -11,6 +11,18 @@
 
           <div class="appearance-body scroll">
             <fieldset class="appearance-section">
+              <legend>UI 风格</legend>
+              <div class="appearance-skins">
+                <button v-for="skin in skins" :key="skin.value" type="button" class="appearance-skin" :class="{ selected: appearance.skin === skin.value }" :aria-pressed="appearance.skin === skin.value" @click="appearance.skin = skin.value">
+                  <span class="appearance-skin-preview" :class="skin.value" aria-hidden="true"><i /><i /><i /><i /></span>
+                  <span class="appearance-skin-name">{{ skin.label }}</span>
+                  <UiIcon v-if="appearance.skin === skin.value" class="appearance-mode-check" name="check" />
+                </button>
+              </div>
+              <p class="appearance-control-hint">EchoMusic 风格：氛围渐变、浮岛面板与 EchoMusic 版页面布局，切换即时生效</p>
+            </fieldset>
+
+            <fieldset class="appearance-section">
               <legend>外观主题</legend>
               <div class="appearance-modes">
                 <button v-for="mode in modes" :key="mode.value" type="button" class="appearance-mode" :class="{ selected: appearance.mode === mode.value }" :aria-pressed="appearance.mode === mode.value" :disabled="wallpaperBusy" @click="chooseMode(mode.value)">
@@ -33,16 +45,23 @@
 
             <fieldset v-if="appearance.mode === 'custom' && wallpaper" class="appearance-section appearance-image-colors"><legend>图片配色<span class="appearance-value">自动协调</span></legend><div><span v-for="role in colorRoles" :key="role.variable" :style="{ background: `var(${role.variable})` }" :title="role.label" /><p>面板、文字与按钮随背景配色</p></div></fieldset>
             <fieldset v-else class="appearance-section">
-              <legend>点缀颜色 <span class="appearance-value">{{ appearance.accent.toUpperCase() }}</span></legend>
-              <div class="appearance-colors">
+              <legend>点缀颜色 <span class="appearance-value">{{ accentHexLabel }}</span></legend>
+              <div class="appearance-accent-sources" role="group" aria-label="主题色来源">
+                <button v-for="source in accentSources" :key="source.value" type="button" :class="{ selected: appearance.accentSource === source.value }" :aria-pressed="appearance.accentSource === source.value" @click="appearance.accentSource = source.value">{{ source.label }}</button>
+              </div>
+              <div v-if="appearance.accentSource === 'preset'" class="appearance-colors">
                 <button v-for="swatch in swatches" :key="swatch.color" type="button" class="appearance-swatch" :class="{ selected: appearance.accent === swatch.color }" :style="{ '--swatch': swatch.color }" :aria-label="swatch.label" :aria-pressed="appearance.accent === swatch.color" @click="appearance.accent = swatch.color">
                   <svg v-if="appearance.accent === swatch.color" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>
                 </button>
+              </div>
+              <div v-else-if="appearance.accentSource === 'custom'" class="appearance-colors">
                 <label class="appearance-custom-color" title="选择自定义颜色">
                   <input :value="appearance.accent" type="color" aria-label="自定义点缀颜色" @input="handleAccentInput">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
                 </label>
+                <span class="appearance-custom-hex">{{ appearance.accent.toUpperCase() }}</span>
               </div>
+              <p v-else class="appearance-control-hint">从播放中的歌曲封面提取主色，切歌即时跟随；暂无封面时使用预设颜色</p>
             </fieldset>
 
             <div class="appearance-section appearance-toggle-row">
@@ -86,18 +105,30 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { appearance, appearancePanelOpen, resetAppearance, type Appearance } from '@renderer/composables/useAppearance'
+import { coverAccent } from '@renderer/ui/coverAccent'
 import { selectWallpaper, wallpaper, wallpaperUrl, wallpaperBusy, wallpaperError, openWallpaperFolder } from '../useWallpaper'
 import UiIcon from './UiIcon.vue'
 
 const panel = ref<HTMLElement | null>(null)
+const skins: Array<{ value: Appearance['skin'], label: string }> = [
+  { value: 'linkline', label: 'Mix Music 原版' },
+  { value: 'echo', label: 'EchoMusic' },
+]
 const modes: Array<{ value: Appearance['mode'], label: string }> = [
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' },
   { value: 'custom', label: '自定义' },
 ]
 const customTones: Array<{ value: Appearance['customTone'], label: string }> = [{ value: 'auto', label: '自动' }, { value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }]
+const accentSources: Array<{ value: Appearance['accentSource'], label: string }> = [
+  { value: 'cover', label: '跟随封面' },
+  { value: 'preset', label: '预设主题' },
+  { value: 'custom', label: '自定义' },
+]
+// 图例展示当前生效色：跟随封面时显示封面主色（未取到则回退已存颜色）。
+const accentHexLabel = computed(() => (appearance.accentSource === 'cover' && coverAccent.value ? coverAccent.value : appearance.accent).toUpperCase())
 const colorRoles = [{ variable: '--modern-accent', label: '强调色' }, { variable: '--modern-accent-soft', label: '选中背景' }, { variable: '--modern-sidebar', label: '侧栏' }, { variable: '--modern-panel', label: '内容面板' }, { variable: '--modern-text', label: '文字' }]
 async function uploadWallpaper() { if (await selectWallpaper()) { appearance.customTone = 'auto'; appearance.mode = 'custom' } }
 async function chooseMode(mode: Appearance['mode']) {
@@ -105,7 +136,7 @@ async function chooseMode(mode: Appearance['mode']) {
   else appearance.mode = mode
 }
 const swatches = [
-  { color: '#00eb81', label: 'LinkLine 绿（默认）' },
+  { color: '#00eb81', label: 'Mix Music 绿（默认）' },
   { color: '#638575', label: '鼠尾草绿' },
   { color: '#6287b5', label: '雾霭蓝' },
   { color: '#9181b3', label: '柔和紫' },
@@ -219,6 +250,46 @@ onBeforeUnmount(() => { previousFocus?.focus() })
 .appearance-section legend, .appearance-label { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 13px; font-weight: 500; font-size: 12px; }
 .appearance-value { color: var(--modern-muted); font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .appearance-modes { display: flex; gap: 9px; }
+.appearance-skins { display: flex; gap: 9px; }
+.appearance-skin {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 8px 9px;
+  background: transparent;
+  border: 1px solid var(--modern-border);
+  border-radius: 10px;
+  color: var(--modern-muted);
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+  &.selected { border-color: var(--modern-accent); background: var(--modern-accent-soft); color: var(--modern-text); }
+}
+.appearance-skin-preview {
+  height: 46px;
+  display: block;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, .08);
+  border-radius: 5px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  i { position: absolute; border-radius: 2px; }
+  // Mix Music：连续面板骨架
+  &.linkline { background: #f0f0f0;
+    i:nth-child(1) { inset: 0 auto 0 0; width: 24%; border-radius: 0; background: #e3e6e4; }
+    i:nth-child(2) { left: 30%; right: 6%; top: 8px; height: 5px; background: #c9d1cc; }
+    i:nth-child(3) { left: 30%; right: 34%; bottom: 8px; height: 12px; border-radius: 3px; background: #d7ded9; }
+    i:nth-child(4) { left: 30%; right: 6%; bottom: 8px; height: 5px; background: #bfe9d2; }
+  }
+  // EchoMusic：浮岛 + 氛围渐变 + 大圆播放钮
+  &.echo { background: linear-gradient(160deg, #ffe9d6 0%, #fdf3e7 46%, #f6f6f6 100%);
+    i:nth-child(1) { left: 6%; top: 7%; bottom: 7%; width: 20%; border-radius: 4px; background: rgba(255, 255, 255, .85); }
+    i:nth-child(2) { left: 30%; right: 6%; top: 10%; height: 38%; border-radius: 4px; background: rgba(255, 255, 255, .9); }
+    i:nth-child(3) { left: 30%; right: 6%; bottom: 10%; height: 26%; border-radius: 4px; background: rgba(255, 255, 255, .9); }
+    i:nth-child(4) { left: 36%; bottom: 17%; width: 9px; height: 9px; border-radius: 50%; background: #00cc65; }
+  }
+}
+.appearance-skin-name { display: block; padding-right: 16px; }
 .appearance-mode {
   position: relative;
   flex: 1;
@@ -249,6 +320,25 @@ onBeforeUnmount(() => { previousFocus?.focus() })
 }
 .appearance-mode-check { width: 12px; height: 12px; position: absolute; right: 5px; bottom: 11px; color: var(--modern-accent-ink); }
 .appearance-colors { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+// 主题色来源三选项（对照 EchoMusic：跟随封面 / 预设主题 / 自定义）
+.appearance-accent-sources {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  button {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 0;
+    border: 1px solid var(--modern-border);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--modern-muted);
+    font-size: 11px;
+    cursor: pointer;
+    &.selected { border-color: var(--modern-accent); background: var(--modern-accent-soft); color: var(--modern-text); }
+  }
+}
+.appearance-custom-hex { color: var(--modern-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .appearance-swatch {
   width: 28px;
   height: 28px;

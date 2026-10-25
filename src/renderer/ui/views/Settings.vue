@@ -88,8 +88,8 @@
           <UpdateCenterPanel v-if="category.id === 'updates'" />
 
           <template v-if="category.id === 'about'">
-            <div class="studio-settings-about"><img :src="linklineLogo" alt="LinkLine 标志"><h2>LinkLine</h2><p>版本 {{ versionInfo.version }} · 独立桌面客户端</p><p>音乐无界，热爱不止。</p></div>
-            <p class="studio-settings-hint">LinkLine 基于 LXMusic 开源项目再开发。遵循 Apache-2.0 开源许可。</p>
+            <div class="studio-settings-about"><img :src="brandLogo" alt="Mix Music 标志"><h2>Mix Music</h2><p>版本 {{ versionInfo.version }} · 独立桌面客户端</p><p>音乐无界，热爱不止。</p></div>
+            <p class="studio-settings-hint">Mix Music 基于 LXMusic 开源项目再开发。遵循 Apache-2.0 开源许可。</p>
             <div class="studio-settings-actions spaced"><button type="button" class="studio-settings-button" @click="openUrl(LINKLINE_REPOSITORY)">项目源码<UiIcon name="arrowUpRight" /></button><button type="button" class="studio-settings-button" @click="openUrl(`${LINKLINE_REPOSITORY}#readme`)">使用说明<UiIcon name="arrowUpRight" /></button><button type="button" class="studio-settings-button" @click="licenseOpen = true">开源许可</button><button type="button" class="studio-settings-button" @click="openUpdateCenter"><UiIcon name="cloudDownload" />检查更新</button></div>
           </template>
           </template>
@@ -98,7 +98,7 @@
       </main>
     </div>
     <UiModal :show="Boolean(confirmation)" :title="confirmation?.title ?? ''" @close="answerConfirmation(false)"><p>{{ confirmation?.message }}</p><template #footer><button type="button" class="ui-dialog-button" @click="answerConfirmation(false)">{{ confirmation?.cancelLabel }}</button><button type="button" class="ui-dialog-button" :class="confirmation?.danger ? 'ui-dialog-button-danger' : 'ui-dialog-button-primary'" @click="answerConfirmation(true)">{{ confirmation?.confirmLabel }}</button></template></UiModal>
-    <UiModal :show="licenseOpen" title="开源许可与归属" @close="licenseOpen = false"><p>LinkLine 的播放器、音源接口和资料管理基于 LX Music Desktop。</p><p class="studio-settings-license">LX Music Desktop<br>Copyright © lyswhut / 落雪无痕<br>Licensed under the Apache License, Version 2.0.</p><p>修改后的界面代码与第三方依赖保留各自原始版权和许可声明。完整许可文件随应用一起分发。</p><template #footer><button type="button" class="ui-dialog-button" @click="openUrl('https://www.apache.org/licenses/LICENSE-2.0')">查看 Apache-2.0<UiIcon name="arrowUpRight" /></button><button type="button" class="ui-dialog-button ui-dialog-button-primary" @click="licenseOpen = false">关闭</button></template></UiModal>
+    <UiModal :show="licenseOpen" title="开源许可与归属" @close="licenseOpen = false"><p>Mix Music 的播放器、音源接口和资料管理基于 LX Music Desktop。</p><p class="studio-settings-license">LX Music Desktop<br>Copyright © lyswhut / 落雪无痕<br>Licensed under the Apache License, Version 2.0.</p><p>修改后的界面代码与第三方依赖保留各自原始版权和许可声明。完整许可文件随应用一起分发。</p><template #footer><button type="button" class="ui-dialog-button" @click="openUrl('https://www.apache.org/licenses/LICENSE-2.0')">查看 Apache-2.0<UiIcon name="arrowUpRight" /></button><button type="button" class="ui-dialog-button ui-dialog-button-primary" @click="licenseOpen = false">关闭</button></template></UiModal>
   </div>
 </template>
 
@@ -119,7 +119,7 @@ import UiSelect from '@renderer/ui/components/UiSelect.vue'
 import UiIcon from '@renderer/ui/components/UiIcon.vue'
 import PlatformAccounts from '@renderer/ui/components/PlatformAccounts.vue'
 import UpdateCenterPanel from '@renderer/ui/components/UpdateCenterPanel.vue'
-import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
+import brandLogo from '@renderer/assets/images/mixmusic-logo.svg'
 import { LINKLINE_REPOSITORY } from '@common/appUpdate'
 import { externalLyricDefaults, type ExternalLyricMode, type ExternalLyricSettings } from '@common/externalLyric'
 import { openUpdateCenter } from '@renderer/ui/services/appUpdate'

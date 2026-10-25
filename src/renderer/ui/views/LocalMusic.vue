@@ -44,7 +44,7 @@
     </div>
     <TrackActionModal :show="addOpen" action="add" :tracks="actionTracks" :from-list-id="LOCAL_LIBRARY_ID" @close="addOpen = false" @success="handleSuccess" />
     <TrackMetadataModal :show="metadataOpen" :track="metadataTrack" :list-id="LOCAL_LIBRARY_ID" @close="metadataOpen = false" @saved="metadataSaved" />
-    <UiModal :show="removeOpen" title="从本地音乐移除" :subtitle="`已选择 ${removeTracks.length} 首音乐`" @close="removeOpen = false"><p class="ui-dialog-note">只移除 LinkLine 中的本地曲库记录，电脑上的音乐文件会继续保留，其他歌单中的记录也不受影响。</p><template #footer><button type="button" class="ui-dialog-button" :disabled="removing" @click="removeOpen = false">取消</button><button type="button" class="ui-dialog-button ui-dialog-button-danger" :disabled="removing" @click="confirmRemove">{{ removing ? '移除中…' : '移除音乐' }}</button></template></UiModal>
+    <UiModal :show="removeOpen" title="从本地音乐移除" :subtitle="`已选择 ${removeTracks.length} 首音乐`" @close="removeOpen = false"><p class="ui-dialog-note">只移除 Mix Music 中的本地曲库记录，电脑上的音乐文件会继续保留，其他歌单中的记录也不受影响。</p><template #footer><button type="button" class="ui-dialog-button" :disabled="removing" @click="removeOpen = false">取消</button><button type="button" class="ui-dialog-button ui-dialog-button-danger" :disabled="removing" @click="confirmRemove">{{ removing ? '移除中…' : '移除音乐' }}</button></template></UiModal>
   </section>
 </template>
 

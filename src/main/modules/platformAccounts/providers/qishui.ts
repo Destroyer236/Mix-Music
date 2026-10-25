@@ -238,7 +238,16 @@ export const qishuiProvider: PlatformProvider = {
     const info = object(body.my_info)
     const id = itemId(info.id)
     if (!id) throw new Error('汽水音乐未确认登录，请重新扫码')
-    return { id, nickname: text(info.nickname ?? info.public_name) || '汽水音乐用户', avatar: imageUrl(info.url_avatar), extra: { secUid: text(info.sec_uid) } }
+    // my_info 自带会员标识（is_vip / vip_stage，如 "svip"）；PC 协议无到期字段。
+    const vipStage = text(info.vip_stage)
+    const vipActive = info.is_vip === true || Number(info.is_vip) === 1 || (vipStage && vipStage !== '0')
+    return {
+      id,
+      nickname: text(info.nickname ?? info.public_name) || '汽水音乐用户',
+      avatar: imageUrl(info.url_avatar),
+      ...(vipActive ? { vip: { label: /^\d+$/.test(vipStage) ? 'VIP会员' : vipStage.toUpperCase(), dueDate: null } } : {}),
+      extra: { secUid: text(info.sec_uid) },
+    }
   },
   async likes(context) {
     const playlists = await myPlaylists(context)

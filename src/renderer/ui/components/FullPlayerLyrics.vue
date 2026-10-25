@@ -294,7 +294,7 @@ async function exportImage() {
     }
     context.fillStyle = muted
     context.font = `20px ${family}`
-    context.fillText('LinkLine · 歌词', 96, height - 62)
+    context.fillText('Mix Music · 歌词', 96, height - 62)
     const blob = await new Promise<Blob>((resolve, reject) => { canvas.toBlob(value => { if (value) resolve(value); else reject(new Error('Image encoding failed')) }, 'image/png') })
     const filename = `${musicInfo.name || '歌曲'} - 歌词.png`.replace(/[\\/:*?"<>|]/g, ' ')
     const result = await openSaveDir({ title: '导出歌词图片', defaultPath: filename, filters: [{ name: 'PNG 图片', extensions: ['png'] }] })

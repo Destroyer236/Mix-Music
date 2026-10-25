@@ -147,7 +147,20 @@ export const bodianProvider: PlatformProvider = {
     const saved = await getIdentity(context)
     // Unlike users/pub and fond, userCreate rejects invalid credentials (-101).
     await request(context, '/api/service/playlist/userCreate', { query: { userId: saved.id }, expectedUser: saved.id })
-    return { id: saved.id, nickname: saved.nickname, avatar: saved.avatar }
+    // users/pub 免签名，携带资料与会员（payInfo.isVipBoolean / payExpireDate、
+    // 已脱敏的手机号）；失败时只显示基础资料。
+    const detail = await request(context, `/api/ucenter/users/pub/${saved.id}`, { query: {} }).catch(() => null)
+    const payInfo = object(object(detail).payInfo)
+    const mobile = text(object(object(detail).userInfo).mobile)
+    const vipActive = payInfo.isVipBoolean === true
+    const vipDue = [Number(payInfo.payExpireDate), Number(payInfo.expireDate), Number(payInfo.actExpireDate)].find(time => time > Date.now()) ?? 0
+    return {
+      id: saved.id,
+      nickname: saved.nickname,
+      avatar: saved.avatar,
+      ...(vipActive ? { vip: { label: 'VIP会员', dueDate: vipDue || null } } : {}),
+      ...(mobile ? { extra: { phone: mobile } } : {}),
+    }
   },
   async likes(context, profile) {
     const liked = await fond(context, profile)
@@ -228,6 +241,19 @@ export const bodianProvider: PlatformProvider = {
     await verifyProfile(context, profile)
     const confirmed = await allPages(context, `/api/service/playlist/${validId(target.id)}/musicList`, 'list', { source: 5 })
     if (confirmed.some(item => itemId(item.id ?? item.musicId) === id) !== liked) throw new Error('波点音乐尚未确认红心更改，请重新同步后重试')
+  },
+  async addToPlaylist(context, profile, playlist, track) {
+    if (track.source !== 'bo') throw new Error('此记录不是波点音乐歌曲')
+    if (playlist.platform !== 'bodian' || playlist.ownerId !== profile.id) throw new Error('歌单不属于当前波点音乐账号，请重新同步')
+    const id = validId(track.meta.songId)
+    // remoteId 的格式是 "<sourceType>:<id>"，接口只接受冒号后的数字 ID。
+    const playListId = Number(playlist.remoteId.split(':').pop())
+    if (!Number.isSafeInteger(playListId) || playListId <= 0) throw new Error('无效的波点音乐歌单编号')
+    await verifyProfile(context, profile)
+    await request(context, '/api/service/playlist/music', { body: { playListId, musicIdList: [Number(id)] }, signed: true, expectedUser: profile.id })
+    await verifyProfile(context, profile)
+    // 波点对重复歌曲静默成功（不报错也不去重提示），因此不做内容比对；
+    // 写入后重新校验账号身份即可确认请求已在该账号下被接受。
   },
 }
 export default bodianProvider

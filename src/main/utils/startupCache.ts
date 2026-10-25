@@ -14,7 +14,7 @@ interface StartupCacheOptions {
 export async function clearStartupCaches(options: StartupCacheOptions): Promise<void> {
   const warn = options.warn ?? console.warn
   const attempt = async(label: string, task: () => Promise<unknown>) => {
-    try { await task() } catch (error) { warn(`LinkLine startup cache cleanup skipped ${label}:`, error) }
+    try { await task() } catch (error) { warn(`Mix Music startup cache cleanup skipped ${label}:`, error) }
   }
   await attempt('temporary files', async() => {
     const root = await fs.realpath(options.dataPath)

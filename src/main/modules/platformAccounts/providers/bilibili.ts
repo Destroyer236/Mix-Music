@@ -114,6 +114,41 @@ async function playlistTracks(context: ProviderContext, profile: PlatformProfile
   throw new Error('哔哩哔哩收藏夹内容超过同步上限')
 }
 
+// 收藏夹写入助手：收藏 / 取消收藏共用同一接口。
+async function videoAid(context: ProviderContext, track: LX.Music.MusicInfoOnline): Promise<string> {
+  if (track.source !== 'bi' || !safeBvid(track.meta.songId)) throw new Error('此记录不是哔哩哔哩内容')
+  const view = await request(context, '/x/web-interface/view', { bvid: String(track.meta.songId) })
+  const aid = numericId(view.aid)
+  if (!aid || safeBvid(view.bvid) !== String(track.meta.songId)) throw new Error('哔哩哔哩视频标识无效')
+  return aid
+}
+async function dealFavorite(context: ProviderContext, folderId: string, track: LX.Music.MusicInfoOnline, add: boolean, csrf: string): Promise<void> {
+  const aid = await videoAid(context, track)
+  await request(context, '/x/v3/fav/resource/deal', {
+    rid: aid,
+    type: 2,
+    add_media_ids: add ? folderId : '',
+    del_media_ids: add ? '' : folderId,
+    csrf,
+  }, true)
+}
+// 收藏夹归属校验：列表头部的 mid 与 id 必须对应当前账号和这个收藏夹。
+async function verifyFavorite(context: ProviderContext, folderId: string): Promise<void> {
+  const body = await request(context, '/x/v3/fav/resource/list', { media_id: folderId, pn: 1, ps: 1, platform: 'web' })
+  if (String(body.info?.id ?? '') !== folderId) throw new Error('收藏夹不属于当前哔哩哔哩账号，请重新同步')
+}
+// 回读收藏夹确认目标视频已在内（success_num 字段从不反映真实结果）。
+async function favoriteContains(context: ProviderContext, folderId: string, aid: string): Promise<boolean> {
+  for (let page = 1; page <= 50; page++) {
+    const body = await request(context, '/x/v3/fav/resource/list', { media_id: folderId, pn: page, ps: 20, platform: 'web' })
+    const entries = Array.isArray(body.medias) ? body.medias : []
+    // 新收藏的条目排在列表最前，通常首页即可命中。
+    if (entries.some(item => numericId(object(item).id) === aid)) return true
+    if (!body.has_more || !entries.length) return false
+  }
+  return false
+}
+
 interface AudioStream { url: string, backupUrls: string[], quality: PlatformQuality, bitrate: number, rank: number }
 const qualityById: Record<string, { quality: PlatformQuality, rank: number }> = { 30216: { quality: '64k', rank: 1 }, 30232: { quality: '128k', rank: 2 }, 30280: { quality: '192k', rank: 3 }, 30250: { quality: 'dolby', rank: 5 }, 30251: { quality: 'flac24bit', rank: 6 } }
 const qualityRank: Partial<Record<PlatformQuality, number>> = { '64k': 1, '128k': 2, '192k': 3, '320k': 4, dolby: 5, flac: 6, flac24bit: 6, wav: 6, ape: 6, sky: 5, jyeffect: 5, jymaster: 6, vivid: 6 }
@@ -160,7 +195,14 @@ export const bilibiliProvider: PlatformProvider = {
     const body = await request(context, '/x/web-interface/nav')
     const id = numericId(body.mid)
     if (body.isLogin !== true || !id || (cookies.DedeUserID && cookies.DedeUserID !== id)) throw new Error('哔哩哔哩登录状态已失效，请重新登录')
-    return { id, nickname: text(body.uname) || '哔哩哔哩用户', avatar: httpsImage(body.face) }
+    const dueDate = Number(body.vipDueDate) || 0
+    const vipLabel = text(object(body.vipLabel ?? body.vip_label).text) || (Number(body.vipType) === 1 ? '月度大会员' : Number(body.vipType) === 2 ? '年度大会员' : '大会员')
+    return {
+      id,
+      nickname: text(body.uname) || '哔哩哔哩用户',
+      avatar: httpsImage(body.face),
+      ...(Number(body.vipStatus) === 1 ? { vip: { label: vipLabel, dueDate: dueDate > Date.now() ? dueDate : null } } : {}),
+    }
   },
   async likes(context, profile) {
     const selected = findDefaultFolder(await folders(context, profile))
@@ -205,9 +247,16 @@ export const bilibiliProvider: PlatformProvider = {
     if (!cookies.SESSDATA || !cookies.bili_jct || (cookies.DedeUserID && cookies.DedeUserID !== profile.id)) throw new Error('哔哩哔哩登录状态已失效，请重新登录')
     const folder = findDefaultFolder(await folders(context, profile))
     if (!folder) throw new Error('哔哩哔哩未找到默认收藏夹，请在平台创建收藏后重试')
-    const view = await request(context, '/x/web-interface/view', { bvid: String(track.meta.songId) })
-    const aid = numericId(view.aid)
-    if (!aid || safeBvid(view.bvid) !== String(track.meta.songId)) throw new Error('哔哩哔哩视频标识无效')
-    await request(context, '/x/v3/fav/resource/deal', { rid: aid, type: 2, add_media_ids: liked ? folder.id : '', del_media_ids: liked ? '' : folder.id, csrf: cookies.bili_jct }, true)
+    await dealFavorite(context, folder.id, track, liked, cookies.bili_jct)
+  },
+  async addToPlaylist(context, profile, playlist, track) {
+    if (playlist.platform !== 'bilibili' || playlist.ownerId !== profile.id || !numericId(playlist.remoteId)) throw new Error('收藏夹不属于当前哔哩哔哩账号，请重新同步')
+    const cookies = await context.cookies()
+    if (!cookies.SESSDATA || !cookies.bili_jct || (cookies.DedeUserID && cookies.DedeUserID !== profile.id)) throw new Error('哔哩哔哩登录状态已失效，请重新登录')
+    await verifyFavorite(context, playlist.remoteId)
+    const aid = await videoAid(context, track)
+    if (await favoriteContains(context, playlist.remoteId, aid)) return
+    await dealFavorite(context, playlist.remoteId, track, true, cookies.bili_jct)
+    if (!await favoriteContains(context, playlist.remoteId, aid)) throw new Error('哔哩哔哩未确认收藏成功，请稍后重试')
   },
 }

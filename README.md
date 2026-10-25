@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/icons/linkline.svg" width="88" height="88" alt="LinkLine Logo">
+  <img src="resources/icons/mixmusic.svg" width="88" height="88" alt="Mix Music Logo">
 </p>
 
-<h1 align="center">LinkLine</h1>
+<h1 align="center">Mix Music</h1>
 
 <p align="center"><strong>把不同平台的音乐，连接到同一个音乐空间。</strong></p>
 
@@ -23,40 +23,40 @@
   <a href="https://github.com/yaonikaixin999999/LinkLine/issues">反馈问题</a>
 </p>
 
-LinkLine 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。连接平台账号，汇总喜欢的歌曲与自建歌单；导入本地音乐，按歌手、专辑和文件夹整理。用随主题变化的沉浸播放器、滚动歌词与独立外部歌词，听见分散在不同地方的音乐。
+Mix Music 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。连接平台账号，汇总喜欢的歌曲与自建歌单；导入本地音乐，按歌手、专辑和文件夹整理。用随主题变化的沉浸播放器、滚动歌词与独立外部歌词，听见分散在不同地方的音乐。
 
 <p align="center">
-  <a href="docs/images/readme/home-light.webp"><img src="docs/images/readme/home-light.webp" width="1000" alt="LinkLine 1.1.0 浅色主题推荐页，绿色点缀、浮动面板与底部播放器"></a>
+  <a href="docs/images/readme/home-light.webp"><img src="docs/images/readme/home-light.webp" width="1000" alt="Mix Music 1.1.0 浅色主题推荐页，绿色点缀、浮动面板与底部播放器"></a>
   <br>
   <sub>浅色主题 · 推荐页 · 无描边浮动面板</sub>
 </p>
 
-## 看看 LinkLine
+## 看看 Mix Music
 
 <table>
   <tr>
     <td width="50%" align="center">
-      <a href="docs/images/readme/home-dark.webp"><img src="docs/images/readme/home-dark.webp" alt="LinkLine 深色主题推荐页" width="500"></a>
+      <a href="docs/images/readme/home-dark.webp"><img src="docs/images/readme/home-dark.webp" alt="Mix Music 深色主题推荐页" width="500"></a>
       <br><strong>深色主题</strong><br><sub>在浅色与深色之间自由切换</sub>
     </td>
     <td width="50%" align="center">
-      <a href="docs/images/readme/playlists.webp"><img src="docs/images/readme/playlists.webp" alt="LinkLine 精选歌单页面" width="500"></a>
+      <a href="docs/images/readme/playlists.webp"><img src="docs/images/readme/playlists.webp" alt="Mix Music 精选歌单页面" width="500"></a>
       <br><strong>精选歌单</strong><br><sub>按平台与分类，发现下一首喜欢的歌</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <a href="docs/images/readme/local-library.webp"><img src="docs/images/readme/local-library.webp" alt="LinkLine 本地音乐分类与导入页面" width="500"></a>
+      <a href="docs/images/readme/local-library.webp"><img src="docs/images/readme/local-library.webp" alt="Mix Music 本地音乐分类与导入页面" width="500"></a>
       <br><strong>本地音乐</strong><br><sub>歌曲、歌手、专辑、文件夹，四种整理方式</sub>
     </td>
     <td width="50%" align="center">
-      <a href="docs/images/readme/appearance.webp"><img src="docs/images/readme/appearance.webp" alt="LinkLine 外观定制面板" width="500"></a>
+      <a href="docs/images/readme/appearance.webp"><img src="docs/images/readme/appearance.webp" alt="Mix Music 外观定制面板" width="500"></a>
       <br><strong>你的外观</strong><br><sub>配色、圆角、间距与图片主题，自由调整</sub>
     </td>
   </tr>
 </table>
 
-*截图来自 LinkLine 1.1.0；点击图片可查看大图。*
+*截图来自 Mix Music 1.1.0；点击图片可查看大图。*
 
 ## 为听歌而设计
 
@@ -95,7 +95,7 @@ LinkLine 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。�
 2. **同步音乐库**：点击「同步音乐库」或「同步全部」，在侧栏「喜欢」查看聚合红心，在「自建歌单」查看已同步歌单。
 3. **选择歌曲播放**：从音乐库、搜索或精选内容中播放；也可进入「本地下载 → 本地音乐」，导入自己的音频文件。
 
-QQ 音乐使用手机 QQ 扫描应用内二维码，网易云音乐使用网易云音乐 App 扫码；汽水、波点使用对应音乐 App 扫码。其他平台的扫码、密码或短信登录以平台官网展示的方式为准。软件默认不附带或自动导入音源脚本；需要时可在「音源与播放」中手动导入兼容脚本。旧版自动添加的预置音源会在读取列表时移除，对应选中设置恢复默认；用户手动导入的脚本继续保留。
+QQ 音乐使用手机 QQ 扫描应用内二维码，也可打开内嵌的官方登录页，用账号密码或微信扫码登录；网易云音乐使用网易云音乐 App 扫码；汽水、波点使用对应音乐 App 扫码。其他平台的扫码、密码或短信登录以平台官网展示的方式为准。软件默认不附带或自动导入音源脚本；需要时可在「音源与播放」中手动导入兼容脚本。旧版自动添加的预置音源会在读取列表时移除，对应选中设置恢复默认；用户手动导入的脚本继续保留。
 
 ## 平台支持
 
@@ -105,10 +105,10 @@ QQ 音乐使用手机 QQ 扫描应用内二维码，网易云音乐使用网易�
 | 网易云音乐 | 网易云音乐 App 扫码 | 支持 | 支持 | 支持 |
 | 汽水音乐（实验性） | 汽水音乐 App 扫码，按需官方安全验证 | 已接入，需实号验证 | 已接入，需实号验证 | 已接入，按版权及匹配结果操作 |
 | 波点音乐（实验性） | 波点 App 扫码 | 已接入，需实号验证 | 已接入，需实号验证 | 已接入，按版权及匹配结果操作 |
-| 咪咕音乐 | 支持 | 支持 | 支持 | 支持 |
+| 咪咕音乐 | 应用内手机号验证码登录 | 支持 | 支持 | 支持 |
 | 哔哩哔哩 | 支持 | 默认收藏夹聚合 | 自建收藏夹 | 收藏操作 |
-| 酷狗音乐 | 支持，可验证账号 | 暂不支持 | 暂不支持 | 暂不支持 |
-| 酷我音乐 | 官网入口，暂不能验证账号 | 暂不支持 | 暂不支持 | 暂不支持 |
+| 酷狗音乐 | 官网网页登录 | 暂不支持 | 暂不支持 | 暂不支持 |
+| 酷我音乐 | 官网网页登录 | 暂不支持 | 暂不支持 | 暂不支持 |
 
 酷狗与酷我目前提供公开播放能力和官方登录入口，尚不支持云收藏同步。哔哩哔哩按视频 / 音轨和收藏夹处理。平台接口可能变化；登录或同步成功不代表获得所有歌曲的播放权限。
 
@@ -118,7 +118,7 @@ QQ 音乐使用手机 QQ 扫描应用内二维码，网易云音乐使用网易�
 
 ## 1.2.1 有什么新变化
 
-- 换用「拍点」Logo 与几何 LinkLine 字标，左上角品牌缩小并靠左排列，同步应用、安装包及托盘图标。
+- 换用「拍点」Logo 与几何 Mix Music 字标，左上角品牌缩小并靠左排列，同步应用、安装包及托盘图标。
 - 改进任务栏歌词在任务栏重建、宿主异常后的自动恢复；翻译显示独立于双行开关，修复部分缩放比例下外部歌词窗口尺寸变化。
 - QQ 音乐、网易云音乐使用应用内二维码登录；汽水音乐改用汽水 App 扫码，按平台要求显示官方验证码 / 身份验证窗口。
 - 改进汽水分享音频刷新、原声片段与官方播放器主备地址处理，探测连接并尝试其他有效候选；网页权限、版权及受保护内容的限制仍然适用。
@@ -169,7 +169,7 @@ npm run pack:win:setup:x64
 <details>
 <summary><strong>数据、备份与运行资源</strong></summary>
 
-正常安装的数据目录为 `%APPDATA%\LinkLine`，音乐资料位于其中的 `LxDatas`。登录会话、音乐库与设置保存在本机；源码测试脚本默认使用项目内的 `artifacts/user-test-data`，与正式安装分开。
+正常安装的数据目录为 `%APPDATA%\Mix Music`，音乐资料位于其中的 `LxDatas`。登录会话、音乐库与设置保存在本机；源码测试脚本默认使用项目内的 `artifacts/user-test-data`，与正式安装分开。
 
 在「设置与偏好 → 备份与数据」导入导出音乐库与偏好设置。备份不会复制原始音频文件或平台登录会话，详见[数据存储、备份与迁移](docs/项目说明.md#数据存储备份与迁移)。
 
@@ -179,6 +179,6 @@ npm run pack:win:setup:x64
 
 ## 许可与归属
 
-LinkLine 基于 [LXMusic 开源项目](https://github.com/lyswhut/lx-music-desktop)再开发，保留原作者版权声明，遵循 [Apache License 2.0](LICENSE)。第三方组件保留[各自许可](licenses/)，音乐与平台内容的权利归各自权利人所有。
+Mix Music 基于 [LXMusic 开源项目](https://github.com/lyswhut/lx-music-desktop)再开发，保留原作者版权声明，遵循 [Apache License 2.0](LICENSE)。第三方组件保留[各自许可](licenses/)，音乐与平台内容的权利归各自权利人所有。
 
-播放器、外部歌词与心动模式的交互参考 [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next)，汽水登录及音频获取流程参考 [sodam](https://github.com/sodahub-org/sodam) 的公开实现，结合 LinkLine 既有播放服务、歌词格式与 Electron 窗口独立适配；原项目保留其版权与许可。感谢相关开源项目的作者与贡献者。
+播放器、外部歌词与心动模式的交互参考 [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next)，汽水登录及音频获取流程参考 [sodam](https://github.com/sodahub-org/sodam) 的公开实现，结合 Mix Music 既有播放服务、歌词格式与 Electron 窗口独立适配；原项目保留其版权与许可。感谢相关开源项目的作者与贡献者。

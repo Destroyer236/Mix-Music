@@ -20,7 +20,7 @@
                   <span v-if="currentStream?.isTrial" class="ll-full-trial">试听</span>
                 </div>
                 <p class="ll-full-artists"><UiIcon name="micVocal" /><span v-if="artistNames.length"><template v-for="(artist, index) in artistNames" :key="artist"><span v-if="index" class="ll-metadata-divider"> / </span><button type="button" :title="`查看歌手 ${artist}`" @click="searchMetadata('artist', artist)">{{ artist }}</button></template></span><span v-else>{{ currentTrack ? '未知歌手' : '从你的音乐库开始聆听' }}</span></p>
-                <p class="ll-full-album-name"><UiIcon name="disc" /><button v-if="musicInfo.album" type="button" :title="`查看专辑 ${musicInfo.album}`" @click="searchMetadata('album', musicInfo.album)">{{ musicInfo.album }}</button><span v-else>{{ currentTrack ? '未知专辑' : 'LinkLine' }}</span></p>
+                <p class="ll-full-album-name"><UiIcon name="disc" /><button v-if="musicInfo.album" type="button" :title="`查看专辑 ${musicInfo.album}`" @click="searchMetadata('album', musicInfo.album)">{{ musicInfo.album }}</button><span v-else>{{ currentTrack ? '未知专辑' : 'Mix Music' }}</span></p>
               </div>
             </div>
           </Transition>

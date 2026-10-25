@@ -4,7 +4,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import { mainHandle } from '@common/mainIpc'
-import { LINKLINE_BACKUP_MIRROR, LINKLINE_DOWNLOAD_MIRROR, LINKLINE_UPDATE_CHECK, LINKLINE_UPDATE_DOWNLOAD, LINKLINE_UPDATE_DOWNLOAD_PROGRESS, LINKLINE_UPDATE_INSTALL, isUpdateSource, releaseAssetDownloadUrl, type UpdateCheckRequest, type UpdateCheckResult, type UpdateDownloadProgress, type UpdateDownloadRequest, type UpdateDownloadResult } from '@common/appUpdate'
+import { INSTALLER_FILE_NAME_RXP, LINKLINE_BACKUP_MIRROR, LINKLINE_DOWNLOAD_MIRROR, LINKLINE_UPDATE_CHECK, LINKLINE_UPDATE_DOWNLOAD, LINKLINE_UPDATE_DOWNLOAD_PROGRESS, LINKLINE_UPDATE_INSTALL, isUpdateSource, releaseAssetDownloadUrl, type UpdateCheckRequest, type UpdateCheckResult, type UpdateDownloadProgress, type UpdateDownloadRequest, type UpdateDownloadResult } from '@common/appUpdate'
 import { createUpdateChecker } from './checker'
 
 const TIMEOUT = 8_000
@@ -25,7 +25,7 @@ export const fetchUpdateText = async(url: string, signal?: AbortSignal): Promise
   if (signal?.aborted) controller.abort()
   const timer = setTimeout(() => { controller.abort() }, TIMEOUT)
   try {
-    const response = await net.fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'LinkLine-Update-Check', Accept: url.includes('api.github.com') ? 'application/vnd.github+json' : url.endsWith('.json') ? 'application/json' : 'application/atom+xml,text/html' } })
+    const response = await net.fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'MixMusic-Update-Check', Accept: url.includes('api.github.com') ? 'application/vnd.github+json' : url.endsWith('.json') ? 'application/json' : 'application/atom+xml,text/html' } })
     if (!response.ok) {
       await response.body?.cancel()
       throw new Error(response.status === 403 || response.status === 429 ? 'GitHub 更新请求暂时受限，请稍后重试。' : `更新服务暂不可用（${response.status}），请稍后重试。`)
@@ -75,7 +75,7 @@ const validateDownloadRequest = (request: UpdateDownloadRequest): { url: string,
     (request.url.startsWith(LINKLINE_BACKUP_MIRROR) ? releaseAssetDownloadUrl(request.url.slice(LINKLINE_BACKUP_MIRROR.length), 'github') : null)
   if (!officialUrl) throw new Error('更新下载地址无效。')
   const urlFileName = decodeURIComponent(new URL(officialUrl).pathname.split('/').pop() ?? '')
-  if (urlFileName !== request.fileName || !/^LinkLine-v\d+\.\d+\.\d+-x64-Setup\.exe$/i.test(request.fileName)) throw new Error('更新安装包文件名无效。')
+  if (urlFileName !== request.fileName || !INSTALLER_FILE_NAME_RXP.test(request.fileName)) throw new Error('更新安装包文件名无效。')
   const sha256 = request.sha256 == null ? undefined : request.sha256.toLowerCase()
   if (sha256 != null && !/^[a-f\d]{64}$/.test(sha256)) throw new Error('更新安装包校验值无效。')
   const requestId = request.requestId ?? undefined
@@ -105,13 +105,13 @@ const downloadInstaller = async(sender: Electron.WebContents, request: UpdateDow
   activeDownloadAbort?.abort()
   const controller = new AbortController()
   activeDownloadAbort = controller
-  const targetPath = path.join(app.getPath('temp'), `LinkLine-update-${randomUUID()}.exe`)
+  const targetPath = path.join(app.getPath('temp'), `MixMusic-update-${randomUUID()}.exe`)
   const timer = setTimeout(() => { controller.abort() }, DOWNLOAD_TIMEOUT)
   let stream: ReturnType<typeof createWriteStream> | null = null
   let completed = false
   try {
     await mkdir(path.dirname(targetPath), { recursive: true })
-    const response = await net.fetch(target.url, { signal: controller.signal, redirect: 'follow', headers: { 'User-Agent': 'LinkLine-Updater', Accept: 'application/octet-stream' } })
+    const response = await net.fetch(target.url, { signal: controller.signal, redirect: 'follow', headers: { 'User-Agent': 'MixMusic-Updater', Accept: 'application/octet-stream' } })
     if (!response.ok) throw new Error(`下载安装包失败（${response.status}）。`)
     const declaredLength = Number(response.headers.get('content-length'))
     if (declaredLength > MAX_DOWNLOAD_BYTES) throw new Error('更新安装包过大，已停止下载。')

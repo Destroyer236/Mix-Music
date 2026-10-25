@@ -1,13 +1,13 @@
 <template>
   <div class="linkline-updates" :aria-busy="updateChecking" :data-status="updateChecking ? 'checking' : updateResult?.status ?? 'idle'">
     <article class="linkline-update-card linkline-update-overview" :class="{ available: updateAvailable, failed: updateResult?.status === 'error' && !updateChecking }">
-      <div class="linkline-update-product"><img :src="linklineLogo" alt="LinkLine 标志"><div><h3>LinkLine</h3><p>当前版本 {{ currentVersion }}</p></div></div>
+      <div class="linkline-update-product"><img :src="brandLogo" alt="Mix Music 标志"><div><h3>Mix Music</h3><p>当前版本 {{ currentVersion }}</p></div></div>
       <div class="linkline-update-status" role="status" aria-live="polite"><UiIcon :name="updateChecking ? 'refresh' : statusIcon" :class="{ spinning: updateChecking }" /><div><strong>{{ statusTitle }}</strong><p>{{ statusDescription }}</p></div></div>
       <div class="linkline-update-actions"><button type="button" class="linkline-update-button" :class="{ primary: !installer }" :disabled="updateChecking" @click="checkAppUpdate(true)"><UiIcon :name="updateChecking ? 'refresh' : 'cloudDownload'" :class="{ spinning: updateChecking }" />{{ updateChecking ? '正在检查…' : updateResult?.status === 'error' ? '重试检查' : '检查更新' }}</button><button v-if="installer && !downloadReady" type="button" class="linkline-update-button primary linkline-update-download" :disabled="downloadState === 'downloading' || installing" @click="downloadInstaller"><UiIcon :name="downloadState === 'downloading' ? 'refresh' : 'download'" :class="{ spinning: downloadState === 'downloading' }" />{{ downloadState === 'downloading' ? '正在下载…' : downloadState === 'error' ? '重试下载' : '下载更新' }}</button><button v-if="installer && downloadReady" type="button" class="linkline-update-button primary linkline-update-install" :disabled="installing" @click="installUpdate"><UiIcon :name="installing ? 'refresh' : 'check'" :class="{ spinning: installing }" />{{ installing ? '正在启动安装…' : '安装更新' }}</button><button v-if="hasBackupDownload && !downloadReady" type="button" class="linkline-update-button linkline-update-download-backup" :disabled="downloadState === 'downloading' || installing" @click="downloadBackup"><UiIcon name="download" />国内备用下载</button><button type="button" class="linkline-update-button" @click="openOfficialPage"><UiIcon name="arrowUpRight" />打开官方下载页</button></div>
       <p v-if="installer" class="linkline-update-download-details">{{ installerLabel }} · {{ downloadSourceLabel }}</p>
       <div v-if="installer && downloadState === 'downloading'" class="linkline-update-download-progress" role="status" aria-live="polite"><div class="linkline-update-progress-track"><span :style="{ width: `${downloadPercent}%` }" /></div><span>{{ downloadProgressText }}</span></div>
       <p v-if="downloadState === 'error'" class="linkline-update-download-error" role="alert">{{ updateDownloadError || '下载失败，请重试。' }}</p>
-      <p v-if="downloadReady" class="linkline-update-download-ready" role="status">安装包已下载到本机，点击“安装更新”后 LinkLine 将退出并启动安装程序。</p>
+      <p v-if="downloadReady" class="linkline-update-download-ready" role="status">安装包已下载到本机，点击“安装更新”后 Mix Music 将退出并启动安装程序。</p>
       <p v-if="installError" class="linkline-update-download-error" role="alert">{{ installError }}</p>
       <details v-if="installerChecksum" class="linkline-update-checksum"><summary>查看 SHA-256 校验值<UiIcon name="chevronDown" /></summary><code>{{ installerChecksum }}</code></details>
       <p v-if="successfulResult && latestRelease && !installer" class="linkline-update-note">此版本未提供 Windows x64 安装包，可在官方下载页查看其他文件。</p>
@@ -15,25 +15,25 @@
     </article>
 
     <div class="linkline-update-grid">
-      <article class="linkline-update-card"><div class="linkline-update-card-heading"><UiIcon name="refresh" /><h3>启动检查</h3><span class="linkline-update-badge">已开启</span></div><p>每次打开 LinkLine 都会自动检查新版本。有可用更新时，顶部更新按钮会显示提示点。</p></article>
-      <article class="linkline-update-card linkline-update-source-card"><div class="linkline-update-card-heading"><UiIcon name="cloudDownload" /><h3>更新下载源</h3></div><UiSelect :model-value="preferredUpdateSource" :options="sourceOptions" aria-label="更新下载源" @change="selectUpdateSource" /><p>{{ sourceDescription }}</p><p v-if="actualSourceLabel" class="linkline-update-actual-source">版本信息来源：{{ actualSourceLabel }}</p><p v-if="fallbackMessage" class="linkline-update-fallback" role="status">{{ fallbackMessage }}</p><p v-if="updateSourceSaveError" class="linkline-update-note" role="status">{{ updateSourceSaveError }}</p><button type="button" class="linkline-update-source" @click="openUrl(LINKLINE_REPOSITORY)">LinkLine GitHub 仓库<UiIcon name="arrowUpRight" /></button></article>
+      <article class="linkline-update-card"><div class="linkline-update-card-heading"><UiIcon name="refresh" /><h3>启动检查</h3><span class="linkline-update-badge">已开启</span></div><p>每次打开 Mix Music 都会自动检查新版本。有可用更新时，顶部更新按钮会显示提示点。</p></article>
+      <article class="linkline-update-card linkline-update-source-card"><div class="linkline-update-card-heading"><UiIcon name="cloudDownload" /><h3>更新下载源</h3></div><UiSelect :model-value="preferredUpdateSource" :options="sourceOptions" aria-label="更新下载源" @change="selectUpdateSource" /><p>{{ sourceDescription }}</p><p v-if="actualSourceLabel" class="linkline-update-actual-source">版本信息来源：{{ actualSourceLabel }}</p><p v-if="fallbackMessage" class="linkline-update-fallback" role="status">{{ fallbackMessage }}</p><p v-if="updateSourceSaveError" class="linkline-update-note" role="status">{{ updateSourceSaveError }}</p><button type="button" class="linkline-update-source" @click="openUrl(LINKLINE_REPOSITORY)">Mix Music GitHub 仓库<UiIcon name="arrowUpRight" /></button></article>
     </div>
 
     <article class="linkline-update-card linkline-update-notes">
       <div class="linkline-update-card-heading"><div><h3>更新日志</h3><p>查看新版本的变化与改进。</p></div><button type="button" class="linkline-update-button compact" :disabled="updateChecking" aria-label="刷新更新日志" @click="checkAppUpdate(true)"><UiIcon name="refresh" :class="{ spinning: updateChecking }" /></button></div>
       <template v-if="latestRelease"><div class="linkline-update-release-heading"><strong>{{ releaseName }}</strong><time>{{ releaseDate }}</time></div><ReleaseNotes :text="releaseBody" /><p v-if="updateResult?.status === 'error'" class="linkline-update-note">上次成功获取的更新日志。检查失败后可重试获取最新内容。</p></template>
       <p v-else class="linkline-update-empty">{{ updateChecking ? '正在获取更新日志…' : updateResult?.status === 'error' ? '暂时无法获取更新日志，请重试或在官方下载页查看。' : updateResult?.status === 'unpublished' ? '尚未发布正式版本，发布后将在这里显示更新日志。' : '检查更新后将在这里显示版本说明。' }}</p>
-      <details v-if="history.length" class="linkline-update-history"><summary>历史版本<span>{{ history.length }}</span><UiIcon name="chevronDown" /></summary><article v-for="release in history" :key="release.pageUrl"><div class="linkline-update-release-heading"><button type="button" @click="openUrl(release.pageUrl)">{{ release.name || `LinkLine ${release.version}` }}<UiIcon name="arrowUpRight" /></button><time>{{ formatDate(release.publishedAt) }}</time></div><ReleaseNotes :text="release.body || '此版本未提供更新说明。'" /></article></details>
+      <details v-if="history.length" class="linkline-update-history"><summary>历史版本<span>{{ history.length }}</span><UiIcon name="chevronDown" /></summary><article v-for="release in history" :key="release.pageUrl"><div class="linkline-update-release-heading"><button type="button" @click="openUrl(release.pageUrl)">{{ release.name || `Mix Music ${release.version}` }}<UiIcon name="arrowUpRight" /></button><time>{{ formatDate(release.publishedAt) }}</time></div><ReleaseNotes :text="release.body || '此版本未提供更新说明。'" /></article></details>
     </article>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { LINKLINE_BACKUP_MIRROR, LINKLINE_RELEASES_URL, LINKLINE_REPOSITORY, releaseAssetDownloadUrl, UPDATE_SOURCES } from '@common/appUpdate'
+import { findInstallerAsset, LINKLINE_BACKUP_MIRROR, LINKLINE_RELEASES_URL, LINKLINE_REPOSITORY, releaseAssetDownloadUrl, UPDATE_SOURCES } from '@common/appUpdate'
 import { openUrl } from '@common/utils/electron'
 import { versionInfo } from '@renderer/store'
-import linklineLogo from '@renderer/assets/images/linkline-logo.svg'
+import brandLogo from '@renderer/assets/images/mixmusic-logo.svg'
 import UiIcon from './UiIcon.vue'
 import UiSelect from './UiSelect.vue'
 import ReleaseNotes from './ReleaseNotes'
@@ -44,11 +44,11 @@ const currentVersion = computed(() => updateResult.value?.currentVersion ?? vers
 const checkedAt = computed(() => { const result = updateResult.value; return result?.checkedAt ? new Date(result.checkedAt).toLocaleString('zh-CN', { hour12: false }) : '' })
 const latestRelease = computed(() => updateResult.value?.latestRelease ?? null)
 const history = computed(() => updateResult.value?.history ?? [])
-const releaseName = computed(() => { const release = latestRelease.value; return release?.name ? release.name : `LinkLine ${release?.version ?? ''}` })
+const releaseName = computed(() => { const release = latestRelease.value; return release?.name ? release.name : `Mix Music ${release?.version ?? ''}` })
 const releaseBody = computed(() => { const body = latestRelease.value?.body; return body?.trim() ? body : '此版本未提供更新说明。' })
 const releaseDate = computed(() => { const release = latestRelease.value; return release?.publishedAt ? formatDate(release.publishedAt) : '' })
 const sourceOptions = [{ value: 'mirror', label: UPDATE_SOURCES.mirror.label }, { value: 'github', label: UPDATE_SOURCES.github.label }]
-const sourceDescription = computed(() => preferredUpdateSource.value === 'mirror' ? '第三方提供国内加速，下载 LinkLine 在 GitHub 发布的安装包。可随时切换至 GitHub 官方。' : UPDATE_SOURCES.github.description)
+const sourceDescription = computed(() => preferredUpdateSource.value === 'mirror' ? '第三方提供国内加速，下载 Mix Music 在 GitHub 发布的安装包。可随时切换至 GitHub 官方。' : UPDATE_SOURCES.github.description)
 const actualSourceLabel = computed(() => updateChecking.value ? '' : updateResult.value?.sourceLabel ?? '')
 const fallbackMessage = computed(() => {
   const result = updateResult.value
@@ -67,8 +67,7 @@ const installer = computed(() => {
   if (!successfulResult.value) return null
   const source = preferredUpdateSource.value
   const release = latestRelease.value
-  const expectedName = `LinkLine-v${release?.version ?? ''}-x64-Setup.exe`.toLowerCase()
-  const asset = release?.assets.find(asset => asset.name.toLowerCase() === expectedName)
+  const asset = release ? findInstallerAsset(release.assets, release.version) : undefined
   const url = asset ? releaseAssetDownloadUrl(asset.url, source) : null
   const officialUrl = asset ? releaseAssetDownloadUrl(asset.url, 'github') : null
   return asset && url && officialUrl ? { ...asset, downloadUrl: asset.downloadUrl ?? url, backupUrl: source === 'mirror' ? `${LINKLINE_BACKUP_MIRROR}${officialUrl}` : null, source } : null

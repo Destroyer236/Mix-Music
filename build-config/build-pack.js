@@ -9,15 +9,16 @@ const afterPack = require('./build-after-pack')
 * @see https://www.electron.build/configuration/configuration
 */
 const options = {
-  appId: 'com.linkline.desktop',
-  productName: 'LinkLine',
+  appId: 'com.mixmusic.desktop',
+  productName: 'Mix Music',
   copyright: 'Copyright © 2026 yaonikaixin999999; LX Music contributors',
   npmRebuild: false,
   beforePack,
   afterPack,
   protocols: {
-    name: 'linkline-protocol',
+    name: 'mixmusic-protocol',
     schemes: [
+      'mixmusic',
       'linkline',
     ],
   },
@@ -55,8 +56,8 @@ const options = {
  */
 const winOptions = {
   win: {
-    icon: './resources/icons/studio.ico',
-    legalTrademarks: 'LinkLine',
+    icon: './resources/icons/mixmusic.ico',
+    legalTrademarks: 'Mix Music',
     // artifactName: '${productName}-v${version}-${env.ARCH}-${env.TARGET}.${ext}',
   },
   nsis: {
@@ -64,8 +65,8 @@ const winOptions = {
     language: '2052',
     allowToChangeInstallationDirectory: true,
     // differentialPackage: true,
-    license: './resources/linkline-license.txt',
-    shortcutName: 'LinkLine',
+    license: './resources/mixmusic-license.txt',
+    shortcutName: 'Mix Music',
     deleteAppDataOnUninstall: false,
   },
 }
@@ -85,11 +86,11 @@ const linuxOptions = {
       // https://specifications.freedesktop.org/desktop-entry-spec/latest/example.html
       // https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html#desktop-files
       entry: {
-        Name: 'LinkLine',
-        'Name[zh_CN]': 'LinkLine',
-        'Name[zh_TW]': 'LinkLine',
+        Name: 'Mix Music',
+        'Name[zh_CN]': 'Mix Music',
+        'Name[zh_TW]': 'Mix Music',
         Encoding: 'UTF-8',
-        MimeType: 'x-scheme-handler/linkline',
+        MimeType: 'x-scheme-handler/mixmusic;x-scheme-handler/linkline;',
         StartupNotify: 'false',
       },
     },
@@ -126,7 +127,7 @@ const macOptions = {
         path: '/Applications',
       },
     ],
-    title: 'LinkLine v${version}',
+    title: 'Mix Music v${version}',
   },
 }
 

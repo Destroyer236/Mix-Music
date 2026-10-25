@@ -1,5 +1,5 @@
 <template>
-  <UiModal :show="show" title="关闭 LinkLine 窗口？" width="500px" @close="answer('cancel')">
+  <UiModal :show="show" title="关闭 Mix Music 窗口？" width="500px" @close="answer('cancel')">
     <p class="linkline-close-note">最小化到托盘后，音乐会继续播放；退出应用会停止播放。</p>
     <label class="linkline-close-remember"><input v-model="remember" type="checkbox" :disabled="busy">不再询问</label>
     <p class="linkline-close-hint">可随时在「设置 → 常规与外观」修改关闭窗口的行为。</p>

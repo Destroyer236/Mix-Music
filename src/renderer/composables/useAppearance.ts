@@ -1,32 +1,39 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { initializeWallpaper, wallpaper, wallpaperUrl } from '@renderer/ui/useWallpaper'
-import { wallpaperColors } from '@renderer/ui/wallpaperPalette'
+import { tone, wallpaperColors } from '@renderer/ui/wallpaperPalette'
+import { coverAccent, normalizeAccentColor } from '@renderer/ui/coverAccent'
 
 export interface Appearance {
   mode: 'light' | 'dark' | 'system' | 'custom'
   customTone: 'auto' | 'light' | 'dark'
   accent: string
+  // 主题色来源（对照 EchoMusic AccentSource）：跟随封面取当前曲目封面主色，
+  // 预设主题用下方色板，自定义用取色器；cover/custom 都落在 accent 存储上。
+  accentSource: 'preset' | 'cover' | 'custom'
   radius: number
   panelGap: number
   showShadows: boolean
   showScrollbars: boolean
   density: 'comfortable' | 'compact'
   showExplore: boolean
+  skin: 'linkline' | 'echo'
 }
 
 const STORAGE_KEY = 'lx-modern-appearance-v1'
-// Visual defaults for LinkLine. Saved user
+// Visual defaults for Mix Music. Saved user
 // preferences are validated against these and always win.
 const defaults: Appearance = {
   mode: 'light',
   customTone: 'auto',
   accent: '#00eb81',
+  accentSource: 'preset',
   radius: 8,
   panelGap: 8,
   showShadows: false,
   showScrollbars: false,
   density: 'comfortable',
   showExplore: true,
+  skin: 'linkline',
 }
 
 /** Keep old or malformed saved preferences from breaking the renderer. */
@@ -36,12 +43,14 @@ export function validateAppearance(value: unknown): Appearance {
     mode: input.mode === 'dark' || input.mode === 'system' || input.mode === 'custom' ? input.mode : 'light',
     customTone: input.customTone === 'dark' || input.customTone === 'light' ? input.customTone : 'auto',
     accent: typeof input.accent === 'string' && /^#[\da-f]{6}$/i.test(input.accent) ? input.accent.toLowerCase() : defaults.accent,
+    accentSource: input.accentSource === 'cover' || input.accentSource === 'custom' ? input.accentSource : 'preset',
     radius: typeof input.radius === 'number' && Number.isFinite(input.radius) ? Math.min(32, Math.max(0, Math.round(input.radius))) : defaults.radius,
     panelGap: typeof input.panelGap === 'number' && Number.isFinite(input.panelGap) ? Math.min(32, Math.max(0, Math.round(input.panelGap))) : defaults.panelGap,
     showShadows: typeof input.showShadows === 'boolean' ? input.showShadows : defaults.showShadows,
     showScrollbars: typeof input.showScrollbars === 'boolean' ? input.showScrollbars : defaults.showScrollbars,
     density: input.density === 'compact' ? 'compact' : 'comfortable',
     showExplore: typeof input.showExplore === 'boolean' ? input.showExplore : defaults.showExplore,
+    skin: input.skin === 'echo' ? 'echo' : 'linkline',
   }
 }
 
@@ -87,22 +96,32 @@ function readableAccent(accent: RGB, panel: RGB, text: RGB): RGB {
 function applyAppearance() {
   const root = document.documentElement
   const dark = resolvedAppearanceMode.value === 'dark'
+  const echo = appearance.skin === 'echo'
   const custom = appearance.mode === 'custom' && wallpaper.value && wallpaperUrl.value ? wallpaperColors(wallpaper.value.palette, dark) : null
-  const bg = custom?.bg ?? rgb(dark ? '#17191e' : '#f0f0f0')
-  const panel = custom?.panel ?? rgb(dark ? '#22252c' : '#f6f6f6')
-  const sidebar = custom?.sidebar ?? (dark ? rgb('#1c1f26') : panel)
-  const text = custom?.text ?? rgb(dark ? '#eceef3' : '#252832')
-  const muted = custom?.muted ?? rgb(dark ? '#adb3c1' : '#626b7a')
-  const accent = custom?.accent ?? rgb(appearance.accent)
+  // EchoMusic 皮肤走 EchoMusic 的中性色板；自定义壁纸模式仍然优先。
+  // echo：窗口底色保持比面板更深的 Shell 色，主面板/播放栏作为浮岛被衬出来
+  // （对照 EchoMusic neutralThemePalette：shell #171718 / main #29292b）
+  const bg = custom?.bg ?? rgb(echo ? (dark ? '#171718' : '#f6f6f6') : dark ? '#17191e' : '#f0f0f0')
+  // 跟随封面模式：封面主色经 normalizeAccentColor 规整到当前明暗模式的可用
+  // 区间（对照 EchoMusic normalizeAccent），取色不可用/过灰时回退到已存颜色。
+  const accent = custom?.accent ?? rgb(appearance.accentSource === 'cover' && coverAccent.value ? normalizeAccentColor(coverAccent.value, dark) || appearance.accent : appearance.accent)
+  const atmosphereSeed = tone(accent, dark ? 0.56 : 0.88, 0.065)
+  // echo：面板保持中性黑，主题色只通过顶部氛围渐变（echo-skin.less 的
+  // background-image）与点缀元素出现——整面染色会失去 EchoMusic 的黑底观感
+  const panel = custom?.panel ?? rgb(echo ? (dark ? '#29292b' : '#ffffff') : dark ? '#22252c' : '#f6f6f6')
+  const sidebar = custom?.sidebar ?? (echo ? rgb(dark ? '#1d1d1f' : '#f2f2f3') : dark ? rgb('#1c1f26') : panel)
+  const text = custom?.text ?? rgb(echo ? (dark ? '#f5f5f6' : '#0b0b0c') : dark ? '#eceef3' : '#252832')
+  const muted = custom?.muted ?? rgb(echo ? (dark ? '#bcbcbc' : '#666666') : dark ? '#adb3c1' : '#626b7a')
   const ink = custom?.ink ?? readableAccent(accent, panel, text)
-  const soft = mix(panel, accent, dark ? 0.17 : 0.1)
+  const soft = mix(panel, accent, echo ? (dark ? 0.18 : 0.12) : dark ? 0.17 : 0.1)
   const hover = mix(panel, text, dark ? 0.06 : 0.04)
-  const border = alpha(text, dark ? 0.1 : 0.08)
+  const border = echo ? color(rgb(dark ? '#444446' : '#dedede')) : alpha(text, dark ? 0.1 : 0.08)
+  const gap = echo ? Math.max(10, appearance.panelGap) : appearance.panelGap
   const tokens: Record<string, string> = {
     '--modern-bg': color(bg),
     '--modern-panel': color(panel),
     '--modern-sidebar': color(sidebar),
-    '--modern-hero-bg': custom ? color(mix(panel, accent, 0.12)) : dark ? '#29312c' : '#e9efea',
+    '--modern-hero-bg': custom ? color(mix(panel, accent, 0.12)) : echo ? color(mix(panel, accent, dark ? 0.1 : 0.08)) : dark ? '#29312c' : '#e9efea',
     '--modern-wallpaper-image': custom ? `url(${JSON.stringify(wallpaperUrl.value)})` : 'none',
     '--modern-panel-surface': custom ? alpha(panel, 0.86) : color(panel),
     '--modern-sidebar-surface': custom ? alpha(sidebar, 0.9) : color(sidebar),
@@ -116,7 +135,7 @@ function applyAppearance() {
     '--modern-hover': color(hover),
     '--modern-radius': `${appearance.radius}px`,
     '--modern-radius-small': `${Math.round(appearance.radius * 0.6)}px`,
-    '--modern-panel-gap': `${appearance.panelGap}px`,
+    '--modern-panel-gap': `${gap}px`,
     '--modern-shadow': appearance.showShadows ? (dark ? '0 8px 32px rgba(0, 0, 0, 0.18)' : '0 4px 24px rgba(28, 42, 34, 0.04)') : 'none',
     '--modern-row-height': appearance.density === 'compact' ? '36px' : '46px',
     '--modern-gap': appearance.density === 'compact' ? '10px' : '16px',
@@ -147,6 +166,27 @@ function applyAppearance() {
     '--background-image': 'none',
   }
 
+  // EchoMusic 皮肤的专属令牌：固定圆角阶梯、控件几何、氛围渐变兜底色。
+  // echo-skin.less 只消费这些变量，派生公式与 Mix Music 原版解耦。
+  // 必须是完整颜色值而非 RGB 三元组：color-mix(in srgb, var(--echo-content-tone) N%, …)
+  // 会把 var 原样替换进表达式，三元组会导致 color-mix 非法而静默透明。
+  tokens['--echo-content-tone'] = echo ? (dark ? '#ffffff' : '#0b0b0c') : '#000000'
+  tokens['--echo-radius-control'] = '6px'
+  tokens['--echo-radius-card'] = '10px'
+  tokens['--echo-radius-dialog'] = '12px'
+  tokens['--echo-control-height'] = '36px'
+  tokens['--echo-row-height'] = appearance.density === 'compact' ? '54px' : '62px'
+  tokens['--echo-player-height'] = '88px'
+  tokens['--echo-shell-inset'] = '8px'
+  tokens['--echo-shadow-card'] = dark ? '0 1px 3px rgba(0, 0, 0, .28)' : '0 1px 3px rgba(0, 0, 0, .10)'
+  tokens['--echo-shadow-elevated'] = dark
+    ? '0 12px 32px rgba(0, 0, 0, .36), 0 2px 6px rgba(0, 0, 0, .18)'
+    : '0 12px 32px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .06)'
+  tokens['--echo-motion-enter'] = 'cubic-bezier(0.16, 1, 0.3, 1)'
+  tokens['--echo-motion-standard'] = 'cubic-bezier(0.2, 0, 0, 1)'
+  // 氛围色兜底：把点缀色压成低饱和同相色；atmosphere.ts 会用真实封面色覆盖。
+  tokens['--echo-atmosphere-rgb'] = atmosphereSeed.join(', ')
+
   // Original components use hundreds of generated theme shades. Recreate them
   // against the current surface so dialogs and existing pages share both modes.
   for (let step = 0; step <= 1000; step += 50) {
@@ -165,6 +205,7 @@ function applyAppearance() {
   }
   for (const [name, value] of Object.entries(tokens)) root.style.setProperty(name, value)
   root.dataset.modernTheme = resolvedAppearanceMode.value
+  root.dataset.uiSkin = appearance.skin
   root.dataset.modernWallpaper = custom ? 'true' : 'false'
   root.dataset.modernDensity = appearance.density
   root.dataset.modernShadows = String(appearance.showShadows)
@@ -185,7 +226,7 @@ export function useAppearance() {
     systemDark.value = media.matches
     media.addEventListener('change', event => { systemDark.value = event.matches })
     void initializeWallpaper()
-    watch([appearance, systemDark, wallpaper, wallpaperUrl], () => {
+    watch([appearance, systemDark, wallpaper, wallpaperUrl, coverAccent], () => {
       applyAppearance()
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appearance))

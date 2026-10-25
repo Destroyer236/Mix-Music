@@ -1,4 +1,4 @@
-/** Timed lyric primitives for LinkLine's external lyric windows. */
+/** Timed lyric primitives for Mix Music's external lyric windows. */
 export interface LyricWord { text: string, start: number, end: number }
 export interface ExternalLine { text: string, start: number, end: number, words: LyricWord[], translation: string, timed: boolean }
 

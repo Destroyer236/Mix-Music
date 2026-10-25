@@ -1,6 +1,6 @@
 import { computed, ref, shallowRef } from 'vue'
 import { rendererInvoke, rendererOff, rendererOn } from '@common/rendererIpc'
-import { isUpdateSource, LINKLINE_UPDATE_CHECK, LINKLINE_UPDATE_DOWNLOAD, LINKLINE_UPDATE_DOWNLOAD_PROGRESS, LINKLINE_UPDATE_INSTALL, UPDATE_SOURCES, type UpdateCheckRequest, type UpdateCheckResult, type UpdateDownloadProgress, type UpdateDownloadRequest, type UpdateDownloadResult, type UpdateSource } from '@common/appUpdate'
+import { findInstallerAsset, isUpdateSource, LINKLINE_UPDATE_CHECK, LINKLINE_UPDATE_DOWNLOAD, LINKLINE_UPDATE_DOWNLOAD_PROGRESS, LINKLINE_UPDATE_INSTALL, UPDATE_SOURCES, type UpdateCheckRequest, type UpdateCheckResult, type UpdateDownloadProgress, type UpdateDownloadRequest, type UpdateDownloadResult, type UpdateSource } from '@common/appUpdate'
 import { preferredUpdateSource, saveUpdateSource } from './updatePreferences'
 
 export const updateResult = shallowRef<UpdateCheckResult | null>(null)
@@ -110,7 +110,7 @@ export async function checkAppUpdate(force = false): Promise<UpdateCheckResult> 
       updateResult.value = next
       const target = updateDownloadTarget.value
       const release = next.latestRelease
-      const asset = release?.assets.find(asset => asset.name.toLowerCase() === ('LinkLine-v' + release.version + '-x64-Setup.exe').toLowerCase())
+      const asset = release ? findInstallerAsset(release.assets, release.version) : undefined
       // Preserve tasks through temporary checking/error states. Once a valid
       // result identifies another package/source, only an idle task may reset.
       if (target && asset && (next.status === 'available' || next.status === 'latest') && (target.fileName !== asset.name || target.sha256 !== asset.sha256 || target.source !== source)) resetUpdateDownload()

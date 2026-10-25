@@ -1,0 +1,612 @@
+// =============================================================================
+// EchoMusic 皮肤 · html[data-ui-skin='echo']
+// 在 qq-music.less 之后加载；规则全部以 html[data-ui-skin='echo'] 开头并镜像
+// 原选择器路径，同结构下严格更高特异性，稳定覆盖默认皮肤。
+// 令牌（--echo-*）由 composables/useAppearance.ts 在 echo 分支写入。
+// 视觉规格来源：EchoMusic 渲染层令牌体系（tone-mix 派生 + 固定圆角阶梯）。
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1 · 布局骨架（EchoMusic MainLayout）：侧栏坐在窗口底色上，主面板与播放栏是
+//     不透明圆角岛（--layout-edge-inset 8px / --layout-panel-gap 10px / 圆角 10px）
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] {
+  .ui-shell {
+    grid-template-rows: minmax(0, 1fr) auto;
+    // 行间距清零：主面板与播放栏直接相连成一根内容柱（否则 10px 缝隙里的
+    // Shell 底色会显形为一条分界线）；列间距保留，侧栏与内容柱仍分离。
+    // 右/下留出 Shell 空隙（内容柱浮动收头），左侧贴边
+    row-gap: 0;
+    column-gap: var(--modern-panel-gap);
+    padding: var(--echo-shell-inset) var(--echo-shell-inset) var(--echo-shell-inset) 0;
+    position: relative;
+    z-index: 1;
+  }
+  // 侧栏：无面板背景，直接显示窗口底色与氛围渐变（skin-sidebar-decoration）
+  .ui-shell > .ui-sidebar {
+    grid-row: 1 / -1;
+    background: transparent;
+    border: 0;
+  }
+  // 主面板：不透明 + 氛围渐变叠在自身背景上（fixed 让渐变与侧栏/缝隙逐像素对齐，
+  // 等价于 EchoMusic 里 z-index -1 的 .layout-accent-gradient 盖在 skin 面板之上）
+  .ui-shell .ui-main-panel {
+    margin: 0;
+    // 右侧两角取直角（贴 Shell 空隙时不出现圆角缺口），仅靠顶栏/侧栏的
+    // 左上角保留圆角；底部与播放栏直角相连
+    border-radius: var(--echo-radius-card) 0 0 0;
+    background-color: var(--modern-panel);
+    background-image: linear-gradient(180deg,
+      rgba(var(--echo-atmosphere-rgb), .32) 0%,
+      rgba(var(--echo-atmosphere-rgb), .3008) 15.4%,
+      rgba(var(--echo-atmosphere-rgb), .127) 38.5%,
+      rgba(var(--echo-atmosphere-rgb), .0381) 56.1%,
+      rgba(var(--echo-atmosphere-rgb), 0) 70%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 2 · 氛围渐变（EchoMusic .layout-accent-gradient 精确移植）：
+//     装饰层高度 70%，stops 0 / 22% / 55% / 80.2% / 100%；
+//     浅色 peak .32 mid .127，深色 peak .3 mid .123
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] #container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(var(--echo-atmosphere-rgb), .32) 0%,
+    rgba(var(--echo-atmosphere-rgb), .3008) 22%,
+    rgba(var(--echo-atmosphere-rgb), .127) 55%,
+    rgba(var(--echo-atmosphere-rgb), .0381) 80.2%,
+    rgba(var(--echo-atmosphere-rgb), 0) 100%);
+}
+html[data-modern-theme='dark'][data-ui-skin='echo'] {
+  #container::before {
+    background: linear-gradient(180deg,
+      rgba(var(--echo-atmosphere-rgb), .3) 0%,
+      rgba(var(--echo-atmosphere-rgb), .282) 22%,
+      rgba(var(--echo-atmosphere-rgb), .123) 55%,
+      rgba(var(--echo-atmosphere-rgb), .0369) 80.2%,
+      rgba(var(--echo-atmosphere-rgb), 0) 100%);
+  }
+  .ui-shell .ui-main-panel {
+    background-image: linear-gradient(180deg,
+      rgba(var(--echo-atmosphere-rgb), .3) 0%,
+      rgba(var(--echo-atmosphere-rgb), .282) 15.4%,
+      rgba(var(--echo-atmosphere-rgb), .123) 38.5%,
+      rgba(var(--echo-atmosphere-rgb), .0369) 56.1%,
+      rgba(var(--echo-atmosphere-rgb), 0) 70%);
+  }
+}
+
+// 自定义壁纸模式：底色用半透明 surface（壁纸透出），氛围渐变照常叠加
+html[data-ui-skin='echo'][data-modern-wallpaper='true'] {
+  .ui-shell .ui-main-panel,
+  .ui-shell > .ui-player { background-color: var(--modern-panel-surface); }
+}
+
+// -----------------------------------------------------------------------------
+// 3 · 侧边栏（EchoMusic Sidebar.vue 精确移植）：
+//     资料卡 56px + 头像 36px；分组头 11px uppercase；导航项 14px、px-3.5 py-2、
+//     gap 14px、圆角 6px；激活态 bg-primary/12 + primary-text
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] .ui-shell .ui-sidebar {
+  padding: 14px 0 12px;
+}
+
+// 资料卡（.sidebar-profile / .user-info-card）
+.echo-profile {
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-height: 56px;
+  margin: 0 18px 20px;
+  padding: 4px 4px 4px 8px;
+  border-radius: var(--echo-radius-card);
+  background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+  transition: background .2s;
+  &:hover { background: color-mix(in srgb, var(--echo-content-tone) 8%, transparent); }
+}
+.echo-profile-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.echo-profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+  color: var(--modern-muted);
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  svg { width: 18px; height: 18px; }
+}
+.echo-profile-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.echo-profile-name {
+  // 对照 EchoMusic 官方截图：用户名随主题色（primary-text），不是中性主文字色
+  color: var(--modern-accent-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.echo-profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 16px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--modern-muted);
+  white-space: nowrap;
+}
+.echo-profile-badge {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--modern-accent) 12%, transparent);
+  color: var(--modern-accent-ink);
+  &.is-none { background: color-mix(in srgb, var(--echo-content-tone) 8%, transparent); color: var(--modern-muted); }
+}
+.echo-profile-divider {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: color-mix(in srgb, var(--echo-content-tone) 10%, transparent);
+}
+.echo-profile-gear {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--echo-radius-control);
+  &:hover { background: color-mix(in srgb, var(--modern-accent) 10%, transparent); }
+}
+
+// 分组导航（.sidebar-menu-groups / .sidebar-section-header / .sidebar-nav-item）
+.echo-nav-group { margin: 0 16px 4px;
+  & + .echo-nav-group { margin-top: 14px; }
+}
+.echo-nav-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 14px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--modern-muted);
+  svg { width: 10px; height: 10px; margin-left: auto; opacity: .8; }
+  + nav a { margin-top: 0; }
+}
+html[data-ui-skin='echo'] .ui-shell .ui-sidebar .echo-nav-group nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  a {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    width: 100%;
+    align-items: center;
+    gap: 14px;
+    min-height: 36px;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: var(--echo-radius-control);
+    color: var(--modern-text);
+    background: transparent;
+    font-size: 14px;
+    text-align: left;
+    transition: background .2s, color .2s;
+    svg { width: 18px; height: 18px; color: color-mix(in srgb, var(--echo-content-tone) 60%, transparent); transition: color .2s; }
+    span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &:hover { background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent); svg { color: var(--modern-text); } }
+    &.ui-nav-active {
+      background: color-mix(in srgb, var(--modern-accent) 12%, transparent);
+      color: var(--modern-accent-ink);
+      font-weight: 600;
+      &::before { display: none; }
+      svg { color: var(--modern-accent-ink); }
+    }
+  }
+}
+
+// 歌单列表行：6px 圆角、14px 内边距
+html[data-ui-skin='echo'] .ui-shell .ui-sidebar .ui-sidebar-lists a { padding: 6px 14px; border-radius: var(--echo-radius-control); }
+html[data-ui-skin='echo'] .ui-shell .ui-sidebar .ui-playlist-section { margin-top: 20px; }
+// 侧栏歌单分组 tab：激活项随主题色（对照 EchoMusic sidebar-playlist-tab 的
+// text-primary-text），非激活保持次级灰
+html[data-ui-skin='echo'] .ui-shell .ui-playlist-tabs button[aria-selected='true'] { color: var(--modern-accent-ink); }
+
+// -----------------------------------------------------------------------------
+// 4 · 顶栏（EchoMusic TitleBar）：46px、透明背景坐在窗口底色上
+// -----------------------------------------------------------------------------
+// 镜像 .ui-shell .ui-topbar 路径以压过 qq 皮肤的面板底色/圆角（壁纸模式规则为
+// (0,3,0)，此选择器 (0,3,1) 才能稳定重置）：EchoMusic TitleBar 是 bg-transparent，
+// 顶栏必须透出窗口底色与氛围渐变，不能自带头部面板色。
+html[data-ui-skin='echo'] .ui-shell .ui-topbar {
+  height: 46px;
+  padding: 0 6px;
+  background: transparent;
+  border-radius: 0;
+}
+// 搜索框（对照 EchoMusic .tb-search-input-wrap）：
+// 高 30px、圆角 6px、field-bg tone5%、hover tone10%、focus tone7%、图标 15px/60%
+// echo 顶栏布局：breadcrumb 变为弹性填充者（qq-music 里由搜索框的
+// margin-right:auto 承担该角色，搜索框收起后必须还给 breadcrumb），
+// 搜索按钮/搜索框移到返回键旁，与 EchoMusic 的左侧图标群一致
+html[data-ui-skin='echo'] .ui-shell .ui-breadcrumb { flex: 0 0 auto; }
+html[data-ui-skin='echo'] .ui-shell .echo-topbar-filler { flex: 1 1 auto; align-self: stretch; -webkit-app-region: drag; }
+html[data-ui-skin='echo'] .ui-shell .ui-global-search { margin-right: 0; }
+// 搜索按钮 → 点击弹出输入框（EchoMusic 版式）：展开宽度即 .tb-search 的 max-width 220px
+html[data-ui-skin='echo'] .ui-shell .echo-search-host {
+  display: flex;
+  // 原版皮肤由宿主弹性撑开推位；echo 皮肤宽度固定（收起 0 / 展开 220px），
+  // 撑开职责交给 .echo-topbar-filler
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 220px;
+  transition: width .2s var(--echo-motion-enter);
+}
+html[data-ui-skin='echo'] .ui-shell .echo-search-host.is-collapsed {
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+html[data-ui-skin='echo'] .ui-shell .ui-global-search {
+  width: 100%;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border: 1px solid color-mix(in srgb, var(--echo-content-tone) 18%, transparent);
+  border-radius: var(--echo-radius-control);
+  background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+  transition: background .12s var(--echo-motion-standard);
+  &:hover:not(:focus-within) { background: color-mix(in srgb, var(--echo-content-tone) 10%, transparent); }
+  &:focus-within { background: color-mix(in srgb, var(--echo-content-tone) 7%, transparent); }
+  > svg { width: 15px; height: 15px; color: color-mix(in srgb, var(--echo-content-tone) 60%, transparent); }
+  input {
+    font-size: 13px;
+    font-weight: 500;
+    &::placeholder { color: var(--modern-muted); opacity: 1; }
+  }
+  .ui-search-submit { display: none; }
+  .ui-search-page-link {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    flex: none;
+    padding: 0 8px;
+    border-radius: 4px;
+    color: var(--modern-accent-ink);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    &:hover { background: color-mix(in srgb, var(--modern-accent) 10%, transparent); }
+  }
+}
+html[data-ui-skin='echo'] .ui-shell .ui-icon-button {
+  border-radius: var(--echo-radius-control);
+  transition: background .18s var(--echo-motion-enter), color .18s var(--echo-motion-enter);
+  &:hover { background: color-mix(in srgb, var(--echo-content-tone) 6%, transparent); }
+}
+
+// -----------------------------------------------------------------------------
+// 5 · 播放栏：内容区下方的独立浮岛（.ui-player-detail 里仍是通栏底条）
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] .ui-shell > .ui-player {
+  grid-column: 2;
+  grid-row: 2;
+  height: var(--echo-player-height);
+  min-height: var(--echo-player-height);
+  padding: 10px 18px;
+  border: 0;
+  // 全宽贴边内容柱的底段：与窗口边缘平齐，四角均为直角
+  border-radius: 0;
+  background-color: var(--modern-panel);
+  background-image: linear-gradient(180deg,
+    rgba(var(--echo-atmosphere-rgb), .32) 0%,
+    rgba(var(--echo-atmosphere-rgb), .3008) 15.4%,
+    rgba(var(--echo-atmosphere-rgb), .127) 38.5%,
+    rgba(var(--echo-atmosphere-rgb), .0381) 56.1%,
+    rgba(var(--echo-atmosphere-rgb), 0) 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  &.ui-progress-full { height: 104px; min-height: 104px; }
+}
+html[data-modern-theme='dark'][data-ui-skin='echo'] .ui-shell > .ui-player {
+  background-image: linear-gradient(180deg,
+    rgba(var(--echo-atmosphere-rgb), .3) 0%,
+    rgba(var(--echo-atmosphere-rgb), .282) 15.4%,
+    rgba(var(--echo-atmosphere-rgb), .123) 38.5%,
+    rgba(var(--echo-atmosphere-rgb), .0369) 56.1%,
+    rgba(var(--echo-atmosphere-rgb), 0) 70%);
+}
+html[data-ui-skin='echo'] .ui-player-detail > .ui-player {
+  border: 0;
+  border-top: var(--ui-hairline);
+  border-radius: 0;
+  height: var(--echo-player-height);
+  min-height: var(--echo-player-height);
+  background: color-mix(in srgb, var(--modern-panel) 72%, transparent);
+  backdrop-filter: blur(28px) saturate(1.4);
+}
+
+html[data-ui-skin='echo'] :is(.ui-shell, .ui-player-detail) .ui-player {
+  .ui-player-cover {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--echo-radius-control);
+    img { transition: transform .2s var(--echo-motion-enter); }
+    &:hover img { transform: scale(1.08); }
+  }
+  .ui-play-button {
+    width: 38px;
+    height: 38px;
+    background: var(--modern-accent);
+    color: var(--modern-accent-contrast);
+    transition: transform .15s var(--echo-motion-enter), opacity .15s;
+    &:hover { opacity: .9; transform: scale(1.03); }
+  }
+  .ui-transport { gap: 10px; }
+  .ui-player-info button { font-size: 12px; }
+  .ui-player-info span { font-size: 10px; }
+  // 进度条：4px 轨道 + 12px 悬浮白 thumb（hover 才显现）
+  .ui-seek input.ui-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--modern-accent) 0 var(--range-progress),
+      color-mix(in srgb, var(--echo-content-tone) 16%, transparent) var(--range-progress) 100%
+    );
+  }
+  .ui-seek input.ui-range::-webkit-slider-thumb {
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), 0 1px 3px rgba(0, 0, 0, .22);
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .ui-seek:hover input.ui-range::-webkit-slider-thumb,
+  .ui-seek input.ui-range:active::-webkit-slider-thumb { opacity: 1; }
+  .ui-seek span { font-size: 10px; }
+  .ui-player-tools .ui-icon-button,
+  .ui-player-right-tools .ui-icon-button { width: 28px; height: 28px; }
+}
+
+// -----------------------------------------------------------------------------
+// 6 · 歌曲列表：62px 圆角行，去斑马纹，中性 hover
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] .ui-shell {
+  :is(.track-table__row, .local-track-table__row) {
+    height: var(--echo-row-height);
+    border-radius: var(--echo-radius-control);
+    transition: background .15s var(--echo-motion-enter);
+  }
+  :is(.track-table__row, .local-track-table__row):hover {
+    background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+  }
+  .track-table__row--even { background: transparent; }
+  .track-table__row--even:hover { background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent); }
+  .track-table__row--playing { background: color-mix(in srgb, var(--echo-content-tone) 8%, transparent); }
+  :is(.track-table__head, .local-track-table__head) {
+    font-size: 11px;
+    color: color-mix(in srgb, var(--echo-content-tone) 40%, transparent);
+  }
+  .track-table__cover { border-radius: 4px; overflow: hidden; }
+  .ui-track-badge {
+    height: 18px;
+    padding: 0 5px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--echo-content-tone) 14%, transparent);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 7 · 卡片：10px 内边距浮起交互 + 封面阴影
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] .ui-shell {
+  :is(.ui-playlist-card, .ui-catalog-card) {
+    padding: 10px;
+    border: 0;
+    border-radius: var(--echo-radius-card);
+    background: transparent;
+    transition: transform .18s var(--echo-motion-enter), background .18s var(--echo-motion-enter);
+    &:hover {
+      transform: translateY(-2px);
+      background: color-mix(in srgb, var(--echo-content-tone) 4%, transparent);
+    }
+  }
+  :is(.ui-catalog-card__art, .ui-playlist-card__art) {
+    border-radius: var(--echo-radius-control);
+    box-shadow: var(--echo-shadow-card);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 8 · 控件配方：软底按钮 / 中性 tabs / 字段
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] .ui-shell {
+  :is(.ui-button, .ui-outline-button) {
+    border: 0;
+    border-radius: var(--echo-radius-control);
+    background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    min-height: var(--echo-control-height);
+    transition: background .18s var(--echo-motion-enter);
+    &:hover { background: color-mix(in srgb, var(--echo-content-tone) 10%, transparent); }
+  }
+  :is(.ui-solid-button, .ui-button--primary) {
+    border: 0;
+    border-radius: var(--echo-radius-control);
+    background: var(--modern-accent);
+    color: var(--modern-accent-contrast);
+    min-height: var(--echo-control-height);
+    &:hover { opacity: .9; background: var(--modern-accent); }
+  }
+  :is(.ui-tabs, .ui-segmented) button {
+    border-radius: var(--echo-radius-control);
+    background: transparent;
+    color: var(--modern-muted);
+    transition: background .18s var(--echo-motion-enter), color .18s var(--echo-motion-enter);
+    &:hover { background: color-mix(in srgb, var(--echo-content-tone) 6%, transparent); color: var(--modern-text); }
+    &.ui-active {
+      background: color-mix(in srgb, var(--echo-content-tone) 12%, transparent);
+      color: var(--modern-text);
+      font-weight: 600;
+    }
+  }
+  :is(.ui-select-trigger, .studio-settings-search) {
+    border: 0;
+    border-radius: var(--echo-radius-control);
+    background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+  }
+  .ui-source-pills button,
+  .ui-mood-chips button {
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--echo-content-tone) 5%, transparent);
+    &:hover { background: color-mix(in srgb, var(--echo-content-tone) 10%, transparent); }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 9 · 浮层：12px 圆角 + 描边 + 抬升阴影
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] {
+  :is(.ui-dialog-panel, .ui-player-popover, .appearance-panel) {
+    border-radius: var(--echo-radius-dialog);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--echo-content-tone) 10%, transparent), var(--echo-shadow-elevated);
+  }
+  .ui-dialog-close,
+  .studio-settings-icon-button { border-radius: var(--echo-radius-control); }
+}
+
+// -----------------------------------------------------------------------------
+// 9.1 · 浮层表面：82% 面板 + 毛玻璃（对照 EchoMusic floating-surfaces-frosted
+//       的 elevated 82% + blur(24px) saturate(140%)）——面板底色保持黑色，
+//       主题色经由浮层边缘透出的顶部氛围渐变呈现
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] body :is(.ui-search-suggestions, .ui-dialog-panel, .ui-player-popover, .appearance-panel) {
+  background: color-mix(in srgb, var(--modern-panel) 82%, transparent);
+  backdrop-filter: blur(24px) saturate(1.4);
+}
+
+// -----------------------------------------------------------------------------
+// 10 · 动效：EchoMusic 曲线（enter easeOutExpo 系 / standard M3）
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] {
+  .ll-module-fade-enter-active { transition: opacity .22s var(--echo-motion-standard); }
+  .ll-module-fade-leave-active { transition: opacity .14s var(--echo-motion-standard); }
+  .ui-card-arrow { transition: transform .18s var(--echo-motion-enter); }
+}
+
+// 滚动条：tone 化 thumb
+html[data-ui-skin='echo'] {
+  .ui-shell .scroll::-webkit-scrollbar-thumb,
+  .ui-main-panel ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--echo-content-tone) 22%, transparent);
+    &:hover { background: color-mix(in srgb, var(--echo-content-tone) 30%, transparent); }
+  }
+}
+
+// 折叠侧栏（窄窗）保持浮岛观感
+html[data-ui-skin='echo'] .ui-shell { .ui-sidebar nav a, .ui-sidebar-lists a { justify-content: flex-start; } }
+@media (max-width: 800px) {
+  html[data-ui-skin='echo'] .ui-shell {
+    grid-template-columns: 65px minmax(0, 1fr);
+    .ui-sidebar { padding: 14px 8px 10px; }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 11 · 页面内容：透明化让浮岛半透明背景与氛围层生效
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] {
+  .ui-shell .ui-page,
+  .ui-discovery-page {
+    background: transparent;
+  }
+  .ui-inline-message {
+    border-radius: var(--echo-radius-control);
+    background: color-mix(in srgb, var(--echo-content-tone) 6%, transparent);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 12 · 歌单详情页头：EchoMusic 大封面 + 主色操作按钮
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] .ui-shell .ui-playlist-header {
+  &__cover {
+    border-radius: var(--echo-radius-card);
+    overflow: hidden;
+    box-shadow: var(--echo-shadow-elevated);
+    img, .ui-track-artwork { border-radius: var(--echo-radius-card); }
+  }
+  &__title { font-weight: 700; letter-spacing: -.3px; }
+  .ui-playlist-header__primary,
+  .ui-playlist-header button {
+    border-radius: var(--echo-radius-control);
+  }
+  .ui-playlist-header__primary {
+    border: 0;
+    background: var(--modern-accent);
+    color: var(--modern-accent-contrast);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    &:hover { opacity: .9; background: var(--modern-accent); }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 13 · 全屏播放页：EchoMusic 歌词页的沉浸参数 + 主色播放键
+// -----------------------------------------------------------------------------
+html[data-ui-skin='echo'] {
+  #container .ui-player-detail.ll-full-player {
+    --ll-player-veil: 76%;
+    --ll-player-image-opacity: .9;
+    --ll-player-glow-opacity: .6;
+  }
+  .ui-player-detail .ll-full-play {
+    background: var(--modern-accent);
+    color: var(--modern-accent-contrast);
+    &:hover { opacity: .9; }
+  }
+  .ui-player-detail .ll-full-background-image {
+    filter: blur(48px) saturate(1.6);
+  }
+}

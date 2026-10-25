@@ -135,7 +135,7 @@ const defaultSetting: LX.AppSetting = {
   'download.isUseOtherSource': false,
 
   'search.isShowHotSearch': false,
-  'search.isShowHistorySearch': false,
+  'search.isShowHistorySearch': true,
   'search.isFocusSearchBox': false,
 
   'network.proxy.enable': false,

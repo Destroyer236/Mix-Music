@@ -1,7 +1,7 @@
 import { app, BrowserWindow, session } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { PlatformAccount, PlatformHeartbeatRequest, PlatformHeartbeatResult, PlatformId, PlatformLikeResult, PlatformPlaylist, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
+import type { PlatformAccount, PlatformHeartbeatRequest, PlatformHeartbeatResult, PlatformId, PlatformLikeResult, PlatformPlaylist, PlatformPlaylistAddResult, PlatformPlaylistDetail, PlatformSnapshot } from '@common/platformAccounts'
 import { mainHandle } from '@common/mainIpc'
 import { sendEvent, showWindow } from '@main/modules/winMain/main'
 import { aggregateFavorites, chooseMatch } from './matching'
@@ -10,6 +10,7 @@ import { getNeteaseHeartbeat, neteaseProvider } from './providers/netease'
 import { miguProvider } from './providers/migu'
 import { bilibiliProvider } from './providers/bilibili'
 import { kugouProvider } from './providers/kugou'
+import { kugouConceptProvider } from './providers/kugouConceptProvider'
 import { kuwoProvider } from './providers/kuwo'
 import qishuiProvider, { searchCatalog, publicPlaylist, resolveShare, getLyrics, getAlbumTracks, getArtistTracks } from './providers/qishui'
 import { createQishuiLogin } from './qishuiLogin'
@@ -17,6 +18,9 @@ import { createQishuiPassport } from './qishuiPassport'
 import { createQishuiLoginDiagnosticWriter } from './qishuiLoginDiagnostics'
 import bodianProvider, { searchCatalog as searchBodianCatalog, publicPlaylist as bodianPlaylist, resolveShare as resolveBodianShare, getLyrics as getBodianLyrics, getAlbumTracks as getBodianAlbumTracks, getArtistTracks as getBodianArtistTracks } from './providers/bodian'
 import { createBodianLogin } from './bodianLogin'
+import { createMiguPhoneLogin, type MiguPhoneLoginResult } from './miguPhoneLogin'
+import { createKugouLogin } from './kugouLogin'
+import { claimDayVip, upgradeDayVip } from './providers/kugouConcept'
 import { createNativeLogin, type NativeLoginPlatform } from './nativeLogin'
 import type { PlatformProvider, ProviderContext } from './providers/types'
 import { canNavigateAccount, registerAccountSession } from './navigation'
@@ -34,7 +38,7 @@ interface ProviderState {
   busy: Promise<unknown>
   generation: number
 }
-const providers = [qqProvider, neteaseProvider, qishuiProvider, bodianProvider, kugouProvider, kuwoProvider, miguProvider, bilibiliProvider]
+const providers = [qqProvider, neteaseProvider, qishuiProvider, bodianProvider, kugouProvider, kugouConceptProvider, kuwoProvider, miguProvider, bilibiliProvider]
 const states = new Map<PlatformId, ProviderState>()
 let initialized: Promise<void> | undefined
 let baseInitialized: Promise<void> | undefined
@@ -57,19 +61,21 @@ const save = async() => {
     const target = cachePath()
     await fs.writeFile(`${target}.tmp`, data, 'utf8')
     await fs.rename(`${target}.tmp`, target)
-  }).catch(error => { console.warn('LinkLine platform favorites cache could not be saved:', error) })
+  }).catch(error => { console.warn('Mix Music platform favorites cache could not be saved:', error) })
   return saveQueue
 }
 const initBase = async() => {
   baseInitialized ??= (async() => {
     for (const provider of providers) {
-      const ses = session.fromPartition(`persist:linkline-account-${provider.id}`)
+      // 分区名必须全小写：Electron 把 persist 分区名转成小写目录，但同名不同大小写
+      // 会创建两个独立 session 共用同一磁盘目录，导致 cookie 互相覆盖、重启后丢失。
+      const ses = session.fromPartition(`persist:linkline-account-${provider.id.toLowerCase()}`)
       registerAccountSession(ses, provider.domains)
       ses.setPermissionRequestHandler((_contents, _permission, allow) => { allow(false) })
       states.set(provider.id, {
         provider,
         context: { session: ses, playbackSession: provider.id === 'qishui' ? session.fromPartition('persist:win-main') : undefined, cookies: async() => Object.fromEntries((await ses.cookies.get({ url: provider.cookieUrl ?? `${new URL(provider.loginUrl).origin}/` })).map(cookie => [cookie.name, cookie.value])) },
-        account: { platform: provider.id, name: provider.name, connected: false, profile: null, lastSync: null, count: 0, error: '', canSync: !provider.webOnly && provider.syncSupported !== false, notice: provider.notice ?? '' },
+        account: { platform: provider.id, name: provider.name, connected: false, profile: null, lastSync: null, count: 0, error: '', canSync: !provider.webOnly && provider.syncSupported !== false, canAddToPlaylist: Boolean(provider.addToPlaylist), notice: provider.notice ?? '' },
         tracks: [],
         playlists: [],
         window: null,
@@ -286,13 +292,14 @@ const getHeartbeat = async(params: PlatformHeartbeatRequest = {}): Promise<Platf
   })
 }
 const openLogin = async(id: PlatformId) => {
-  if (id === 'qq' || id === 'netease') throw new Error('请使用平台账号的扫码登录入口')
+  // QQ 音乐的网页登录窗口内嵌官方站点（QQ 扫码 / 密码 / 微信扫码），扫码登录仍走原生二维码。
+  if (id === 'netease') throw new Error('请使用平台账号的扫码登录入口')
   if (id === 'qishui') throw new Error('请使用汽水音乐的扫码登录入口')
   if (id === 'bodian') throw new Error('请使用波点音乐的扫码登录入口')
   const state = await getState(id)
   if (state.window && !state.window.isDestroyed()) { state.window.focus(); return snapshot() }
   const window = new BrowserWindow({
-    title: `${state.provider.name} · 登录 LinkLine`,
+    title: `${state.provider.name} · 登录 Mix Music`,
     width: 1080,
     height: 760,
     minWidth: 780,
@@ -385,6 +392,64 @@ const setLike = async(track: LX.Music.MusicInfo, liked: boolean): Promise<Platfo
     }
   })))
   return [...results, ...offline]
+}
+
+/**
+ * 把歌曲加入指定平台歌单。与 setLike 共用歌曲匹配和版权检查：
+ * 目标歌单锁定了唯一平台，因此只在该平台匹配，不做全平台分发。
+ */
+const addToPlaylist = async(params: { playlistId: string, track: LX.Music.MusicInfo }): Promise<PlatformPlaylistAddResult> => {
+  await init()
+  const { playlistId, track } = params
+  if (typeof playlistId !== 'string' || !playlistId) throw new Error('无效的平台歌单')
+  if (!track || typeof track.id !== 'string' || typeof track.name !== 'string' || typeof track.singer !== 'string' || !track.meta) throw new Error('无效的歌曲信息')
+  const state = [...states.values()].find(item => item.playlists.some(entry => entry.playlist.id === playlistId))
+  if (!state) throw new Error('歌单不存在，请先同步平台歌单')
+  const platform = state.provider.id
+  const entry = state.playlists.find(item => item.playlist.id === playlistId)
+  if (!entry) throw new Error('歌单不存在，请先同步平台歌单')
+  const addTrack = state.provider.addToPlaylist
+  if (!addTrack) throw new Error(state.account.notice || `${state.provider.name}暂不支持添加歌曲到歌单`)
+  if (state.account.canSync === false) throw new Error(state.account.notice || `${state.provider.name}暂不支持写入歌单`)
+  if (!state.account.connected) throw new Error('账号未连接，请重新登录后重试')
+  if (entry.playlist.ownerId !== state.account.profile?.id) throw new Error('歌单不属于当前账号，请重新同步')
+
+  const generation = state.generation
+  return exclusive(state, async(): Promise<PlatformPlaylistAddResult> => {
+    const fail = (status: PlatformPlaylistAddResult['status'], message: string): PlatformPlaylistAddResult => ({ platform, playlistId, status, message })
+    try {
+      if (generation !== state.generation) throw new Error('平台账号已更改，请重新打开歌单')
+      const profile = await state.provider.profile(state.context)
+      if (generation !== state.generation) throw new Error('平台账号已更改，请重新打开歌单')
+      acceptProfile(state, profile)
+      if (entry.playlist.ownerId !== profile.id) throw new Error('歌单不属于当前账号，请重新同步')
+      const source = state.provider.source
+      const cached = chooseMatch(track, state.tracks)
+      const match = track.source === source ? { status: 'matched' as const, track } : cached.status === 'matched' ? cached : chooseMatch(track, await state.provider.search(state.context, track))
+      if (match.status !== 'matched') {
+        await save(); notify()
+        return fail(match.status, match.status === 'ambiguous' ? '有多个同名版本，未自动操作' : '没有找到可确认的同版本歌曲')
+      }
+      if (!await state.provider.available(state.context, match.track)) {
+        await save(); notify()
+        return fail('unavailable', '该平台暂无此歌曲版权')
+      }
+      await addTrack(state.context, profile, entry.playlist, match.track)
+      // 歌单曲目缓存已过期：标记未加载，下次打开时重新拉取服务端内容。
+      // 曲目数不在这里 +1——重复歌曲会被平台静默忽略，猜测的计数会长期偏高。
+      entry.playlist = { ...entry.playlist, loaded: false }
+      state.account.error = ''
+      await save()
+      notify()
+      return { platform, playlistId, status: 'success', message: `已加入「${entry.playlist.name}」`, track: match.track }
+    } catch (error) {
+      state.account.error = errorMessage(error)
+      if (/登录|login/i.test(state.account.error)) state.account.connected = false
+      await save()
+      notify()
+      return fail('failed', state.account.error)
+    }
+  })
 }
 
 const getMusicUrl = async(params: { source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality, qishuiMediaType?: 'track' | 'ugc_clip' }) => {
@@ -561,6 +626,57 @@ export default () => {
     const { state, login } = await getQrLogin()
     if (login.cancel(event.sender.id, params?.flowId)) ++state.generation
   })
+  let kugouLogin: ReturnType<typeof createKugouLogin> | undefined
+  const kugouOwners = new WeakSet<Electron.WebContents>()
+  const getKugouLogin = async() => {
+    const state = await getState('kugouConcept')
+    kugouLogin ??= createKugouLogin(state.context, async() => {
+      const generation = state.generation
+      const profile = await state.provider.profile(state.context)
+      // 只以 generation 判定账号是否已切换。这里不能再查 isActive()：
+      // 凭据此时已写入，若因关窗/状态位变化而丢弃，用户扫码就白扫了。
+      if (generation !== state.generation) throw new Error('登录已取消或过期，请重新扫码')
+      acceptProfile(state, profile)
+      state.account.connected = true
+      state.account.error = ''
+      void save()
+      notify()
+      void syncState(state)
+    })
+    return { state, login: kugouLogin }
+  }
+  mainHandle<Record<string, never>, Awaited<ReturnType<ReturnType<typeof createKugouLogin>['start']>>>('platform_kugou_login_start', async({ event }) => {
+    const { state, login } = await getKugouLogin()
+    if (!kugouOwners.has(event.sender)) {
+      kugouOwners.add(event.sender)
+      const owner = event.sender.id
+      event.sender.once('destroyed', () => {
+        try { if (login.cancel(owner)) ++state.generation } catch {}
+      })
+    }
+    ++state.generation
+    return login.start(event.sender.id)
+  })
+  mainHandle<{ flowId: string }, Awaited<ReturnType<ReturnType<typeof createKugouLogin>['check']>>>('platform_kugou_login_check', async({ event, params }) => {
+    const { login } = await getKugouLogin()
+    if (!params || typeof params.flowId !== 'string') throw new Error('无效的登录会话')
+    return login.check(event.sender.id, params.flowId)
+  })
+  mainHandle<{ flowId?: string }, undefined>('platform_kugou_login_cancel', async({ event, params }) => {
+    const { state, login } = await getKugouLogin()
+    if (login.cancel(event.sender.id, params?.flowId)) ++state.generation
+  })
+  // 每日会员领取：概念版把「看广告」折算成畅听会员，可再升级为概念会员。
+  mainHandle<{ upgrade?: boolean }, { received: boolean, message: string, upgraded: boolean, upgradeMessage: string, rewardedHours: number }>('platform_kugou_claim_vip', async({ params }) => {
+    const state = await getState('kugouConcept')
+    return exclusive(state, async() => {
+      if (!state.account.connected) throw new Error('请先登录酷狗概念版')
+      const claimed = await claimDayVip(state.context)
+      if (!params?.upgrade) return { ...claimed, upgraded: false, upgradeMessage: '' }
+      const upgraded = await upgradeDayVip(state.context).catch(error => ({ upgraded: false, message: errorMessage(error) }))
+      return { ...claimed, upgraded: upgraded.upgraded, upgradeMessage: upgraded.message }
+    })
+  })
   mainHandle<{ query: string, kind: 'track' | 'album' | 'artist' | 'playlist', page?: number }, Awaited<ReturnType<typeof searchCatalog>>>('platform_qishui_search', async({ params }) => {
     const state = await getState('qishui')
     if (!params || typeof params.query !== 'string' || !['track', 'album', 'artist', 'playlist'].includes(params.kind)) throw new Error('无效的汽水搜索')
@@ -579,6 +695,35 @@ export default () => {
   })
   mainHandle<LX.Music.MusicInfoOnline, PlatformQuality[]>('platform_playback_qualitys', async({ params }) => { await initBase(); return playback.qualitys(params) })
   mainHandle<PlatformSnapshot>('platform_accounts_snapshot', async() => { await init(); return snapshot() })
+  let miguPhoneLogin: ReturnType<typeof createMiguPhoneLogin> | undefined
+  const getMiguPhoneLogin = async() => {
+    const state = await getState('migu')
+    miguPhoneLogin ??= createMiguPhoneLogin(state.context, async() => {
+      const generation = state.generation
+      const profile = await state.provider.profile(state.context)
+      if (generation !== state.generation) throw new Error('咪咕账号已更改，请重新登录')
+      acceptProfile(state, profile)
+      state.account.connected = true
+      state.account.error = ''
+      void save()
+      notify()
+      void syncState(state)
+    })
+    return { state, login: miguPhoneLogin }
+  }
+  mainHandle<{ phone: string }, MiguPhoneLoginResult>('platform_migu_phone_send', async({ params }) => {
+    const { login } = await getMiguPhoneLogin()
+    if (typeof params?.phone !== 'string' || params.phone.length > 20) throw new Error('无效的手机号')
+    return login.sendCode(params.phone.trim())
+  })
+  mainHandle<{ phone: string, code: string }, MiguPhoneLoginResult>('platform_migu_phone_login', async({ params }) => {
+    const { state, login } = await getMiguPhoneLogin()
+    if (typeof params?.phone !== 'string' || params.phone.length > 20 || typeof params?.code !== 'string' || params.code.length > 10) throw new Error('无效的登录参数')
+    ++state.generation
+    const result = await login.login(params.phone.trim(), params.code.trim())
+    if (!result.ok) ++state.generation
+    return result
+  })
   mainHandle<PlatformId, PlatformSnapshot>('platform_accounts_login', async({ params }) => openLogin(params))
   mainHandle<PlatformId | null, PlatformSnapshot>('platform_accounts_sync', async({ params }) => {
     await init()
@@ -607,7 +752,7 @@ export default () => {
     await exclusive(state, async() => {
       await state.provider.logout?.(state.context)
       await state.context.session.clearStorageData()
-      state.account = { platform: state.provider.id, name: state.provider.name, connected: false, profile: null, lastSync: null, count: 0, error: '', canSync: !state.provider.webOnly && state.provider.syncSupported !== false, notice: state.provider.notice ?? '' }
+      state.account = { platform: state.provider.id, name: state.provider.name, connected: false, profile: null, lastSync: null, count: 0, error: '', canSync: !state.provider.webOnly && state.provider.syncSupported !== false, canAddToPlaylist: Boolean(state.provider.addToPlaylist), notice: state.provider.notice ?? '' }
       state.tracks = []
       state.playlists = []
       await save()
@@ -616,5 +761,6 @@ export default () => {
     return snapshot()
   })
   mainHandle<{ track: LX.Music.MusicInfo, liked: boolean }, PlatformLikeResult[]>('platform_accounts_like', async({ params }) => setLike(params.track, Boolean(params.liked)))
+  mainHandle<{ playlistId: string, track: LX.Music.MusicInfo }, PlatformPlaylistAddResult>('platform_accounts_playlist_add', async({ params }) => addToPlaylist(params))
   mainHandle<{ source: LX.OnlineSource, songId: string | number, mediaMid?: string, albumId?: string, id?: number, quality?: PlatformQuality, qishuiMediaType?: 'track' | 'ugc_clip' }, { url: string, type: LX.Quality }>('platform_accounts_music_url', async({ params }) => getMusicUrl(params))
 }
