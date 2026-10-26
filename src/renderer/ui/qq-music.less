@@ -804,14 +804,23 @@ html {
 // -----------------------------------------------------------------------------
 // 8 · Track tables — borderless rows, strong title column
 // -----------------------------------------------------------------------------
+// Headers stay transparent so the page canvas (panel colour plus the echo
+// atmosphere gradient) shows through unchanged; an opaque tint reads as a
+// stray black band on every skin.
 .ui-shell :is(.track-table__head, .local-track-table__head) {
   min-height: 40px;
   border-block: 0;
-  background: color-mix(in srgb, var(--modern-text) 3%, var(--modern-panel));
+  background: transparent;
   color: var(--modern-muted);
   font-size: 11.5px;
   font-weight: var(--ui-weight-strong);
   letter-spacing: .04em;
+}
+
+// The local library header is sticky inside its own scroll container, so it
+// needs an opaque surface that matches the canvas below it to cover rows.
+.ui-shell .local-track-table__head {
+  background: var(--modern-panel-surface);
 }
 
 .ui-shell :is(.track-table__row, .local-track-table__row) {
@@ -3410,7 +3419,7 @@ html[data-modern-theme] { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', 
   .qq-chart-feature-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
   .qq-browse-refresh { align-self: flex-end; display: inline-flex; align-items: center; gap: 5px; border: 0; padding: 0; background: transparent; color: var(--modern-muted); font-size: 12px; svg { width: 14px; height: 14px; } }
   .ui-track-panel { border: 0; border-radius: 0; background: transparent; }
-  .track-table__head { background: var(--modern-hover); }
+  .track-table__head { background: transparent; }
   .track-table__row { min-height: 65px; }
   .track-table__cover { border-radius: 4px; }
   .track-table__index { font-variant-numeric: tabular-nums; }
@@ -3718,7 +3727,7 @@ body .ui-search-suggestions {
   button.ui-search-play { padding: 8px 12px; color: var(--modern-accent-ink); background: var(--modern-accent-soft); font-size: 11px; }
   .ui-search-results-summary.ui-section-heading { min-height: 30px; margin: 0 0 12px; padding: 0; border: 0; gap: 10px; h2 { gap: 9px; font-size: 16px; line-height: 1.5; font-weight: 650; span { font-size: 10px; } } > button.ui-search-play { min-height: 28px; padding: 5px 10px; gap: 5px; border-radius: 7px; font-size: 10px; svg { width: 12px; height: 12px; } } }
   .ui-search-results .track-table { border: 0; border-radius: 0; background: transparent; }
-  .track-table__head { background: var(--modern-hover); border: 0; }
+  .track-table__head { background: transparent; border: 0; }
   .track-table__title strong { font-size: 13px; font-weight: 550; line-height: 1.4; }
   .track-table__title > .track-table__album-link { font-size: 11px; font-weight: 400; color: var(--modern-muted); line-height: 1.4; &:hover { color: var(--modern-accent-ink); } }
   .track-table__row { background: transparent; &:hover { background: var(--modern-hover); } }

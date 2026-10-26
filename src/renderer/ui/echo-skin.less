@@ -556,10 +556,12 @@ html[data-ui-skin='echo'] .ui-shell { .ui-sidebar nav a, .ui-sidebar-lists a { j
 
 // -----------------------------------------------------------------------------
 // 11 · 页面内容：透明化让浮岛半透明背景与氛围层生效
+//      Library（歌单页）用 .ui-library / .ui-library-main 而不是 .ui-page，
+//      本地音乐与下载页同样有自己的根容器；若不清掉面板底色，会在氛围渐变
+//      上盖出一整块不透明实色。
 // -----------------------------------------------------------------------------
 html[data-ui-skin='echo'] {
-  .ui-shell .ui-page,
-  .ui-discovery-page {
+  .ui-shell :is(.ui-page, .ui-discovery-page, .ui-library, .ui-library-main, .ui-local-music) {
     background: transparent;
   }
   .ui-inline-message {
