@@ -14,7 +14,7 @@ import { sendSyncAction, quitApp, updateSetting } from '@renderer/utils/ipc'
 import UiModal from './UiModal.vue'
 import CloseWindowDialog from './CloseWindowDialog.vue'
 const licenseContent = [
-  'Mix Music 是一款独立音乐客户端，基于 LX Music 构建。',
+  'Mix Music 是一款独立音乐客户端，基于 LX Music 构建。作者：Zephyr。',
   '音乐平台提供的歌曲、封面、歌词及其他内容归其权利人所有。播放和下载取决于平台权限及可用音源，请尊重版权并遵守相关平台的使用规则。',
   '第三方账号登录在相应音乐平台的页面完成。Mix Music 不收集或保存账号密码，登录状态保存在本机，可在平台账号设置中退出。',
   '登录后，平台红心歌曲会汇总到本地音乐库。你主动点击收藏或取消收藏时，Mix Music 会向已登录的平台提交操作；无版权、版本无法确认或同步失败时会显示对应结果。',

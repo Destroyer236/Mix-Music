@@ -179,6 +179,8 @@ npm run pack:win:setup:x64
 
 ## 许可与归属
 
+**作者：[Zephyr](https://github.com/Destroyer236)**（[@Destroyer236](https://github.com/Destroyer236)）
+
 Mix Music 基于 [LXMusic 开源项目](https://github.com/lyswhut/lx-music-desktop)再开发，保留原作者版权声明，遵循 [Apache License 2.0](LICENSE)。第三方组件保留[各自许可](licenses/)，音乐与平台内容的权利归各自权利人所有。
 
 播放器、外部歌词与心动模式的交互参考 [SPlayer-Next](https://github.com/SPlayer-Dev/SPlayer-Next)，汽水登录及音频获取流程参考 [sodam](https://github.com/sodahub-org/sodam) 的公开实现，结合 Mix Music 既有播放服务、歌词格式与 Electron 窗口独立适配；原项目保留其版权与许可。感谢相关开源项目的作者与贡献者。
