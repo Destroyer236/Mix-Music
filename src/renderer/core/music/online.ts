@@ -36,13 +36,14 @@ export const setPic = (datas: {
  */
 
 
-export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, rejectedUrls }: {
+export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, rejectedUrls, qualityFallback }: {
   musicInfo: LX.Music.MusicInfoOnline
   quality?: LX.Quality
   isRefresh: boolean
   allowToggleSource?: boolean
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   rejectedUrls?: string[]
+  qualityFallback?: boolean
 }): Promise<string> => {
   const requested = quality ?? preferredQuality.value
   const rejected = new Set(rejectedUrls)
@@ -53,7 +54,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     try {
       // Keep successful source caches when rejecting a short or invalid URL;
       // otherwise every retry starts all remote requests again.
-      stream = await resolvePlatformStream(musicInfo, attempt === 0 && isRefresh, allowToggleSource, requested, { rejectedUrls: [...rejected] })
+      stream = await resolvePlatformStream(musicInfo, attempt === 0 && isRefresh, allowToggleSource, requested, { rejectedUrls: [...rejected], qualityFallback })
     } catch (error) { failure = error; break }
     if (rejected.has(stream.url)) { failure = new Error('音源重复返回了已失效的地址'); break }
     if (stream.isTrial) {

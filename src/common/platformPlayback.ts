@@ -52,6 +52,8 @@ export interface ResolvedPlatformStream extends PlatformStream {
 /** URLs rejected by the media element during the current playback attempt. */
 export interface PlaybackResolveOptions {
   rejectedUrls?: string[]
+  /** 请求音质不可用时，沿候选自身可提供的更低音质依次重试（下载级联用；播放不开启）。 */
+  qualityFallback?: boolean
 }
 
 export const legacyQuality = (quality: PlatformQuality): LX.Quality => {

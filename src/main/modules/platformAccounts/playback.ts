@@ -162,6 +162,19 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
         throw cause
       }
     }
+    // 下载级联（qualityFallback）：请求的音质拿不到时，沿该候选自己声明可用的
+    // 音质从高到低重试，试听结果先记下、能找到完整音质就不接受试听。播放链路
+    // 不开启，保持原有的“请求音质 + 128k 兜底”行为。
+    const qualityLadder = (candidate: LX.Music.MusicInfoOnline): PlatformQuality[] => {
+      const cap = quality === 'auto' ? maxQualityRank : qualityRank[quality] ?? maxQualityRank
+      const offered = (Object.keys(candidate.meta._qualitys ?? {}) as PlatformQuality[])
+        .filter(tier => (qualityRank[tier] ?? 0) <= cap)
+        .sort((a, b) => (qualityRank[b] ?? 0) - (qualityRank[a] ?? 0))
+      if (!offered.length) return [quality]
+      // 标准音质几乎全部平台可给，保留旧的 128k 兜底语义。
+      if ((qualityRank['128k'] ?? 0) <= cap && !offered.includes('128k')) offered.push('128k')
+      return offered
+    }
     const resolveNative = async(state: PlaybackState): Promise<ResolvedPlatformStream | null> => {
       const generation = state.generation
       let candidate = track
@@ -170,13 +183,31 @@ export const createPlaybackResolver = (getStates: () => PlaybackState[], getPref
         if (state.generation !== generation || !matched) return null
         candidate = matched
       }
-      const stream = await streamFor(state, candidate, quality, refresh)
-      if (!rejected.has(stream.url) || quality === '128k') return accept(stream)
-      // A full URL can pass the platform API but fail in the audio element.
-      // Ask the standard endpoint before giving up on this platform so its
-      // official preview can remain the final fallback. Keep the saved quality
-      // preference and reject any URL that has already failed playback.
-      return accept(await streamFor(state, candidate, '128k', refresh))
+      if (!options.qualityFallback) {
+        const stream = await streamFor(state, candidate, quality, refresh)
+        if (!rejected.has(stream.url) || quality === '128k') return accept(stream)
+        // A full URL can pass the platform API but fail in the audio element.
+        // Ask the standard endpoint before giving up on this platform so its
+        // official preview can remain the final fallback. Keep the saved quality
+        // preference and reject any URL that has already failed playback.
+        return accept(await streamFor(state, candidate, '128k', refresh))
+      }
+      let trial: ResolvedPlatformStream | undefined
+      let lastError: unknown
+      const ladder = qualityLadder(candidate)
+      for (let index = 0; index < ladder.length; index++) {
+        const tier = ladder[index]
+        try {
+          const stream = await streamFor(state, candidate, tier, refresh)
+          if (rejected.has(stream.url) && index < ladder.length - 1) continue
+          if (!stream.isTrial) return accept(stream)
+          trial ??= stream
+        } catch (error) { lastError = error }
+      }
+      if (trial) return accept(trial)
+      if (lastError instanceof Error) throw lastError
+      if (lastError != null) throw new Error(lastError instanceof Object ? '无法播放' : String(lastError))
+      return null
     }
     if (automaticSource) {
       // An authenticated original retains its direct-play fast path. Only a

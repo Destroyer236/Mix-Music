@@ -184,6 +184,49 @@ async function runElectron() {
       assert.equal(stream.musicInfo.id, candidate.id)
       assert.equal(requests[0].song, 'same-recording')
     })
+    // 下载级联：qualityFallback 让候选沿自身可用音质递减，试听让位给更低档的完整音质。
+    const ladderTrack = track('kw', 'ladder', { meta: { songId: 'ladder', albumName: 'Fixture Album', qualitys: [], _qualitys: { '320k': {}, '128k': {} } } })
+    const ladderState = behavior => ({
+      provider: { id: 'kw', source: 'kw', name: 'kw official',
+        search: async() => [ladderTrack],
+        musicUrl: async(_context, _candidate, quality) => behavior(String(quality)),
+      }, context: {}, account: { connected: false }, tracks: [ladderTrack], generation: 0,
+    })
+    await check('quality fallback descends the candidate ladder when a tier fails', async() => {
+      const player = resolver([ladderState(quality => {
+        if (quality === '320k') throw new Error('音质不可用')
+        return { url: `${base}/tone.wav?tier=${quality}`, type: '128k', isTrial: false }
+      })])
+      const stream = await player.resolve(ladderTrack, '320k', false, true, { qualityFallback: true })
+      assert.equal(stream.type, '128k')
+      assert.equal(new URL(stream.url).searchParams.get('tier'), '128k')
+    })
+    await check('quality fallback prefers a lower full tier over a higher trial', async() => {
+      const player = resolver([ladderState(quality => quality === '320k'
+        ? { url: `${base}/tone.wav?tier=320k-trial`, type: '320k', isTrial: true }
+        : { url: `${base}/tone.wav?tier=128k`, type: '128k', isTrial: false })])
+      const stream = await player.resolve(ladderTrack, '320k', false, true, { qualityFallback: true })
+      assert.equal(stream.isTrial, false)
+      assert.equal(stream.type, '128k')
+    })
+    await check('playback without the fallback flag keeps the single-tier behaviour', async() => {
+      const player = resolver([ladderState(quality => quality === '320k'
+        ? { url: `${base}/tone.wav?tier=320k-trial`, type: '320k', isTrial: true }
+        : { url: `${base}/tone.wav?tier=128k`, type: '128k', isTrial: false })])
+      const stream = await player.resolve(ladderTrack, '320k')
+      assert.equal(stream.isTrial, true)
+      assert.equal(stream.type, '320k')
+    })
+    await check('quality fallback never requests tiers above the task quality', async() => {
+      const tiers = []
+      const player = resolver([ladderState(quality => {
+        tiers.push(quality)
+        throw new Error('音质不可用')
+      })])
+      await assert.rejects(player.resolve(ladderTrack, '320k', false, true, { qualityFallback: true }), /音质不可用/)
+      assert.ok(tiers.every(quality => quality === '320k' || quality === '128k'), `ladder stayed within the cap: ${tiers.join(',')}`)
+      assert.ok(!tiers.includes('flac24bit'))
+    })
     for (const [label, candidates] of [
       ['live title', [track('kw', 'live', { name: 'Fixture Song (Live)' })]],
       ['different singer', [track('kw', 'other', { singer: 'Different Singer' })]],

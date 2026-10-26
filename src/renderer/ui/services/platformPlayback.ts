@@ -82,7 +82,7 @@ export const getPlatformQualitys = async(track: LX.Music.MusicInfoOnline): Promi
   return ipcRenderer.invoke('platform_playback_qualitys', JSON.parse(JSON.stringify(track)))
 }
 export const resolvePlatformStream = async(track: LX.Music.MusicInfoOnline, refresh: boolean, allowToggleSource: boolean, quality = preferredQuality.value, options: PlaybackResolveOptions = {}): Promise<ResolvedPlatformStream> => {
-  return ipcRenderer.invoke('platform_playback_resolve', { track: JSON.parse(JSON.stringify(track)), quality, isRefresh: refresh, allowToggleSource, ...(options.rejectedUrls?.length ? { rejectedUrls: options.rejectedUrls.slice(0, 16) } : {}) })
+  return ipcRenderer.invoke('platform_playback_resolve', { track: JSON.parse(JSON.stringify(track)), quality, isRefresh: refresh, allowToggleSource, ...(options.rejectedUrls?.length ? { rejectedUrls: options.rejectedUrls.slice(0, 16) } : {}), ...(options.qualityFallback ? { qualityFallback: true } : {}) })
 }
 let resourceTrack: LX.Music.MusicInfo | LX.Download.ListItem | null = null
 let resourceUrl = ''

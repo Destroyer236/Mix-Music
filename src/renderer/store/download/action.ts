@@ -207,17 +207,21 @@ const downloadLyric = (downloadInfo: LX.Download.ListItem) => {
 
 const getUrl = async(downloadInfo: LX.Download.ListItem, isRefresh: boolean = false) => {
   let toggleMusicInfo = downloadInfo.metadata.musicInfo.meta.toggleMusicInfo
+  // 音源级联：请求音质拿不到时先在本源降档，开启换源后其他音源也按各自可提供的
+  // 最高音质（不超过任务音质）参与竞争，由解析器择优。
   return (toggleMusicInfo ? getMusicUrl({
     musicInfo: toggleMusicInfo,
     isRefresh,
     quality: downloadInfo.metadata.quality,
     allowToggleSource: false,
+    qualityFallback: true,
   }) : Promise.reject(new Error('not found'))).catch(() => {
     return getMusicUrl({
       musicInfo: downloadInfo.metadata.musicInfo,
       isRefresh: false,
       quality: downloadInfo.metadata.quality,
       allowToggleSource: appSetting['download.isUseOtherSource'],
+      qualityFallback: true,
     })
   }).catch(() => '')
 }
@@ -229,12 +233,14 @@ const handleRefreshUrl = (downloadInfo: LX.Download.ListItem) => {
     isRefresh: true,
     quality: downloadInfo.metadata.quality,
     allowToggleSource: false,
+    qualityFallback: true,
   }) : Promise.reject(new Error('not found'))).catch(() => {
     return getMusicUrl({
       musicInfo: downloadInfo.metadata.musicInfo,
       isRefresh: true,
       quality: downloadInfo.metadata.quality,
       allowToggleSource: appSetting['download.isUseOtherSource'],
+      qualityFallback: true,
     })
   })
     .catch(() => '')

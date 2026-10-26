@@ -687,11 +687,11 @@ export default () => {
   mainHandle<{ id: string }, Awaited<ReturnType<typeof getArtistTracks>>>('platform_qishui_artist', async({ params }) => getArtistTracks((await getState('qishui')).context, params?.id))
   mainHandle<{ id: string, mediaType?: 'track' | 'ugc_clip' }, Awaited<ReturnType<typeof getLyrics>>>('platform_qishui_lyric', async({ params }) => getLyrics((await getState('qishui')).context, params?.id, params?.mediaType))
   mainHandle<{ text: string }, Awaited<ReturnType<typeof resolveShare>>>('platform_qishui_share', async({ params }) => resolveShare((await getState('qishui')).context, params?.text))
-  mainHandle<{ track: LX.Music.MusicInfoOnline, quality?: PlatformQuality, isRefresh?: boolean, allowToggleSource?: boolean, rejectedUrls?: string[] }, ResolvedPlatformStream>('platform_playback_resolve', async({ params }) => {
+  mainHandle<{ track: LX.Music.MusicInfoOnline, quality?: PlatformQuality, isRefresh?: boolean, allowToggleSource?: boolean, rejectedUrls?: string[], qualityFallback?: boolean }, ResolvedPlatformStream>('platform_playback_resolve', async({ params }) => {
     if (params.allowToggleSource !== false && global.lx.appSetting['player.preferredSource'] === 'auto') await initForPlayback(params?.track?.source)
     else await initBase()
     const rejectedUrls = Array.isArray(params.rejectedUrls) ? params.rejectedUrls.filter((url): url is string => typeof url === 'string' && /^https?:\/\//i.test(url) && url.length <= 2048).slice(0, 16) : []
-    return playback.resolve(params.track, params.quality ?? 'auto', Boolean(params.isRefresh), params.allowToggleSource !== false, { rejectedUrls })
+    return playback.resolve(params.track, params.quality ?? 'auto', Boolean(params.isRefresh), params.allowToggleSource !== false, { rejectedUrls, qualityFallback: Boolean(params.qualityFallback) })
   })
   mainHandle<LX.Music.MusicInfoOnline, PlatformQuality[]>('platform_playback_qualitys', async({ params }) => { await initBase(); return playback.qualitys(params) })
   mainHandle<PlatformSnapshot>('platform_accounts_snapshot', async() => { await init(); return snapshot() })
