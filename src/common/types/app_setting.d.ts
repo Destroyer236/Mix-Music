@@ -599,6 +599,11 @@ declare global {
       'download.isUseOtherSource': boolean
 
       /**
+       * 下载时自动按最高可用音质逐首选择，不可用时依次降低
+       */
+      'download.isAutoQuality': boolean
+
+      /**
        * 主题id
        */
       'theme.id': string

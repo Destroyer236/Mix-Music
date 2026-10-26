@@ -27,8 +27,11 @@
     </template>
     <template v-else>
       <div v-if="!onlineTracks.length" class="ui-dialog-note">本地音乐已经保存在你的电脑中，无需重复下载。</div>
-      <div v-else-if="!qualities.length" class="ui-dialog-note">当前音源没有可用的下载音质。请先在设置中导入支持这首歌曲的音乐源。</div>
-      <div v-else class="ui-track-quality"><button v-for="quality in qualities" :key="quality" type="button" :disabled="busy" @click="download(quality)"><div><strong>{{ qualityLabel(quality) }}</strong><span>{{ quality.toUpperCase() }} · {{ quality === 'flac24bit' || quality === 'flac' || quality === 'ape' || quality === 'wav' ? '无损音质' : '标准音频' }}</span></div><UiIcon name="download" /></button></div>
+      <div v-else-if="!qualities.length && !autoAvailable" class="ui-dialog-note">当前音源没有可用的下载音质。请先在设置中导入支持这首歌曲的音乐源。</div>
+      <div v-else class="ui-track-quality">
+        <button v-if="autoAvailable" type="button" class="ui-track-quality-auto" :disabled="busy" @click="downloadAuto()"><div><strong>自动选择音质</strong><span>{{ autoSummary }}</span></div><UiIcon name="download" /></button>
+        <button v-for="quality in qualities" :key="quality" type="button" :disabled="busy" @click="download(quality)"><div><strong>{{ qualityLabel(quality) }}</strong><span>{{ quality.toUpperCase() }} · {{ quality === 'flac24bit' || quality === 'flac' || quality === 'ape' || quality === 'wav' ? '无损音质' : '标准音频' }}</span></div><UiIcon name="download" /></button>
+      </div>
       <p v-if="onlineTracks.length" class="ui-dialog-note ui-track-location">保存位置：{{ appSetting['download.savePath'] || '未设置' }}</p>
       <p v-if="onlineTracks.length < tracks.length && onlineTracks.length" class="ui-dialog-note">已跳过 {{ tracks.length - onlineTracks.length }} 首本地音乐。</p>
     </template>
@@ -49,6 +52,7 @@ import { appSetting } from '@renderer/store/setting'
 import { updateSetting } from '@renderer/utils/ipc'
 import { addTrackToPlaylist, initializePlatformAccounts, platformName, platformPlaylists, platformSnapshot, setFavorites, writablePlatforms } from '../services/platformAccounts'
 import { platformNames } from '@common/platformAccounts'
+import { bestTrackQuality, trackQualities } from '../services/downloadQuality'
 import type { PlatformId, PlatformPlaylist } from '@common/platformAccounts'
 
 interface TrackActionProps { show: boolean, tracks: LX.Music.MusicInfo[], fromListId?: string, action: 'add' | 'download' }
@@ -82,9 +86,31 @@ const emptyPlatforms = computed(() => (Object.keys(platformNames) as PlatformId[
   const account = platformSnapshot.value.accounts.find(item => item.platform === id)
   return account?.connected && account.canAddToPlaylist && !platformGroups.value.some(group => group.platform === id)
 }).map(id => platformName(id)))
-const qualities = computed<LX.Quality[]>(() => QUALITYS.filter((quality: LX.Quality) => onlineTracks.value.length && onlineTracks.value.every((track: LX.Music.MusicInfoOnline) => qualityList.value[track.source]?.includes(quality) && track.meta.qualitys.some((item: LX.Music.MusicQualityType) => item.type === quality))))
+const qualities = computed<LX.Quality[]>(() => onlineTracks.value.length
+  ? QUALITYS.filter((quality: LX.Quality) => onlineTracks.value.every((track: LX.Music.MusicInfoOnline) => trackQualities(track, qualityList.value[track.source]).includes(quality)))
+  : [])
 const qualityLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'SQ', ape: 'APE 无损', wav: 'WAV 无损', '320k': 'HQ', '192k': '清晰 192 kbps', '128k': 'SD' }
 function qualityLabel(quality: LX.Quality) { return qualityLabels[quality] }
+// 自动音质：每首歌按自身可用音质取最高；Worker 的 getMusicType 在请求的音质
+// 不可用时会继续向下递减，所以按最高音质分组请求即可完成整条降级链。
+const autoGroups = computed(() => {
+  const groups = new Map<LX.Quality, LX.Music.MusicInfoOnline[]>()
+  if (!appSetting['download.isAutoQuality']) return groups
+  for (const track of onlineTracks.value) {
+    const best = bestTrackQuality(track, qualityList.value[track.source])
+    if (!best) continue
+    const group = groups.get(best)
+    if (group) group.push(track)
+    else groups.set(best, [track])
+  }
+  return groups
+})
+const autoAvailable = computed(() => autoGroups.value.size > 0)
+const autoSummary = computed(() => {
+  const entries = [...autoGroups.value.entries()]
+  if (entries.length === 1) return `全部以${qualityLabels[entries[0][0]]}下载`
+  return entries.map(([quality, tracks]) => `${qualityLabels[quality]} ×${tracks.length}`).join(' · ')
+})
 watch(() => props.show, show => {
   if (!show) return
   error.value = ''
@@ -131,6 +157,14 @@ async function download(quality: LX.Quality) {
     await createDownloadTasks(onlineTracks.value, quality, props.fromListId === '' ? undefined : props.fromListId)
   }, '已加入下载队列')
 }
+async function downloadAuto() {
+  await run(async() => {
+    if (!autoGroups.value.size) throw new Error('当前音源没有可用的下载音质。')
+    await getDownloadList()
+    if (!appSetting['download.enable']) await updateSetting({ 'download.enable': true })
+    for (const [quality, tracks] of autoGroups.value) await createDownloadTasks(tracks, quality, props.fromListId === '' ? undefined : props.fromListId)
+  }, '已加入下载队列')
+}
 </script>
 
 <style lang="less">
@@ -138,7 +172,7 @@ async function download(quality: LX.Quality) {
 .ui-track-target-icon { width: 30px; height: 30px; display: grid; place-items: center; flex: none; background: var(--modern-accent-soft); color: var(--modern-accent-ink); border-radius: 8px; font-size: 21px; }
 .ui-track-target-arrow { margin-left: auto; color: var(--modern-muted); }
 .ui-track-create { display: flex; gap: 8px; margin-top: 16px; input { flex: 1; width: 0; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); background: var(--modern-bg); color: var(--modern-text); padding: 10px 12px; font-family: inherit; font-size: 12px; } button { width: 38px; border: 0; border-radius: 10px; background: var(--modern-text); color: var(--modern-panel); font-size: 22px; cursor: pointer; &:disabled { opacity: .4; } } }
-.ui-track-quality { display: flex; flex-direction: column; gap: 8px; button { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); padding: 13px 16px; background: var(--modern-panel); color: var(--modern-text); text-align: left; cursor: pointer; &:hover { background: var(--modern-accent-soft); } &:disabled { opacity: .5; } strong { display: block; font-size: 13px; font-weight: 500; } div span { font-size: 11px; color: var(--modern-muted); margin-top: 3px; display: block; } } }
+.ui-track-quality { display: flex; flex-direction: column; gap: 8px; button { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); padding: 13px 16px; background: var(--modern-panel); color: var(--modern-text); text-align: left; cursor: pointer; &:hover { background: var(--modern-accent-soft); } &:disabled { opacity: .5; } strong { display: block; font-size: 13px; font-weight: 500; } div span { font-size: 11px; color: var(--modern-muted); margin-top: 3px; display: block; } } button.ui-track-quality-auto { border-color: color-mix(in srgb, var(--modern-accent) 45%, var(--modern-border)); strong { color: var(--modern-accent-ink); } svg { color: var(--modern-accent-ink); } } }
 .ui-track-location { margin-top: 18px; overflow-wrap: anywhere; }
 .ui-track-platform { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--modern-border); }
 .ui-track-platform-title { font-size: 13px; font-weight: 600; color: var(--modern-text); margin-bottom: 4px; }

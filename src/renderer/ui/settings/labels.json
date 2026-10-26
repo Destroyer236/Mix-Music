@@ -115,6 +115,7 @@
   "download.isEmbedLyricT": "在音频文件中嵌入翻译歌词",
   "download.isEmbedLyricR": "在音频文件中嵌入罗马音歌词",
   "download.isUseOtherSource": "歌曲源不可用时，是否启用换源下载",
+  "download.isAutoQuality": "自动选择下载音质",
   "theme.id": "桌面歌词主题",
   "theme.lightId": "跟随系统时的浅色歌词主题",
   "theme.darkId": "跟随系统时的深色歌词主题",

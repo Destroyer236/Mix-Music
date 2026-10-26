@@ -140,6 +140,7 @@ const hints: Partial<Record<SettingKey, string>> = {
   'player.waitPlayEndStopTime': '以分钟计，例如 30；点击启动定时按钮开始倒计时。',
   'network.proxy.port': '代理只影响接口请求。端口范围 1–65535。',
   'sync.mode': '切换模式时会关闭旧连接，保存其他设备的配对信息。',
+  'download.isAutoQuality': '开启后，下载弹窗与播放器的下载页提供「自动」入口：每首歌按其最高可用音质下载，该音质不可用时依次降低。',
 }
 
 function categoryFor(key: SettingKey): string {

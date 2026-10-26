@@ -63,7 +63,8 @@
               <button type="button" :disabled="loadingDevices" @click="refreshDevices"><UiIcon name="refresh" /><span>{{ loadingDevices ? '正在读取设备…' : '刷新输出设备' }}</span></button>
             </div>
             <div v-else-if="page === 'download'" class="ui-full-more-items">
-              <p v-if="!downloadQualities.length" class="ui-full-more-note">当前歌曲没有可用的下载音质。请先在设置中导入支持该歌曲的音乐源。</p>
+              <p v-if="!downloadQualities.length && !autoQuality" class="ui-full-more-note">当前歌曲没有可用的下载音质。请先在设置中导入支持该歌曲的音乐源。</p>
+              <button v-if="autoQuality" type="button" class="ui-full-more-auto" :disabled="busy" @click="downloadTrackAuto()"><UiIcon name="download" /><span>自动选择音质<small>最高可用：{{ downloadLabels[autoQuality] }}</small></span></button>
               <button v-for="quality in downloadQualities" :key="quality" type="button" :disabled="busy" @click="downloadTrack(quality)"><UiIcon name="download" /><span>{{ downloadLabels[quality] }}</span></button>
               <p class="ui-full-more-note ui-full-download-location">保存位置：{{ appSetting['download.savePath'] || '未设置' }}</p>
             </div>
@@ -77,10 +78,10 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { QUALITYS } from '@common/constants'
 import { clipboardWriteText } from '@common/utils/electron'
 import { platformSourceLabels, type PreferredPlatformSource } from '@common/platformSources'
 import { qualityLabels } from '@common/platformPlayback'
+import { bestTrackQuality, trackQualities } from '../services/downloadQuality'
 import { qualityList } from '@renderer/store'
 import { appSetting, mergeSetting } from '@renderer/store/setting'
 import { playbackRate } from '@renderer/store/player/playbackRate'
@@ -139,7 +140,13 @@ const downloadLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解�
 const onlineTrack = computed<LX.Music.MusicInfoOnline | null>(() => props.track && props.track.source !== 'local' ? props.track : null)
 const downloadQualities = computed(() => {
   const track = onlineTrack.value
-  return track ? QUALITYS.filter(quality => qualityList.value[track.source]?.includes(quality) && track.meta.qualitys.some(item => item.type === quality)) : []
+  return track ? trackQualities(track, qualityList.value[track.source]) : []
+})
+// 自动音质：取该歌曲可用的最高音质；Worker 在其不可用时会继续向下递减。
+const autoQuality = computed<LX.Quality | null>(() => {
+  if (!appSetting['download.isAutoQuality']) return null
+  const track = onlineTrack.value
+  return track ? bestTrackQuality(track, qualityList.value[track.source]) : null
 })
 const audioInfo = computed(() => {
   const file = activePlaybackResource.value && activePlaybackResource.value.trackId === playMusicInfo.musicInfo?.id ? activePlaybackResource.value.local : Boolean(playMusicInfo.musicInfo && 'metadata' in playMusicInfo.musicInfo) || props.track?.source === 'local'
@@ -274,6 +281,11 @@ function downloadTrack(quality: LX.Quality): void {
     close()
   }, '已加入下载队列')
 }
+function downloadTrackAuto(): void {
+  const quality = autoQuality.value
+  if (!quality) return
+  downloadTrack(quality)
+}
 watch(open, show => {
   if (show) page.value = 'home'
   else { deviceGeneration++; loadingDevices.value = false }
@@ -311,6 +323,7 @@ onBeforeUnmount(() => { deviceGeneration++; navigator.mediaDevices?.removeEventL
 .ui-full-sleep-countdown { margin: 10px 0 18px; text-align: center; font-size: 17px; color: var(--modern-accent-ink); font-variant-numeric: tabular-nums; }
 .ui-full-sleep-custom { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12px; input { width: 0; min-width: 0; flex: 1; border: 1px solid var(--modern-border); border-radius: 8px; padding: 8px 10px; background: var(--modern-panel); color: var(--modern-text); font: inherit; } button { padding: 8px 12px; border: 0; border-radius: 8px; background: var(--modern-accent-soft); color: var(--modern-accent-ink); font: inherit; cursor: pointer; } }
 .ui-full-download-location { margin-top: 14px; overflow-wrap: anywhere; }
+.ui-full-more-items button.ui-full-more-auto { border: 1px solid color-mix(in srgb, var(--modern-accent) 45%, var(--modern-border)); color: var(--modern-accent-ink); > span small { display: block; margin-top: 2px; color: var(--modern-muted); font-size: 11px; } }
 .ui-full-menu-page-enter-active, .ui-full-menu-page-leave-active { transition: opacity .12s ease, transform .12s ease; }
 .ui-full-menu-page-enter-from { opacity: 0; transform: translateX(9px); }
 .ui-full-menu-page-leave-to { opacity: 0; transform: translateX(-9px); }
