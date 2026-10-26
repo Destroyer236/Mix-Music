@@ -356,7 +356,11 @@ const filterTask = (list: LX.Download.ListItem[]) => {
  */
 export const createDownloadTasks = async(list: LX.Music.MusicInfoOnline[], quality: LX.Quality, listId?: string) => {
   if (!list.length) return
-  const tasks = filterTask(await window.lx.worker.download.createDownloadTasks(list, quality,
+  // 平台歌单/播放器的歌曲对象可能带着 Vue Proxy（响应式容器读出的引用，嵌套字段
+  // 也会被包装）；传给 Worker 走结构化克隆，Proxy 不可克隆。深拷贝成纯 JSON，
+  // 与 addTasks 的 IPC 入参同一防护思路。
+  const tasks = filterTask(await window.lx.worker.download.createDownloadTasks(
+    list.map(item => JSON.parse(JSON.stringify(toRaw(item)))), quality,
     appSetting['download.fileName'],
     toRaw(qualityList.value), listId),
   )
