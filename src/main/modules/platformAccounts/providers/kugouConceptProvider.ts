@@ -77,17 +77,21 @@ export const kugouConceptProvider: PlatformProvider = {
   async playlists(context, profile): Promise<PlatformPlaylist[]> {
     const lists = await concept.playlists(context, profile.id)
     // 「我喜欢」作为红心来源单独使用；「默认收藏」是酷狗的空系统目录，不展示。
-    return lists.filter(item => !item.isDefault && !/^默认收藏$/.test(item.name)).map(item => ({
-      id: `kugouConcept:${item.id}`,
-      platform: 'kugouConcept',
-      ownerId: profile.id,
-      remoteId: item.id,
-      name: item.name,
-      cover: item.cover,
-      count: item.count,
-      lastSync: null,
-      loaded: false,
-    }))
+    // 其余歌单（本人创建 + 收藏他人）全部展示。
+    return lists
+      .filter(item => !item.isDefault && Number(item.id) !== 1)
+      .map(item => ({
+        id: `kugouConcept:${item.id}`,
+        platform: 'kugouConcept',
+        ownerId: profile.id,
+        remoteId: item.id,
+        name: item.name,
+        cover: item.cover,
+        count: item.count,
+        lastSync: null,
+        loaded: false,
+        collected: !item.owned,
+      }))
   },
   async playlistTracks(context, profile, playlist) {
     if (playlist.platform !== 'kugouConcept' || playlist.ownerId !== profile.id) throw new Error('歌单不属于当前酷狗概念版账号，请重新同步')

@@ -222,16 +222,37 @@ export const miguProvider: PlatformProvider = {
   },
   async playlists(context, user): Promise<PlatformPlaylist[]> {
     const body = await request(context, '/pc/user/home-page/v2.0')
-    const lists = body.data?.myCreatedMusicLists?.createdMusicLists
-    if (!Array.isArray(lists)) throw new Error('咪咕音乐未返回创建的歌单')
-    return lists.filter((item: any) => !item.ownerId || String(item.ownerId) === user.id).map((item: any): PlatformPlaylist => {
+    const created = body.data?.myCreatedMusicLists?.createdMusicLists
+    const collected = body.data?.myCollectedMusicLists?.collectMusicLists
+    if (!Array.isArray(created)) throw new Error('咪咕音乐未返回创建的歌单')
+    const toPlaylist = (item: any, isCollected: boolean): PlatformPlaylist | null => {
       const remoteId = String(item.musicListId ?? '')
-      return { id: `migu:${remoteId}`, platform: 'migu', ownerId: user.id, remoteId, name: String(item.title ?? '未命名歌单'), cover: image(item.imgItem?.img ?? item.img), count: Math.max(0, Number(item.musicNum ?? item.songNum) || 0), loaded: false, lastSync: null }
-    }).filter((item: PlatformPlaylist) => item.remoteId)
+      if (!remoteId) return null
+      return {
+        id: `migu:${remoteId}`,
+        platform: 'migu',
+        ownerId: user.id,
+        remoteId,
+        name: String(item.title ?? '未命名歌单'),
+        cover: image(item.imgItem?.img ?? item.img),
+        count: Math.max(0, Number(item.musicNum ?? item.songNum) || 0),
+        loaded: false,
+        lastSync: null,
+        collected: isCollected,
+      }
+    }
+    // 自建歌单：只保留当前账号创建的条目（接口也可能返回协作歌单）。
+    const own = created
+      .filter((item: any) => !item.ownerId || String(item.ownerId) === user.id)
+      .map((item: any) => toPlaylist(item, false))
+    // 收藏歌单：别人创建、被当前账号收藏的列表。
+    const saved = Array.isArray(collected) ? collected.map((item: any) => toPlaylist(item, true)) : []
+    return [...own, ...saved].filter((item: PlatformPlaylist | null): item is PlatformPlaylist => item != null)
   },
   async playlistTracks(context, user, playlist) {
     const body = await request(context, '/resource/playlist/v2.0', { playlistId: playlist.remoteId })
-    if (String(body.data?.ownerId ?? '') !== user.id) throw new Error('歌单不属于当前咪咕音乐账号，请重新同步')
+    // 收藏歌单的 ownerId 是原作者，不能据此拒绝；只校验歌单确实存在。
+    if (body.data == null) throw new Error('咪咕音乐未返回歌单内容，请重新同步')
     return readPlaylist(context, playlist.remoteId)
   },
   search,

@@ -329,7 +329,6 @@ async function playlists(context: ProviderContext, user: PlatformProfile): Promi
     if ([200, 201, 202].includes(dirId)) continue
     const creator = asRecord(item.creator_info ?? item.creator)
     const owner = String(item.owner_uin ?? item.uin ?? creator.uin ?? user.id).replace(/^o0*/, '')
-    if (owner !== user.id) continue
     const remoteId = String(item.tid ?? item.id ?? '')
     if (!/^\d+$/.test(remoteId) || Number(remoteId) <= 0) continue
     result.set(remoteId, {
@@ -342,6 +341,7 @@ async function playlists(context: ProviderContext, user: PlatformProfile): Promi
       count: Math.max(0, Number(item.songNum ?? item.song_num ?? item.song_count ?? item.total_song_num) || 0),
       lastSync: null,
       loaded: false,
+      collected: owner !== user.id,
     })
   }
   return [...result.values()]

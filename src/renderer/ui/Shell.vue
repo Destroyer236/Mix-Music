@@ -178,8 +178,11 @@ const deviceMusicCount = useDeviceMusicCount()
 useFavoriteLinks()
 usePlaylistCoverTracking()
 const sidebarLists = computed(() => {
-  const lists = userLists.filter(list => list.id !== LOCAL_LIBRARY_ID && Boolean(list.source && list.sourceListId) === (playlistTab.value === 'collected'))
-  return playlistTab.value === 'created' ? [...lists, ...platformPlaylists.value] : lists
+  const collected = playlistTab.value === 'collected'
+  const lists = userLists.filter(list => list.id !== LOCAL_LIBRARY_ID && Boolean(list.source && list.sourceListId) === collected)
+  // 平台歌单按来源分流：收藏的他人歌单进「收藏歌单」，本人创建的进「自建歌单」。
+  const platform = platformPlaylists.value.filter(list => Boolean(list.collected) === collected)
+  return [...lists, ...platform]
 })
 /**
  * 侧栏按来源分组：本地歌单在前，各音乐平台各自成组。

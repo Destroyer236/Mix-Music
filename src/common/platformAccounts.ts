@@ -48,6 +48,8 @@ export interface PlatformPlaylist {
   count: number
   lastSync: number | null
   loaded: boolean
+  /** 收藏的他人歌单；缺省视为本人创建。 */
+  collected?: boolean
 }
 
 export interface PlatformPlaylistDetail {

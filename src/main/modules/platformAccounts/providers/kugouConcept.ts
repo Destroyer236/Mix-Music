@@ -443,9 +443,18 @@ async function apiRequest(context: ProviderContext, path: string, options: { que
   return result
 }
 
-export interface KugouPlaylist { id: string, name: string, cover: string, count: number, isDefault: boolean }
+export interface KugouPlaylist { id: string, name: string, cover: string, count: number, isDefault: boolean, owned: boolean }
 
-/** 账号歌单列表（含“我喜欢”的默认歌单）。 */
+/**
+ * 账号歌单列表，包含本人创建与收藏的他人歌单。
+ *
+ * 字段含义（实测 /v7/get_all_list）：
+ * - is_def：1 = 默认收藏，2 = 我喜欢；其余歌单没有该字段
+ * - type：0 = 本人创建，1 = 收藏的他人歌单
+ * - list_create_userid：歌单创建者，收藏歌单是原作者
+ *
+ * 两种歌单都是用户可见且可写入的，不做过滤；owned 仅用于展示来源。
+ */
 export async function playlists(context: ProviderContext, _userId: string): Promise<KugouPlaylist[]> {
   const creds = await ensureDevice(context)
   const result = await apiRequest(context, '/v7/get_all_list', {
@@ -457,17 +466,15 @@ export async function playlists(context: ProviderContext, _userId: string): Prom
   return lists.map((item: any): KugouPlaylist | null => {
     const listid = String(item.listid ?? '')
     if (!listid) return null
-    // 只保留本人创建的歌单：type:2 也会返回收藏的他人歌单。
-    const owner = String(item.list_create_userid ?? '')
-    if (owner && creds.userid && owner !== String(creds.userid)) return null
+    const isDefault = Number(item.is_def) === 2 || /^我喜欢$/.test(String(item.name ?? ''))
     return {
       id: listid,
       name: String(item.name ?? '未命名歌单'),
       // pic 形如 ".../stdmusic/{size}/xxx.jpg"，{size} 必须替换成具体尺寸才能加载。
       cover: String(item.pic ?? item.cover ?? '').replace('{size}', '400'),
       count: Math.max(0, Number(item.count ?? item.song_count) || 0),
-      // 酷狗的「我喜欢」由名称标识（listid=2 也可能变化），不能只看 type。
-      isDefault: /我喜欢|默认收藏/.test(String(item.name ?? '')),
+      isDefault,
+      owned: Number(item.type) !== 1,
     }
   }).filter((item: KugouPlaylist | null): item is KugouPlaylist => item != null)
 }

@@ -173,12 +173,12 @@ export const bodianProvider: PlatformProvider = {
     if (!Array.isArray(owned.playLists) && Object.keys(owned).length) throw new Error('波点音乐未返回自建歌单，请重新同步')
     const collected = await allPages(context, '/api/service/collect/4/list', 'playLists', query)
     const result = new Map<string, PlatformPlaylist>()
-    for (const [entries, fallback] of [[owned.playLists ?? [], 5], [collected, 4]] as const) {
+    for (const [entries, fallback, isCollected] of [[owned.playLists ?? [], 5, false], [collected, 4, true]] as const) {
       for (const value of entries) {
         const item = object(value)
         if (!itemId(item.id) || Number(item.sourceType) === 6 || Number(item.isFond) === 1) continue
         const remoteId = playlistKey(item, fallback)
-        result.set(remoteId, { id: `bodian:${remoteId}`, platform: 'bodian', ownerId: profile.id, remoteId, name: text(item.name) || '波点音乐歌单', cover: mediaUrl(item.pic), count: Math.max(0, Number(item.musicCount) || 0), loaded: false, lastSync: null })
+        result.set(remoteId, { id: `bodian:${remoteId}`, platform: 'bodian', ownerId: profile.id, remoteId, name: text(item.name) || '波点音乐歌单', cover: mediaUrl(item.pic), count: Math.max(0, Number(item.musicCount) || 0), loaded: false, lastSync: null, collected: isCollected })
       }
     }
     return [...result.values()]

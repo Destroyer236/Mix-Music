@@ -173,9 +173,12 @@ async function playlists(context: ProviderContext, profile: PlatformProfile): Pr
     const body = await request(context, 'user/playlist', { uid: profile.id, limit: 100, offset, includeVideo: false })
     if (!Array.isArray(body.playlist)) throw new Error('网易云未返回用户歌单列表')
     for (const item of body.playlist) {
-      if (String(item?.creator?.userId ?? '') !== profile.id || Number(item.specialType) === 5) continue
+      // specialType 5 是「我喜欢的音乐」，作为红心来源单独处理。
+      if (Number(item.specialType) === 5) continue
       const remoteId = String(item.id ?? '')
       if (!/^\d+$/.test(remoteId) || Number(remoteId) <= 0) continue
+      // 别人创建、被当前账号收藏的歌单也要展示，归入「收藏歌单」。
+      const collected = String(item?.creator?.userId ?? '') !== profile.id || Number(item.subscribed) === 1
       result.set(remoteId, {
         id: `netease:${remoteId}`,
         platform: 'netease',
@@ -186,6 +189,7 @@ async function playlists(context: ProviderContext, profile: PlatformProfile): Pr
         count: Math.max(0, Number(item.trackCount) || 0),
         lastSync: null,
         loaded: false,
+        collected,
       })
     }
     offset += body.playlist.length

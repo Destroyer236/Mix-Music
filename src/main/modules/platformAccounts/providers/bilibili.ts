@@ -65,32 +65,56 @@ function trackFromVideo(item: Json): LX.Music.MusicInfoOnline | null {
   }
 }
 
-interface Folder { id: string, name: string, cover: string, count: number, isDefault: boolean }
+interface Folder { id: string, name: string, cover: string, count: number, isDefault: boolean, collected?: boolean }
 async function folders(context: ProviderContext, profile: PlatformProfile): Promise<Folder[]> {
   if (!numericId(profile.id)) throw new Error('无效的哔哩哔哩账号')
   const result = new Map<string, Folder>()
-  let seen = 0
-  for (let page = 1; page <= 500; page++) {
-    const body = await request(context, '/x/v3/fav/folder/created/list', { up_mid: profile.id, pn: page, ps: 20, jsonp: 'jsonp' })
-    if (body.list == null && Number(body.count) === 0 && !body.has_more) return [...result.values()]
-    if (!Array.isArray(body.list)) throw new Error('哔哩哔哩未返回收藏夹列表，请重新登录后重试')
-    let added = 0
-    for (const entry of body.list) {
-      const item = object(entry)
-      const id = numericId(item.id)
-      if (!id || (item.mid != null && String(item.mid) !== profile.id)) continue
-      if (!result.has(id)) added++
-      result.set(id, { id, name: text(item.title) || '未命名收藏夹', cover: httpsImage(item.cover), count: Math.max(0, Number(item.media_count) || 0), isDefault: Boolean(item.is_default ?? item.default) || text(item.title) === '默认收藏夹' })
+  // 创建与收藏是两个独立接口，返回结构相同；收藏项带 collected 标记。
+  for (const [route, isCollected] of [
+    ['/x/v3/fav/folder/created/list', false],
+    ['/x/v3/fav/folder/collected/list', true],
+  ] as const) {
+    let seen = 0
+    for (let page = 1; page <= 500; page++) {
+      const body = await request(context, route, isCollected
+        ? { up_mid: profile.id, pn: page, ps: 20, platform: 'web' }
+        : { up_mid: profile.id, pn: page, ps: 20, jsonp: 'jsonp' })
+      if (body.list == null && Number(body.count) === 0 && !body.has_more) break
+      if (!Array.isArray(body.list)) {
+        // 收藏接口对空账号可能不给 list，视为没有收藏歌单。
+        if (isCollected) break
+        throw new Error('哔哩哔哩未返回收藏夹列表，请重新登录后重试')
+      }
+      let added = 0
+      for (const entry of body.list) {
+        const item = object(entry)
+        const id = numericId(item.id)
+        if (!id) continue
+        // 收藏的收藏夹归属原作者，不能要求 mid 等于当前账号。
+        if (!isCollected && item.mid != null && String(item.mid) !== profile.id) continue
+        if (!result.has(id)) added++
+        result.set(id, {
+          id,
+          name: text(item.title) || '未命名收藏夹',
+          cover: httpsImage(item.cover),
+          count: Math.max(0, Number(item.media_count) || 0),
+          isDefault: !isCollected && (Boolean(item.is_default ?? item.default) || text(item.title) === '默认收藏夹'),
+          ...(isCollected ? { collected: true } : {}),
+        })
+      }
+      seen += body.list.length
+      if (!body.has_more && !(Number(body.count) > seen)) break
+      if (!body.list.length || !added) {
+        if (isCollected) break
+        throw new Error('哔哩哔哩收藏夹分页不完整，请稍后重新同步')
+      }
     }
-    seen += body.list.length
-    if (!body.has_more && !(Number(body.count) > seen)) return [...result.values()]
-    if (!body.list.length || !added) throw new Error('哔哩哔哩收藏夹分页不完整，请稍后重新同步')
   }
-  throw new Error('哔哩哔哩收藏夹超过同步上限')
+  return [...result.values()]
 }
 // The official created-folder list places the account's default folder first.
 const findDefaultFolder = (list: Folder[]): Folder | undefined => list.find(item => item.isDefault) ?? list[0]
-const asPlaylist = (folder: Folder, profile: PlatformProfile): PlatformPlaylist => ({ id: `bilibili:${folder.id}`, platform: 'bilibili', ownerId: profile.id, remoteId: folder.id, name: folder.name, cover: folder.cover, count: folder.count, lastSync: null, loaded: false })
+const asPlaylist = (folder: Folder, profile: PlatformProfile): PlatformPlaylist => ({ id: `bilibili:${folder.id}`, platform: 'bilibili', ownerId: profile.id, remoteId: folder.id, name: folder.name, cover: folder.cover, count: folder.count, lastSync: null, loaded: false, ...(folder.collected ? { collected: true } : {}) })
 
 async function playlistTracks(context: ProviderContext, profile: PlatformProfile, playlist: PlatformPlaylist): Promise<LX.Music.MusicInfoOnline[]> {
   if (playlist.ownerId !== profile.id || !numericId(playlist.remoteId)) throw new Error('收藏夹不属于当前哔哩哔哩账号')
@@ -99,8 +123,8 @@ async function playlistTracks(context: ProviderContext, profile: PlatformProfile
   for (let page = 1; page <= 5000; page++) {
     const body = await request(context, '/x/v3/fav/resource/list', { media_id: playlist.remoteId, pn: page, ps: 20, keyword: '', order: 'mtime', type: 0, tid: 0, platform: 'web', web_location: '333.1387' })
     const header = object(body.info)
-    const owner = object(header.upper).mid ?? header.mid
-    if (owner == null || String(owner) !== profile.id || String(header.id) !== playlist.remoteId) throw new Error('收藏夹不属于当前哔哩哔哩账号，请重新同步')
+    // 收藏的收藏夹归属原作者，只校验返回的确是目标收藏夹。
+    if (String(header.id) !== playlist.remoteId) throw new Error('收藏夹不属于当前哔哩哔哩账号，请重新同步')
     const entries = body.medias == null && Number(header.media_count) === 0 ? [] : body.medias
     if (!Array.isArray(entries)) throw new Error('哔哩哔哩未返回收藏夹内容')
     for (const item of entries) {
