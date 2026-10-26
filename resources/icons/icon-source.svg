@@ -1,0 +1,33 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <title>Mix Music</title>
+    <desc>白底圆角方块，内衬两圈极淡同心圆，上方深色 Mix、下方品牌绿 MUSIC，底部一条短横线。参考 EchoMusic 图标设计。</desc>
+
+    <!-- 图标主体：白底圆角方块 -->
+    <rect width="1024" height="1024" rx="180" fill="#FFFFFF"/>
+
+    <!-- 装饰性同心圆 -->
+    <g opacity="0.1">
+        <circle cx="512" cy="512" r="380" fill="none" stroke="#00CF7A" stroke-width="2"/>
+        <circle cx="512" cy="512" r="440" fill="none" stroke="#00CF7A" stroke-width="1"/>
+    </g>
+
+    <!-- Mix：深色主标题 -->
+    <text x="512" y="530"
+          font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+          font-size="168"
+          font-weight="900"
+          fill="#1A1A1A"
+          text-anchor="middle">Mix</text>
+
+    <!-- MUSIC：品牌绿副标题 -->
+    <text x="512" y="700"
+          font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+          font-size="150"
+          font-weight="700"
+          fill="#00CF7A"
+          text-anchor="middle"
+          letter-spacing="16">MUSIC</text>
+
+    <!-- 底部装饰横线 -->
+    <rect x="377" y="748" width="270" height="8" rx="4" fill="#00CF7A" opacity="0.5"/>
+</svg>
