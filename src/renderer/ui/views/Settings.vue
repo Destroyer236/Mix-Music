@@ -91,6 +91,20 @@
             <div class="studio-settings-about"><img :src="brandLogo" alt="Mix Music 标志"><h2>Mix Music</h2><p>版本 {{ versionInfo.version }} · 独立桌面客户端</p><p>音乐无界，热爱不止。</p></div>
             <p class="studio-settings-hint">Mix Music 基于 LXMusic 开源项目再开发。遵循 Apache-2.0 开源许可。</p>
             <div class="studio-settings-actions spaced"><button type="button" class="studio-settings-button" @click="openUrl(LINKLINE_REPOSITORY)">项目源码<UiIcon name="arrowUpRight" /></button><button type="button" class="studio-settings-button" @click="openUrl(`${LINKLINE_REPOSITORY}#readme`)">使用说明<UiIcon name="arrowUpRight" /></button><button type="button" class="studio-settings-button" @click="licenseOpen = true">开源许可</button><button type="button" class="studio-settings-button" @click="openUpdateCenter"><UiIcon name="cloudDownload" />检查更新</button></div>
+
+            <div class="studio-settings-subheading"><h3>本项目参考</h3><p>界面与功能设计参考了以下开源项目，感谢作者的公开实现。</p></div>
+            <div class="studio-settings-references">
+              <article v-for="reference in projectReferences" :key="reference.url">
+                <div class="studio-settings-reference-head">
+                  <UiIcon :name="reference.icon" />
+                  <div><h4>{{ reference.name }}</h4><p>{{ reference.description }}</p></div>
+                </div>
+                <button type="button" class="studio-settings-reference-link" :aria-label="`打开 ${reference.name} 仓库`" @click="openUrl(reference.url)">
+                  <span class="studio-settings-reference-url">{{ reference.label }}</span>
+                  <UiIcon name="arrowUpRight" />
+                </button>
+              </article>
+            </div>
           </template>
           </template>
           <div v-else class="studio-settings-placeholder" aria-hidden="true"><span /><span /><span /></div>
@@ -141,6 +155,11 @@ const content = ref<HTMLElement | null>(null)
 const sourceUrl = ref('')
 const authCode = ref('')
 const licenseOpen = ref(false)
+/** 关于页展示的参考项目；label 用于在界面上去掉协议前缀，保持紧凑。 */
+const projectReferences = [
+  { name: 'EchoMusic', description: 'EchoMusic 皮肤、主页与搜索落地页的视觉语言来源。', url: 'https://github.com/hoowhoami/EchoMusic', label: 'github.com/hoowhoami/EchoMusic', icon: 'disc' },
+  { name: 'LinkLine', description: '本项目的上游仓库，更名前的版本与历史安装包发布于此。', url: 'https://github.com/yaonikaixin999999/LinkLine', label: 'github.com/yaonikaixin999999/LinkLine', icon: 'list' },
+] as const
 const customEq = ref<LX.SoundEffect.EQPreset[]>([])
 const eqPresetName = ref('')
 const eqPresetId = ref('')
@@ -382,6 +401,10 @@ onMounted(() => {
 .studio-settings-backups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--modern-panel-gap); article { padding: 18px; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); background: var(--modern-hover); > svg { width: 26px; height: 26px; color: var(--modern-accent-ink); } h3 { font-size: 13px; font-weight: 550; margin: 12px 0 7px; } p { font-size: 10px; color: var(--modern-muted); line-height: 1.7; margin-bottom: 16px; min-height: 34px; } .studio-settings-button { padding: 7px 10px; } } }
 .studio-settings-about { text-align: center; padding: 20px 0 35px; > img { display: block; width: 64px; height: 64px; margin: 0 auto 18px; } h2 { font-size: 24px; font-weight: 650; } p { color: var(--modern-muted); font-size: 11px; margin-top: 10px; } }
 .studio-settings-license { margin: 16px 0; color: var(--modern-muted); }
+.studio-settings-references { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--modern-panel-gap); margin-top: 14px; article { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; padding: 16px 18px; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); background: var(--modern-hover); } }
+.studio-settings-reference-head { display: flex; gap: 12px; align-items: flex-start; > svg { flex: none; width: 22px; height: 22px; margin-top: 2px; color: var(--modern-accent-ink); } h4 { font-size: 13px; font-weight: 600; letter-spacing: -.01em; } p { margin-top: 6px; font-size: 10.5px; line-height: 1.7; color: var(--modern-muted); } }
+.studio-settings-reference-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border: 1px solid var(--modern-border); border-radius: var(--modern-radius-small); background: transparent; color: var(--modern-text); font-size: 10.5px; cursor: pointer; transition: background .15s ease, border-color .15s ease; &:hover { border-color: color-mix(in srgb, var(--modern-accent) 42%, var(--modern-border)); background: var(--modern-accent-soft); } svg { flex: none; width: 13px; height: 13px; color: var(--modern-muted); } }
+.studio-settings-reference-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.005em; }
 .studio-settings button:focus-visible, .studio-settings input:focus-visible, .studio-settings textarea:focus-visible { outline: 2px solid var(--modern-accent); outline-offset: 3px; }
 @media (max-width: 1100px) { .studio-settings-content { padding: 23px 22px 35px; } .studio-settings-control { width: 200px; } .studio-settings-layout { grid-template-columns: 145px minmax(0, 1fr); } }
 @media (max-width: 860px) { .studio-settings-layout { display: flex; flex-direction: column; } .studio-settings-nav { display: flex; flex: none; padding: 10px 15px; border-right: 0; border-bottom: 1px solid var(--modern-border); white-space: nowrap; button { width: auto; flex: none; padding: 8px 12px; margin: 0 4px 0 0; svg { display: none; } } } .studio-settings-content { flex: 1; } .studio-settings-heading { padding: 22px; } }
