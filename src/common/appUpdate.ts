@@ -54,6 +54,24 @@ export interface AppReleaseAsset {
   size: number
   sha256?: string
   downloadUrl?: string
+  /** 增量下载用的块索引；未提供时该版本只能全量下载。 */
+  blockmapUrl?: string
+}
+
+/** 安装包对应的块索引地址：与安装包同目录、同名前缀加 `.blockmap`。 */
+export const BLOCKMAP_SUFFIX = '.blockmap'
+export const blockMapUrlFor = (installerUrl: string): string => `${installerUrl}${BLOCKMAP_SUFFIX}`
+
+/** 在资产列表里找出指定安装包配套的块索引。 */
+export const findBlockMapAsset = <T extends { name: string }>(assets: T[] | undefined, installerName: string): T | undefined => {
+  const expected = `${installerName}.blockmap`.toLowerCase()
+  return assets?.find(asset => asset.name.toLowerCase() === expected)
+}
+
+/** 从 `MixMusic-v1.2.3-x64-Setup.exe` 取出 `1.2.3`；无法识别时返回 null。 */
+export const installerVersion = (fileName: string): string | null => {
+  const match = /^(?:MixMusic|LinkLine)-v(\d+\.\d+\.\d+)-x64-Setup\.exe$/i.exec(fileName)
+  return match ? match[1] : null
 }
 
 export interface AppRelease {
@@ -79,6 +97,8 @@ export interface UpdateDownloadRequest {
   sha256?: string
   /** Renderer-local token used to ignore progress from a superseded download. */
   requestId?: string
+  /** 该版本可用的块索引地址（已验证属于本仓库）；缺省时只能全量下载。 */
+  blockmapUrl?: string
 }
 
 export interface UpdateDownloadProgress {
@@ -87,6 +107,10 @@ export interface UpdateDownloadProgress {
   percent: number
   bytesPerSecond: number
   requestId?: string
+  /** 本次下载使用了增量（差分）方式，只取了变化的字节。 */
+  differential?: boolean
+  /** 从本地旧安装包复用、无需下载的字节数。 */
+  reusedBytes?: number
 }
 
 export interface UpdateDownloadResult {

@@ -6,6 +6,8 @@ const CACHE_TTL = 60_000
 const HISTORY_LIMIT = 20
 const MAX_BODY_LENGTH = 64_000
 const CHECK_TIMEOUT = 25_000
+/** 安装包对应的块索引资产名，用于挂到 installer 资产上。 */
+const BLOCKMAP_ASSET = (installerName: string) => `${installerName}.blockmap`
 
 interface Version {
   parts: number[]
@@ -71,7 +73,26 @@ const normalizeHistory = (releases: AppRelease[]): AppRelease[] => {
     if (seen.has(identity)) return false
     seen.add(identity)
     return true
-  }).slice(0, HISTORY_LIMIT)
+  }).slice(0, HISTORY_LIMIT).map(linkBlockMaps)
+}
+
+/**
+ * 把 `.blockmap` 资产挂到对应的安装包上。
+ *
+ * 客户端只会用它来请求变化的字节；是否真的能增量取决于本地是否留着上一版
+ * 安装包，所以缺少块索引也不影响更新，只是退回全量下载。
+ */
+const linkBlockMaps = (release: AppRelease): AppRelease => {
+  const blockmaps = new Map(release.assets.filter(asset => asset.name.toLowerCase().endsWith('.blockmap')).map(asset => [asset.name.toLowerCase(), asset]))
+  if (!blockmaps.size) return release
+  return {
+    ...release,
+    assets: release.assets.map(asset => {
+      if (asset.name.toLowerCase().endsWith('.blockmap')) return asset
+      const blockmap = blockmaps.get(BLOCKMAP_ASSET(asset.name).toLowerCase())
+      return blockmap ? { ...asset, blockmapUrl: blockmap.url } : asset
+    }),
+  }
 }
 
 export const parseApiReleases = (json: string): AppRelease[] => {
@@ -226,7 +247,15 @@ export const createUpdateChecker = (currentVersion: string, fetchText: (url: str
           } catch { /* 清单也不可用时保留“尚未发布”状态。 */ }
         }
       }
-      history = history.map(release => ({ ...release, assets: release.assets.map(asset => ({ ...asset, downloadUrl: releaseAssetDownloadUrl(asset.url, requestedSource)! })) }))
+      history = history.map(release => ({
+        ...release,
+        assets: release.assets.map(asset => ({
+          ...asset,
+          downloadUrl: releaseAssetDownloadUrl(asset.url, requestedSource)!,
+          // 块索引走同一镜像，保持源一致。
+          ...(asset.blockmapUrl ? { blockmapUrl: releaseAssetDownloadUrl(asset.blockmapUrl, requestedSource)! } : {}),
+        })),
+      }))
       const latestRelease = history[0] ?? null
       return { ...resultBase(), status: latestRelease ? compareVersions(latestRelease.version, currentVersion)! > 0 ? 'available' : 'latest' : 'unpublished', latestRelease, history, error: null }
     } catch (error) {

@@ -202,7 +202,12 @@ async function playlists(context: ProviderContext, profile: PlatformProfile): Pr
 async function playlistTracks(context: ProviderContext, profile: PlatformProfile, playlist: PlatformPlaylist): Promise<LX.Music.MusicInfoOnline[]> {
   const body = await request(context, 'v6/playlist/detail', { id: playlist.remoteId, n: 100000, s: 0 })
   const detail = body.playlist
-  if (!detail || String(detail.creator?.userId ?? '') !== profile.id) throw new Error('歌单不属于当前网易云账号，请重新同步')
+  if (!detail) throw new Error('网易云未返回歌单详情，请重新同步')
+  // 收藏歌单的 creator 是原作者，不能用它判断归属。只有「未订阅且 creator 也不是
+  // 本人」时才说明这个歌单确实不属于当前账号。
+  const subscribed = Number(detail.subscribed) === 1
+  const owned = String(detail.creator?.userId ?? '') === profile.id
+  if (!subscribed && !owned) throw new Error('歌单不属于当前网易云账号，请重新同步')
   if (!Array.isArray(detail.trackIds)) throw new Error('网易云未返回完整歌单曲目')
   const ids: number[] = detail.trackIds.map((item: any) => Number(item.id)).filter((id: number) => Number.isSafeInteger(id) && id > 0)
   if (ids.length !== detail.trackIds.length || (Number(detail.trackCount) > ids.length)) throw new Error('网易云歌单曲目响应不完整')

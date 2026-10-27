@@ -16,6 +16,8 @@ const options = {
   npmRebuild: false,
   beforePack,
   afterPack,
+  // 内网/离线环境可指向本地已解压的 Electron 发行包，避免每次构建重新下载。
+  ...(process.env.ELECTRON_DIST_DIR ? { electronDist: process.env.ELECTRON_DIST_DIR } : {}),
   protocols: {
     name: 'mixmusic-protocol',
     schemes: [
@@ -59,13 +61,18 @@ const winOptions = {
   win: {
     icon: './resources/icons/mixmusic.ico',
     legalTrademarks: 'Mix Music',
+    // 只保留实际用到的语言包：完整 locales 目录约 48 MB，去掉 53 个未用语言
+    // 可让安装包与全量下载都少约 40 MB。zh-CN 是默认，en-US 作为系统兜底。
+    electronLanguages: ['zh-CN', 'en-US'],
     // artifactName: '${productName}-v${version}-${env.ARCH}-${env.TARGET}.${ext}',
   },
   nsis: {
     oneClick: false,
     language: '2052',
     allowToChangeInstallationDirectory: true,
-    // differentialPackage: true,
+    // 增量更新依赖安装包旁的 .blockmap；electron-builder 默认会生成，
+    // 这里显式保留以免后续误改。
+    differentialPackage: true,
     license: './resources/mixmusic-license.txt',
     shortcutName: 'Mix Music',
     deleteAppDataOnUninstall: false,

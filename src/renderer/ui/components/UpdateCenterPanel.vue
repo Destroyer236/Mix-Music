@@ -63,14 +63,14 @@ const installer = computed(() => {
   // The task belongs to the shared service, so a version refresh or a new
   // instance of this panel always shows the same active/completed download.
   const task = updateDownloadTarget.value
-  if (task && updateDownloadState.value !== 'idle') return { name: task.fileName, downloadUrl: task.url, size: task.size ?? 0, sha256: task.sha256, backupUrl: task.backupUrl ?? null, source: task.source }
+  if (task && updateDownloadState.value !== 'idle') return { name: task.fileName, downloadUrl: task.url, size: task.size ?? 0, sha256: task.sha256, backupUrl: task.backupUrl ?? null, blockmapUrl: task.blockmapUrl ?? null, source: task.source }
   if (!successfulResult.value) return null
   const source = preferredUpdateSource.value
   const release = latestRelease.value
   const asset = release ? findInstallerAsset(release.assets, release.version) : undefined
   const url = asset ? releaseAssetDownloadUrl(asset.url, source) : null
   const officialUrl = asset ? releaseAssetDownloadUrl(asset.url, 'github') : null
-  return asset && url && officialUrl ? { ...asset, downloadUrl: asset.downloadUrl ?? url, backupUrl: source === 'mirror' ? `${LINKLINE_BACKUP_MIRROR}${officialUrl}` : null, source } : null
+  return asset && url && officialUrl ? { ...asset, downloadUrl: asset.downloadUrl ?? url, backupUrl: source === 'mirror' ? `${LINKLINE_BACKUP_MIRROR}${officialUrl}` : null, blockmapUrl: asset.blockmapUrl ?? null, source } : null
 })
 const hasBackupDownload = computed(() => Boolean(installer.value?.backupUrl))
 const installerChecksum = computed(() => { const value = installer.value?.sha256; return value && /^[\da-f]{64}$/i.test(value) ? value : '' })
@@ -87,7 +87,9 @@ const downloadProgressText = computed(() => {
   const progress = downloadProgress.value
   if (!progress) return '准备下载…'
   const total = progress.total ? formatSize(progress.total) : '未知大小'
-  return `${downloadPercent.value.toFixed(0)}% · ${formatSize(progress.transferred)} / ${total} · ${formatRate(progress.bytesPerSecond)}`
+  const rate = `${downloadPercent.value.toFixed(0)}% · ${formatSize(progress.transferred)} / ${total} · ${formatRate(progress.bytesPerSecond)}`
+  // 增量下载时明确告知「只下变化的部分」，避免用户以为进度条总量不对。
+  return progress.differential ? `增量下载 · ${rate}${progress.reusedBytes ? ` · 复用 ${formatSize(progress.reusedBytes)}` : ''}` : rate
 })
 const statusTitle = computed(() => {
   if (updateChecking.value) return '正在检查更新…'
@@ -118,14 +120,17 @@ const downloadInstaller = async() => {
   const asset = installer.value
   if (!asset) return
   installError.value = ''
-  await downloadUpdateInstaller({ url: asset.downloadUrl, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}) }, { source: asset.source, size: asset.size, backupUrl: asset.backupUrl }).catch(() => {})
+  await downloadUpdateInstaller({ url: asset.downloadUrl, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}), ...(asset.blockmapUrl ? { blockmapUrl: asset.blockmapUrl } : {}) }, { source: asset.source, size: asset.size, backupUrl: asset.backupUrl }).catch(() => {})
 }
 const downloadBackup = async() => {
   const asset = installer.value
   const url = asset?.backupUrl
   if (!asset || !url) return
   installError.value = ''
-  await downloadUpdateInstaller({ url, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}) }, { source: asset.source, size: asset.size, backupUrl: asset.backupUrl }).catch(() => {})
+  // 备用地址与块索引必须来自同一个镜像，否则两套 Range 语义可能不一致。
+  const officialAsset = releaseAssetDownloadUrl(asset.downloadUrl, 'github')
+  const blockmapUrl = asset.blockmapUrl && officialAsset ? `${LINKLINE_BACKUP_MIRROR}${officialAsset}.blockmap` : undefined
+  await downloadUpdateInstaller({ url, fileName: asset.name, ...(asset.sha256 ? { sha256: asset.sha256 } : {}), ...(blockmapUrl ? { blockmapUrl } : {}) }, { source: asset.source, size: asset.size, backupUrl: asset.backupUrl }).catch(() => {})
 }
 const installUpdate = async() => {
   installError.value = ''

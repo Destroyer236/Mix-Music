@@ -91,11 +91,19 @@ export const kugouConceptProvider: PlatformProvider = {
         lastSync: null,
         loaded: false,
         collected: !item.owned,
+        // 收藏歌单的曲目只能用原歌单的集合 id 读，副本 listid 读出来是空的。
+        ...(item.owned ? {} : { remoteCollectionId: item.collectionId }),
       }))
   },
   async playlistTracks(context, profile, playlist) {
     if (playlist.platform !== 'kugouConcept' || playlist.ownerId !== profile.id) throw new Error('歌单不属于当前酷狗概念版账号，请重新同步')
-    const songs = await concept.playlistTracks(context, playlist.remoteId)
+    let collectionId = playlist.remoteCollectionId
+    // 旧缓存里的收藏歌单没有 remoteCollectionId：按 listid 回查一次，避免要求用户重新同步。
+    if (playlist.collected && !collectionId) {
+      const lists = await concept.playlists(context, profile.id)
+      collectionId = lists.find(item => item.id === playlist.remoteId)?.collectionId
+    }
+    const songs = await concept.playlistTracks(context, playlist.remoteId, { collected: playlist.collected, collectionId })
     return songs.map(toTrack).filter((song): song is LX.Music.MusicInfo_kg => song != null)
   },
   // 搜索走概念版自己的 complexsearch 网关：官网 web 搜索在概念版分区会 net::ERR_FAILED。

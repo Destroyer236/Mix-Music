@@ -50,6 +50,11 @@ export interface PlatformPlaylist {
   loaded: boolean
   /** 收藏的他人歌单；缺省视为本人创建。 */
   collected?: boolean
+  /**
+   * 平台侧原歌单的集合标识。收藏歌单的 remoteId 指向「我的收藏副本」，
+   * 只有这个字段才指向可读的原歌单（酷狗概念版的 global_collection_id）。
+   */
+  remoteCollectionId?: string
 }
 
 export interface PlatformPlaylistDetail {

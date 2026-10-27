@@ -443,7 +443,7 @@ async function apiRequest(context: ProviderContext, path: string, options: { que
   return result
 }
 
-export interface KugouPlaylist { id: string, name: string, cover: string, count: number, isDefault: boolean, owned: boolean }
+export interface KugouPlaylist { id: string, name: string, cover: string, count: number, isDefault: boolean, owned: boolean, collectionId: string }
 
 /**
  * 账号歌单列表，包含本人创建与收藏的他人歌单。
@@ -452,6 +452,8 @@ export interface KugouPlaylist { id: string, name: string, cover: string, count:
  * - is_def：1 = 默认收藏，2 = 我喜欢；其余歌单没有该字段
  * - type：0 = 本人创建，1 = 收藏的他人歌单
  * - list_create_userid：歌单创建者，收藏歌单是原作者
+ * - global_collection_id：收藏副本自己的集合 id（collection_3_<我>_<listid>_0）
+ * - list_create_gid：原歌单的集合 id，收藏歌单读曲目必须用它
  *
  * 两种歌单都是用户可见且可写入的，不做过滤；owned 仅用于展示来源。
  */
@@ -475,6 +477,8 @@ export async function playlists(context: ProviderContext, _userId: string): Prom
       count: Math.max(0, Number(item.count ?? item.song_count) || 0),
       isDefault,
       owned: Number(item.type) !== 1,
+      // 收藏歌单的原集合 id 在 list_create_gid；自建歌单两者相同。
+      collectionId: String(item.list_create_gid ?? item.global_collection_id ?? ''),
     }
   }).filter((item: KugouPlaylist | null): item is KugouPlaylist => item != null)
 }
@@ -499,10 +503,28 @@ export async function searchSongs(context: ProviderContext, keyword: string, pag
   return Array.isArray(result?.data?.lists) ? result.data.lists : []
 }
 
-/** 歌单曲目（分页）。 */
-export async function playlistTracks(context: ProviderContext, listid: string): Promise<any[]> {
+/**
+ * 歌单曲目（分页）。
+ *
+ * 自建歌单走 cloudlist 的 /v4/get_list_all_file_v3。
+ * 收藏歌单的 listid 只是「我的收藏副本」，cloudlist 会稳定返回空列表，
+ * 必须改用 pubsongs 的公开歌单接口，并传原歌单的 global_collection_id。
+ */
+export async function playlistTracks(context: ProviderContext, listid: string, options: { collected?: boolean, collectionId?: string } = {}): Promise<any[]> {
   const creds = await ensureDevice(context)
   const songs: any[] = []
+  if (options.collected) {
+    const collectionId = options.collectionId ?? ''
+    if (!collectionId) throw new Error('收藏歌单缺少原歌单标识，请重新同步')
+    for (let page = 0; page < 200; page++) {
+      const result = await publicCollectionPage(context, creds, collectionId, page * 300, 300)
+      const batch = Array.isArray(result?.data?.songs) ? result.data.songs : []
+      songs.push(...batch)
+      const total = Number(result?.data?.count ?? 0)
+      if (!batch.length || songs.length >= total) return songs
+    }
+    throw new Error('酷狗歌单超过读取上限')
+  }
   let page = 1
   for (let i = 0; i < 200; i++) {
     const result = await apiRequest(context, '/v4/get_list_all_file_v3', {
@@ -517,6 +539,48 @@ export async function playlistTracks(context: ProviderContext, listid: string): 
     page++
   }
   throw new Error('酷狗歌单超过读取上限')
+}
+
+/**
+ * 读取公开歌单（含收藏歌单）的一页曲目。
+ * EchoMusic 的同类实现用 GET 且不带请求体；POST 或无 body 签名都会失败。
+ */
+async function publicCollectionPage(context: ProviderContext, creds: KugouCredentials, collectionId: string, beginIdx: number, pagesize: number): Promise<KugouResponse> {
+  const clienttime = Math.floor(Date.now() / 1000)
+  const params: Record<string, unknown> = {
+    dfid: creds.dfid,
+    mid: creds.mid,
+    uuid: '-',
+    appid: STANDARD_APPID,
+    clientver: STANDARD_CLIENTVER,
+    clienttime,
+    dev: creds.dev,
+    ...(creds.token ? { token: creds.token } : {}),
+    ...(creds.userid ? { userid: creds.userid } : {}),
+    area_code: 1,
+    begin_idx: beginIdx,
+    plat: 1,
+    type: 1,
+    mode: 1,
+    personal_switch: 1,
+    pagesize,
+    global_collection_id: collectionId,
+  }
+  params.signature = signatureAndroid(params)
+  const url = new URL('/pubsongs/v2/get_other_list_file_nofilt', GATEWAY)
+  for (const [key, value] of Object.entries(params)) if (value != null) url.searchParams.set(key, String(value))
+  const response = await context.session.fetch(url.toString(), {
+    method: 'GET',
+    headers: new Headers({
+      'User-Agent': UA_ANDROID,
+      dfid: creds.dfid,
+      clienttime: String(clienttime),
+      mid: creds.mid,
+    }),
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!response.ok) throw new Error(`酷狗概念版请求失败 (${response.status})`)
+  return response.json().catch(() => ({})) as Promise<KugouResponse>
 }
 
 /** 添加歌曲到指定歌单。 */
