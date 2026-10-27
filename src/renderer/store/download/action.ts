@@ -207,6 +207,8 @@ const downloadLyric = (downloadInfo: LX.Download.ListItem) => {
 
 const getUrl = async(downloadInfo: LX.Download.ListItem, isRefresh: boolean = false) => {
   let toggleMusicInfo = downloadInfo.metadata.musicInfo.meta.toggleMusicInfo
+  // 自动挡不依赖「当前音源」：跨音源择优，且不受换源开关限制。
+  const allowToggleSource = downloadInfo.metadata.autoQuality ? true : appSetting['download.isUseOtherSource']
   // 音源级联：请求音质拿不到时先在本源降档，开启换源后其他音源也按各自可提供的
   // 最高音质（不超过任务音质）参与竞争，由解析器择优。
   return (toggleMusicInfo ? getMusicUrl({
@@ -220,7 +222,7 @@ const getUrl = async(downloadInfo: LX.Download.ListItem, isRefresh: boolean = fa
       musicInfo: downloadInfo.metadata.musicInfo,
       isRefresh: false,
       quality: downloadInfo.metadata.quality,
-      allowToggleSource: appSetting['download.isUseOtherSource'],
+      allowToggleSource,
       qualityFallback: true,
     })
   }).catch(() => '')
@@ -239,7 +241,7 @@ const handleRefreshUrl = (downloadInfo: LX.Download.ListItem) => {
       musicInfo: downloadInfo.metadata.musicInfo,
       isRefresh: true,
       quality: downloadInfo.metadata.quality,
-      allowToggleSource: appSetting['download.isUseOtherSource'],
+      allowToggleSource: downloadInfo.metadata.autoQuality ? true : appSetting['download.isUseOtherSource'],
       qualityFallback: true,
     })
   })
@@ -359,8 +361,9 @@ const filterTask = (list: LX.Download.ListItem[]) => {
  * 创建下载任务
  * @param list 要下载的歌曲
  * @param quality 下载音质
+ * @param autoQuality 自动音质：跨音源择优取流，不受「当前音源」与换源开关限制
  */
-export const createDownloadTasks = async(list: LX.Music.MusicInfoOnline[], quality: LX.Quality, listId?: string) => {
+export const createDownloadTasks = async(list: LX.Music.MusicInfoOnline[], quality: LX.Quality, listId?: string, autoQuality = false) => {
   if (!list.length) return
   // 平台歌单/播放器的歌曲对象可能带着 Vue Proxy（响应式容器读出的引用，嵌套字段
   // 也会被包装）；传给 Worker 走结构化克隆，Proxy 不可克隆。深拷贝成纯 JSON，
@@ -368,7 +371,7 @@ export const createDownloadTasks = async(list: LX.Music.MusicInfoOnline[], quali
   const tasks = filterTask(await window.lx.worker.download.createDownloadTasks(
     list.map(item => JSON.parse(JSON.stringify(toRaw(item)))), quality,
     appSetting['download.fileName'],
-    toRaw(qualityList.value), listId),
+    toRaw(qualityList.value), listId, autoQuality),
   )
 
   if (tasks.length) await addTasks(tasks)

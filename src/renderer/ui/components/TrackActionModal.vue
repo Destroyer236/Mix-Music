@@ -29,7 +29,7 @@
       <div v-if="!onlineTracks.length" class="ui-dialog-note">本地音乐已经保存在你的电脑中，无需重复下载。</div>
       <div v-else-if="!qualities.length && !autoAvailable" class="ui-dialog-note">当前音源没有可用的下载音质。请先在设置中导入支持这首歌曲的音乐源。</div>
       <div v-else class="ui-track-quality">
-        <button v-if="autoAvailable" type="button" class="ui-track-quality-auto" :disabled="busy" @click="downloadAuto()"><div><strong>自动选择音质</strong><span>{{ autoSummary }}</span></div><UiIcon name="download" /></button>
+        <button v-if="autoAvailable" type="button" class="ui-track-quality-auto" :disabled="busy" @click="downloadAuto()"><div><strong>自动选择音质与音源</strong><span>{{ autoSummary }}</span></div><UiIcon name="download" /></button>
         <button v-for="quality in qualities" :key="quality" type="button" :disabled="busy" @click="download(quality)"><div><strong>{{ qualityLabel(quality) }}</strong><span>{{ quality.toUpperCase() }} · {{ quality === 'flac24bit' || quality === 'flac' || quality === 'ape' || quality === 'wav' ? '无损音质' : '标准音频' }}</span></div><UiIcon name="download" /></button>
       </div>
       <p v-if="onlineTracks.length" class="ui-dialog-note ui-track-location">保存位置：{{ appSetting['download.savePath'] || '未设置' }}</p>
@@ -91,14 +91,14 @@ const qualities = computed<LX.Quality[]>(() => onlineTracks.value.length
   : [])
 const qualityLabels: Record<LX.Quality, string> = { flac24bit: 'Hi-Res 高解析', flac: 'SQ', ape: 'APE 无损', wav: 'WAV 无损', '320k': 'HQ', '192k': '清晰 192 kbps', '128k': 'SD' }
 function qualityLabel(quality: LX.Quality) { return qualityLabels[quality] }
-// 自动音质：每首歌按自身可用音质取最高；Worker 的 getMusicType 在请求的音质
-// 不可用时会继续向下递减，所以按最高音质分组请求即可完成整条降级链。
+// 自动挡：跨音源择优。每首歌先取得它声明的最高音质（不再要求「当前音源」提供
+// 该平台），再按音质分组入队；取流时不开换源限制，由解析器在各音源间挑实际能
+// 给出的最高档。歌曲未声明任何音质时按 128k 兜底，保证自动挡始终可用。
 const autoGroups = computed(() => {
   const groups = new Map<LX.Quality, LX.Music.MusicInfoOnline[]>()
   if (!appSetting['download.isAutoQuality']) return groups
   for (const track of onlineTracks.value) {
-    const best = bestTrackQuality(track, qualityList.value[track.source])
-    if (!best) continue
+    const best = bestTrackQuality(track, qualityList.value[track.source]) ?? '128k'
     const group = groups.get(best)
     if (group) group.push(track)
     else groups.set(best, [track])
@@ -108,7 +108,7 @@ const autoGroups = computed(() => {
 const autoAvailable = computed(() => autoGroups.value.size > 0)
 const autoSummary = computed(() => {
   const entries = [...autoGroups.value.entries()]
-  if (entries.length === 1) return `全部以${qualityLabels[entries[0][0]]}下载`
+  if (entries.length === 1) return `逐首跨音源取最高，预期 ${qualityLabels[entries[0][0]]}`
   return entries.map(([quality, tracks]) => `${qualityLabels[quality]} ×${tracks.length}`).join(' · ')
 })
 watch(() => props.show, show => {
@@ -159,10 +159,10 @@ async function download(quality: LX.Quality) {
 }
 async function downloadAuto() {
   await run(async() => {
-    if (!autoGroups.value.size) throw new Error('当前音源没有可用的下载音质。')
+    if (!autoGroups.value.size) throw new Error('当前没有可下载的歌曲。')
     await getDownloadList()
     if (!appSetting['download.enable']) await updateSetting({ 'download.enable': true })
-    for (const [quality, tracks] of autoGroups.value) await createDownloadTasks(tracks, quality, props.fromListId === '' ? undefined : props.fromListId)
+    for (const [quality, tracks] of autoGroups.value) await createDownloadTasks(tracks, quality, props.fromListId === '' ? undefined : props.fromListId, true)
   }, '已加入下载队列')
 }
 </script>

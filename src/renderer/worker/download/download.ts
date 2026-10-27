@@ -43,9 +43,10 @@ export const createDownloadTasks = (
   fileNameFormat: string,
   qualityList: LX.QualityList,
   listId?: string,
+  autoQuality = false,
 ): LX.Download.ListItem[] => {
   return list.map(musicInfo => {
-    return createDownloadInfo(musicInfo, quality, fileNameFormat, qualityList, listId)
+    return createDownloadInfo(musicInfo, quality, fileNameFormat, qualityList, listId, autoQuality)
   }).filter(task => task)
   // commit('addTasks', { list: taskList, addMusicLocationType: rootState.setting.list.addMusicLocationType })
   // let result = getStartTask(downloadList, DOWNLOAD_STATUS, rootState.setting.download.maxDownloadNum)

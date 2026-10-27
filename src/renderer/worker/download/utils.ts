@@ -55,8 +55,15 @@ export const getExt = (type: string): LX.Download.FileExt => {
  * @param qualityList
  */
 export const getMusicType = (musicInfo: LX.Music.MusicInfoOnline, type: LX.Quality, qualityList: LX.QualityList): LX.Quality => {
-  let list = qualityList[musicInfo.source]
-  if (!list) return '128k'
+  // 平台歌单的歌曲自带 meta.qualitys/_qualitys，不依赖旧版音乐接口的音质声明。
+  // 用户把「当前音源」设为未选择时 qualityList 里没有该平台，此时不能一律退回
+  // 128k，而是按歌曲自身声明的音质取可达的最高档。
+  const list = qualityList[musicInfo.source]
+  if (!list) {
+    const declared = QUALITYS.filter(quality => musicInfo.meta._qualitys?.[quality])
+    if (!declared.length) return '128k'
+    return declared.includes(type) ? type : declared[0]
+  }
   if (!list.includes(type)) type = list[list.length - 1]
   const rangeType = QUALITYS.slice(QUALITYS.indexOf(type))
   for (const type of rangeType) {
@@ -69,7 +76,7 @@ export const getMusicType = (musicInfo: LX.Music.MusicInfoOnline, type: LX.Quali
 //   return list.some(s => s.id === musicInfo.id && (s.metadata.type === type || s.metadata.ext === ext))
 // }
 
-export const createDownloadInfo = (musicInfo: LX.Music.MusicInfoOnline, type: LX.Quality, fileName: string, qualityList: LX.QualityList, listId?: string) => {
+export const createDownloadInfo = (musicInfo: LX.Music.MusicInfoOnline, type: LX.Quality, fileName: string, qualityList: LX.QualityList, listId?: string, autoQuality = false) => {
   type = getMusicType(musicInfo, type, qualityList)
   let ext = getExt(type)
   const key = `${musicInfo.id}_${type}_${ext}`
@@ -91,6 +98,7 @@ export const createDownloadInfo = (musicInfo: LX.Music.MusicInfoOnline, type: LX
       ext,
       filePath: '',
       listId,
+      ...(autoQuality ? { autoQuality: true } : {}),
       fileName: filterFileName(`${clipFileNameLength(formatMusicName(fileName, musicInfo.name, clipNameLength(musicInfo.singer)))}.${ext}`),
     },
   }

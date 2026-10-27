@@ -64,7 +64,7 @@
             </div>
             <div v-else-if="page === 'download'" class="ui-full-more-items">
               <p v-if="!downloadQualities.length && !autoQuality" class="ui-full-more-note">当前歌曲没有可用的下载音质。请先在设置中导入支持该歌曲的音乐源。</p>
-              <button v-if="autoQuality" type="button" class="ui-full-more-auto" :disabled="busy" @click="downloadTrackAuto()"><UiIcon name="download" /><span>自动选择音质<small>最高可用：{{ downloadLabels[autoQuality] }}</small></span></button>
+              <button v-if="autoQuality" type="button" class="ui-full-more-auto" :disabled="busy" @click="downloadTrackAuto()"><UiIcon name="download" /><span>自动选择音质与音源<small>逐首跨音源取最高，预期 {{ downloadLabels[autoQuality] }}</small></span></button>
               <button v-for="quality in downloadQualities" :key="quality" type="button" :disabled="busy" @click="downloadTrack(quality)"><UiIcon name="download" /><span>{{ downloadLabels[quality] }}</span></button>
               <p class="ui-full-more-note ui-full-download-location">保存位置：{{ appSetting['download.savePath'] || '未设置' }}</p>
             </div>
@@ -142,11 +142,12 @@ const downloadQualities = computed(() => {
   const track = onlineTrack.value
   return track ? trackQualities(track, qualityList.value[track.source]) : []
 })
-// 自动音质：取该歌曲可用的最高音质；Worker 在其不可用时会继续向下递减。
+// 自动挡：跨音源择优，不依赖「当前音源」是否提供该平台；未声明音质时按 128k 兜底，
+// 保证自动挡在任何音源配置下都可用。
 const autoQuality = computed<LX.Quality | null>(() => {
   if (!appSetting['download.isAutoQuality']) return null
   const track = onlineTrack.value
-  return track ? bestTrackQuality(track, qualityList.value[track.source]) : null
+  return track ? bestTrackQuality(track, qualityList.value[track.source]) ?? '128k' : null
 })
 const audioInfo = computed(() => {
   const file = activePlaybackResource.value && activePlaybackResource.value.trackId === playMusicInfo.musicInfo?.id ? activePlaybackResource.value.local : Boolean(playMusicInfo.musicInfo && 'metadata' in playMusicInfo.musicInfo) || props.track?.source === 'local'
@@ -271,20 +272,20 @@ function shareTrack(): void {
     close()
   } catch { emit('notice', '暂时无法复制歌曲信息，请重试。') }
 }
-function downloadTrack(quality: LX.Quality): void {
+function downloadTrack(quality: LX.Quality, autoQuality = false): void {
   const track = onlineTrack.value
   if (!track) return
   void run(async() => {
     await getDownloadList()
     if (!appSetting['download.enable']) await savePatch({ 'download.enable': true })
-    await createDownloadTasks([track], quality)
+    await createDownloadTasks([track], quality, undefined, autoQuality)
     close()
   }, '已加入下载队列')
 }
 function downloadTrackAuto(): void {
   const quality = autoQuality.value
   if (!quality) return
-  downloadTrack(quality)
+  downloadTrack(quality, true)
 }
 watch(open, show => {
   if (show) page.value = 'home'

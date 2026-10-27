@@ -60,6 +60,8 @@ declare global {
           fileName: string
           filePath: string
           listId?: string
+          /** 自动挡：跨音源择优取流，不受「当前音源」与换源开关限制。 */
+          autoQuality?: boolean
         }
       }
 
