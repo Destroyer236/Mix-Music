@@ -7,7 +7,8 @@
       </div>
     </div>
     <div class="ui-player-center"><div class="ui-player-control-row"><button type="button" class="ui-icon-button ui-play-mode-button" :class="{ 'ui-active': heartbeatActive }" :aria-label="modeLabel" :title="modeLabel" @click="cyclePlayMode"><UiIcon :name="currentMode.icon" /></button><div class="ui-transport"><button type="button" class="ui-icon-button" aria-label="上一首" @click="playPrev()"><UiIcon name="prev" filled /></button><button type="button" class="ui-play-button" :class="{ 'is-loading': isLoading }" :aria-label="isLoading ? '正在加载' : isPlay ? '暂停' : '播放'" :aria-busy="isLoading || undefined" @click="togglePlay"><span v-if="isLoading" class="ui-play-spinner" aria-hidden="true" /><UiIcon v-else :name="isPlay ? 'pause' : 'play'" filled /></button><button type="button" class="ui-icon-button" aria-label="下一首" @click="playNext()"><UiIcon name="next" filled /></button></div><VolumeControl /></div><div class="ui-seek"><span>{{ playProgress.nowPlayTimeStr }}</span><UiRange :model-value="seeking ?? playProgress.nowPlayTime" :max="playProgress.maxPlayTime || 1" :step="0.1" aria-label="播放进度" :disabled="!playProgress.maxPlayTime" @input="seeking = $event" @change="seek" /><span>{{ playProgress.maxPlayTimeStr }}</span></div></div>
-    <div class="ui-player-right-tools"><QualityControl :track="currentTrack" defer-load /><ExternalLyricsMenu /><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
+    <div class="ui-player-right-tools"><button type="button" class="ui-icon-button" aria-label="下载当前歌曲" title="下载当前歌曲" :disabled="!currentTrack" @click="downloadOpen = true"><UiIcon name="download" /></button><QualityControl :track="currentTrack" defer-load /><ExternalLyricsMenu /><button ref="queueTrigger" type="button" class="ui-icon-button ui-player-queue" aria-label="播放列表" aria-haspopup="dialog" :aria-expanded="queueOpen" @click="queueOpen = !queueOpen"><UiIcon name="queue" /></button></div>
+    <TrackActionModal :show="downloadOpen" action="download" :tracks="downloadTracks" :from-list-id="playInfo.playerListId ?? ''" @close="downloadOpen = false" />
     <PlayerPopover :show="queueOpen" title="播放列表" :subtitle="`${queue.length} 首歌曲`" :width="380" :trigger="queueTrigger" panel-class="ui-player-queue-panel" @close="queueOpen = false"><div v-if="!queue.length" class="ui-empty">选择歌曲后，播放队列会出现在这里。</div><button v-for="(item, index) in queue" :key="item.source + ':' + item.id" type="button" class="ui-queue-track" :class="{ 'ui-active': item.id === playMusicInfo.musicInfo?.id && item.source === currentTrack?.source }" @click="playList(playInfo.playerListId, index)"><span>{{ String(index + 1).padStart(2, '0') }}</span><strong class="ui-queue-track-info"><TrackTitle :track="item" /></strong><small>{{ item.singer }}</small></button><template v-if="tempPlayList.length"><h3 class="ui-queue-heading">稍后播放</h3><div v-for="item in tempPlayList" :key="item.musicInfo.id" class="ui-queue-track"><span /><strong class="ui-queue-track-info"><TrackTitle :track="item.musicInfo" focusable /></strong><small>{{ item.musicInfo.singer }}</small></div></template></PlayerPopover>
   </section>
 </template>
@@ -26,6 +27,7 @@ import ExternalLyricsMenu from './components/ExternalLyricsMenu.vue'
 import UiIcon from './components/UiIcon.vue'
 import PlayerPopover from './components/PlayerPopover.vue'
 import QualityControl from './components/QualityControl.vue'
+import TrackActionModal from './components/TrackActionModal.vue'
 import UiRange from './components/UiRange.vue'
 import VolumeControl from './components/VolumeControl.vue'
 import PlayerOptions from './components/PlayerOptions.vue'
@@ -64,6 +66,8 @@ const seeking = ref(null)
 const queueTrigger = ref(null)
 const queueOpen = ref(false)
 const queue = ref([])
+const downloadOpen = ref(false)
+const downloadTracks = computed(() => currentTrack.value ? [currentTrack.value] : [])
 const seek = () => { window.app_event.setProgress(seeking.value ?? 0); seeking.value = null }
 let queueRequest = 0
 const refreshQueue = async() => {
