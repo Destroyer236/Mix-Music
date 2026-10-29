@@ -48,7 +48,10 @@ export async function publicPlaylist(context: ProviderContext, id: string): Prom
     cover = imageUrl(playlist.url_cover) || cover
     const entries = Array.isArray(body.media_resources) ? body.media_resources : body.tracks
     if (!Array.isArray(entries)) {
-      if (Number(playlist.count_tracks) === 0 && !body.has_more) return { name: name || '汽水音乐歌单', cover, list: [] }
+      // Empty Douyin-collected playlists (type 4) ship no track array, count or
+      // has_more at all; only a declared positive count makes this a failure.
+      const declared = Number(playlist.count_tracks ?? object(playlist.resource_cnt).track_cnt)
+      if (!body.has_more && (!Number.isFinite(declared) || declared === 0)) return { name: name || '汽水音乐歌单', cover, list: [] }
       throw new Error('汽水音乐未返回歌单歌曲')
     }
     for (const entry of entries) {

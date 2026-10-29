@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.6/MixMusic-v1.3.6-x64-Setup.exe"><strong>下载 Windows 版</strong></a> ·
-  <a href="https://gh-proxy.com/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.6/MixMusic-v1.3.6-x64-Setup.exe">国内加速下载</a> ·
+  <a href="https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.7/MixMusic-v1.3.7-x64-Setup.exe"><strong>下载 Windows 版</strong></a> ·
+  <a href="https://gh-proxy.com/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.7/MixMusic-v1.3.7-x64-Setup.exe">国内加速下载</a> ·
   <a href="docs/项目说明.md">使用手册</a> ·
   <a href="https://github.com/Destroyer236/Mix-Music/issues">反馈问题</a>
 </p>
@@ -79,13 +79,13 @@ Mix Music 是一款基于 LXMusic 开源项目再开发的桌面音乐应用。�
 
 ## 下载与安装
 
-当前版本 **1.3.6**，支持 **Windows 10 / 11，64 位（x64）**。
+当前版本 **1.3.7**，支持 **Windows 10 / 11，64 位（x64）**。
 
 | 下载入口 | 链接 |
 | --- | --- |
-| GitHub 官方 | [下载 MixMusic-v1.3.6-x64-Setup.exe](https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.6/MixMusic-v1.3.6-x64-Setup.exe) |
-| 国内加速 | [gh-proxy.com](https://gh-proxy.com/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.6/MixMusic-v1.3.6-x64-Setup.exe) · [备用 ghfast.top](https://ghfast.top/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.6/MixMusic-v1.3.6-x64-Setup.exe) |
-| 版本与校验 | [所有正式版本](https://github.com/Destroyer236/Mix-Music/releases) · [SHA-256 校验文件](https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.6/SHA256SUMS.txt) |
+| GitHub 官方 | [下载 MixMusic-v1.3.7-x64-Setup.exe](https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.7/MixMusic-v1.3.7-x64-Setup.exe) |
+| 国内加速 | [gh-proxy.com](https://gh-proxy.com/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.7/MixMusic-v1.3.7-x64-Setup.exe) · [备用 ghfast.top](https://ghfast.top/https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.7/MixMusic-v1.3.7-x64-Setup.exe) |
+| 版本与校验 | [所有正式版本](https://github.com/Destroyer236/Mix-Music/releases) · [SHA-256 校验文件](https://github.com/Destroyer236/Mix-Music/releases/download/v1.3.7/SHA256SUMS.txt) |
 
 下载后运行安装程序，按提示完成安装。国内入口由第三方服务转发官方文件，连接失败时可切换官方或备用入口。已有用户可在应用内的「检查更新」下载安装包，升级前可导出备份。
 

@@ -1,6 +1,6 @@
 {
   "name": "mixmusic",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "description": "Mix Music — 多平台音乐桌面客户端，基于 LXMusic 开源项目再开发",
   "main": "./dist/main.js",
   "scripts": {
